@@ -24,7 +24,7 @@ A cross-platform batch QR code generator with a simple GUI, built in Python/Tkin
 
 ```bash
 # Clone this repository
-git clone https://github.com/yourusername/qr-magic.git
+git clone https://github.com/ratfinkca/qr-magic.git
 cd qr-magic
 
 # Create & activate a virtual environment
