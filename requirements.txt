@@ -1,0 +1,4 @@
+qrcode\[pil]==8.1
+Pillow==11.2.1
+pyinstaller>=5.9
+py2app>=0.28
