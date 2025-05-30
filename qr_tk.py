@@ -324,7 +324,7 @@ class QRApp:
             out_path = os.path.join(outdir, filename)
             try:
                 # generate QR canvas
-                qr_img = create_qr_image(val, size=300,
+                qr_img = create_qr_image(val, size=self.qr_size.get(),
                                           qr_margin=qr_m, font_size=fs,
                                           text_margin_bottom=txt_m)
                 # composite onto background
