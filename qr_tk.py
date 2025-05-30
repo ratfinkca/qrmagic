@@ -39,7 +39,7 @@ def read_input_file(path):
         return [line.rstrip('\r\n') for line in f]
 
 
-def create_qr_image(data, size=300, qr_margin=10,
+def create_qr_image(data, size=300, qr_margin=0,
                     font_size=14, font_path=None,
                     text_margin_bottom=10):
     qr = qrcode.QRCode(border=2)
@@ -70,7 +70,7 @@ def create_qr_image(data, size=300, qr_margin=10,
 
 
 def make_qr_with_label(data, out_path, fmt='JPG', size=300,
-                       qr_margin=10, font_size=14, font_path=None,
+                       qr_margin=0, font_size=14, font_path=None,
                        text_margin_bottom=10):
     img = create_qr_image(data, size, qr_margin,
                            font_size, font_path,
@@ -130,6 +130,23 @@ class QRApp:
         self.outd.grid(row=2, column=1, sticky='ew', padx=5)
         ttk.Button(src, text='Browse…', command=self.browse_folder).grid(row=2, column=2, padx=5)
 
+        # Background image option
+        ttk.Label(src, text='Background image:').grid(row=3, column=0, sticky='e', padx=5)
+        self.bg_path_var = StringVar()
+        self.bg_path = ttk.Entry(src, textvariable=self.bg_path_var)
+        self.bg_path.grid(row=3, column=1, sticky='ew', padx=5)
+        self.bg_path_var.trace_add('write', lambda *_: self.update_preview())
+        ttk.Button(src, text='Browse…', command=self.browse_background).grid(row=3, column=2, padx=5)
+        # QR offset on background
+        ttk.Label(src, text='QR X offset:').grid(row=4, column=0, sticky='e', padx=5)
+        self.bg_x = IntVar(value=0)
+        ttk.Spinbox(src, from_=0, to=10000, textvariable=self.bg_x, width=7,
+                    command=self.update_preview).grid(row=4, column=1, sticky='w', padx=5, pady=2)
+        ttk.Label(src, text='QR Y offset:').grid(row=5, column=0, sticky='e', padx=5)
+        self.bg_y = IntVar(value=0)
+        ttk.Spinbox(src, from_=0, to=10000, textvariable=self.bg_y, width=7,
+                    command=self.update_preview).grid(row=5, column=1, sticky='w', padx=5, pady=2)
+
         # --- Naming Frame ---
         naming = ttk.LabelFrame(self.left, text='Naming')
         naming.grid(row=1, column=0, sticky='ew', padx=5, pady=5)
@@ -174,23 +191,30 @@ class QRApp:
         stylef.grid(row=2, column=0, sticky='ew', padx=5, pady=5)
         stylef.columnconfigure(1, weight=1)
 
-        ttk.Label(stylef, text='Font size (px):').grid(row=0, column=0, sticky='e', padx=5)
-        self.font_size = IntVar(value=14)
-        sb_font = ttk.Spinbox(stylef, from_=1, to=100, textvariable=self.font_size, width=7,
+        # QR size in pixels
+        ttk.Label(stylef, text='QR size (px):').grid(row=0, column=0, sticky='e', padx=5)
+        self.qr_size = IntVar(value=300)
+        sb_size = ttk.Spinbox(stylef, from_=100, to=800, textvariable=self.qr_size, width=7,
                                command=self.update_preview)
-        sb_font.grid(row=0, column=1, sticky='w', padx=5, pady=2)
+        sb_size.grid(row=0, column=1, sticky='w', padx=5, pady=2)
 
-        ttk.Label(stylef, text='QR margin (px):').grid(row=1, column=0, sticky='e', padx=5)
-        self.qr_margin = IntVar(value=10)
-        sb_qr = ttk.Spinbox(stylef, from_=0, to=100, textvariable=self.qr_margin, width=7,
+        ttk.Label(stylef, text='Font size (px):').grid(row=1, column=0, sticky='e', padx=5)
+        self.font_size = IntVar(value=20)
+        sb_font = ttk.Spinbox(stylef, from_=4, to=96, textvariable=self.font_size, width=7,
+                               command=self.update_preview)
+        sb_font.grid(row=1, column=1, sticky='w', padx=5, pady=2)
+
+        ttk.Label(stylef, text='QR margin (px):').grid(row=2, column=0, sticky='e', padx=5)
+        self.qr_margin = IntVar(value=0)
+        sb_qr = ttk.Spinbox(stylef, from_=-20, to=100, textvariable=self.qr_margin, width=7,
                              command=self.update_preview)
-        sb_qr.grid(row=1, column=1, sticky='w', padx=5, pady=2)
+        sb_qr.grid(row=2, column=1, sticky='w', padx=5, pady=2)
 
-        ttk.Label(stylef, text='Text bottom margin (px):').grid(row=2, column=0, sticky='e', padx=5)
-        self.text_margin = IntVar(value=10)
+        ttk.Label(stylef, text='Text bottom margin (px):').grid(row=3, column=0, sticky='e', padx=5)
+        self.text_margin = IntVar(value=20)
         sb_txt = ttk.Spinbox(stylef, from_=0, to=100, textvariable=self.text_margin, width=7,
                               command=self.update_preview)
-        sb_txt.grid(row=2, column=1, sticky='w', padx=5, pady=2)
+        sb_txt.grid(row=3, column=1, sticky='w', padx=5, pady=2)
 
         # --- Actions Frame ---
         actf = ttk.Frame(self.left)
@@ -244,6 +268,16 @@ class QRApp:
             self.outd.delete(0, tk.END)
             self.outd.insert(0, path)
 
+    def browse_background(self):
+        """
+        Open a file dialog to select a background image (PNG, JPG, JPEG) and store its path.
+        """
+        path = filedialog.askopenfilename(
+            filetypes=[('Image Files', '*.png;*.jpg;*.jpeg')]
+        )
+        if path:
+            self.bg_path_var.set(path)
+
     def start_generate(self):
         self.cancel_btn.config(state='normal')
         self.cancel_flag = False
@@ -281,7 +315,7 @@ class QRApp:
                 break
             if item is not None and use_data:
                 val = item.strip()
-                base = re.sub(r'[\\/:*?"<>|]','_', val)
+                base = re.sub(r'[\/:*?"<>|]','_', val)
             else:
                 idx_str = str(i).zfill(width) if pad else str(i)
                 base = f"{self.prefix.get()}{idx_str}{self.suffix.get()}"
@@ -289,18 +323,33 @@ class QRApp:
             filename = f"{base}.{('jpg' if fmt=='JPG' else fmt.lower())}"
             out_path = os.path.join(outdir, filename)
             try:
-                make_qr_with_label(val, out_path, fmt=fmt, size=300,
-                                   qr_margin=qr_m, font_size=fs,
-                                   text_margin_bottom=txt_m)
+                # generate QR canvas
+                qr_img = create_qr_image(val, size=300,
+                                          qr_margin=qr_m, font_size=fs,
+                                          text_margin_bottom=txt_m)
+                # composite onto background
+                bg_file = self.bg_path_var.get().strip()
+                if bg_file and os.path.isfile(bg_file):
+                    try:
+                        bg = Image.open(bg_file).convert('RGB')
+                        bg.paste(qr_img, (self.bg_x.get(), self.bg_y.get()))
+                        to_save = bg
+                    except Exception:
+                        to_save = qr_img
+                else:
+                    to_save = qr_img
+                save_fmt = 'JPEG' if fmt == 'JPG' else fmt.lower()
+                to_save.save(out_path, save_fmt)
                 self.root.after(0, lambda f=filename: self.log_print(f'✓ {f}'))
             except Exception as e:
-                self.root.after(0, lambda i=i, e=e: self.log_print(f'✗ {i}: {e}'))
+                self.root.after(0, lambda i=i,e=e: self.log_print(f'✗ {i}: {e}'))
         if not self.cancel_flag:
             self.root.after(0, lambda: self.log_print('Done!'))
         self.cancel_btn.config(state='disabled')
 
     def update_preview(self):
         infile = self.inp.get().strip()
+        # Determine display text
         if os.path.isfile(infile):
             lines = read_input_file(infile)
             start = 1 if self.skip_header.get() else 0
@@ -310,9 +359,10 @@ class QRApp:
             total = int(self.quantity.get()) if self.quantity.get().isdigit() else 1
             idx_str = str(1).zfill(len(str(total))) if self.pad_zeros.get() else '1'
             display = f"{self.prefix.get()}{idx_str}{self.suffix.get()}"
+        # Update filename preview
         fmt = self.fmt.get().upper()
         if os.path.isfile(infile) and self.use_data.get():
-            base = re.sub(r'[\\/:*?"<>|]','_', display)
+            base = re.sub(r'[\/\:*?"<>|]', '_', display)
         else:
             base = display
         ext = 'jpg' if fmt == 'JPG' else fmt.lower()
@@ -322,11 +372,27 @@ class QRApp:
         self.filename_preview.insert(0, preview_fname)
         self.filename_preview.config(state='readonly')
 
-        img = create_qr_image(display or ' ', size=300,
-                              qr_margin=self.qr_margin.get(),
-                              font_size=self.font_size.get(),
-                              text_margin_bottom=self.text_margin.get())
-        tkimg = ImageTk.PhotoImage(img)
+        # Generate QR image with dynamic size
+        qr_img = create_qr_image(
+            display or ' ',
+            size=self.qr_size.get(),
+            qr_margin=self.qr_margin.get(),
+            font_size=self.font_size.get(),
+            text_margin_bottom=self.text_margin.get()
+        )
+        # Composite onto background if provided
+        bg_file = self.bg_path_var.get().strip()
+        if bg_file and os.path.isfile(bg_file):
+            try:
+                bg = Image.open(bg_file).convert('RGB')
+                bg.paste(qr_img, (self.bg_x.get(), self.bg_y.get()))
+                final_img = bg
+            except Exception:
+                final_img = qr_img
+        else:
+            final_img = qr_img
+        # Update Tkinter preview
+        tkimg = ImageTk.PhotoImage(final_img)
         self.preview_canvas.config(image=tkimg)
         self.preview_canvas.image = tkimg
 
