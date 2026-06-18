@@ -75,12 +75,116 @@ export function Sidebar({
         </div>
         <label>
           Page color
-          <input
-            type="color"
-            value={project.document.backgroundColor}
-            onChange={(event) => onUpdateDocument({ backgroundColor: event.target.value })}
-          />
+          <div className="color-row">
+            <input
+              type="color"
+              value={project.document.backgroundColor}
+              disabled={project.document.transparentBackground}
+              onChange={(event) => onUpdateDocument({ backgroundColor: event.target.value })}
+            />
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={project.document.transparentBackground}
+                onChange={(event) =>
+                  onUpdateDocument({ transparentBackground: event.target.checked })
+                }
+              />
+              Transparent
+            </label>
+          </div>
         </label>
+        <div className="guide-controls">
+          <div className="panel-subtitle">Guides</div>
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={project.document.guides.enabled}
+              onChange={(event) =>
+                onUpdateDocument({
+                  guides: { ...project.document.guides, enabled: event.target.checked },
+                })
+              }
+            />
+            Show document guides
+          </label>
+          <div className="guide-toggle-grid">
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={project.document.guides.showTrim}
+                onChange={(event) =>
+                  onUpdateDocument({
+                    guides: { ...project.document.guides, showTrim: event.target.checked },
+                  })
+                }
+              />
+              Trim
+            </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={project.document.guides.showBleed}
+                onChange={(event) =>
+                  onUpdateDocument({
+                    guides: { ...project.document.guides, showBleed: event.target.checked },
+                  })
+                }
+              />
+              Bleed
+            </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={project.document.guides.showSafeArea}
+                onChange={(event) =>
+                  onUpdateDocument({
+                    guides: { ...project.document.guides, showSafeArea: event.target.checked },
+                  })
+                }
+              />
+              Safe
+            </label>
+          </div>
+          <div className="field-grid">
+            <label>
+              Bleed %
+              <input
+                type="number"
+                min="0"
+                max="20"
+                step="0.25"
+                value={Number((project.document.guides.bleedRatio * 100).toFixed(2))}
+                onChange={(event) =>
+                  onUpdateDocument({
+                    guides: {
+                      ...project.document.guides,
+                      bleedRatio: Number(event.target.value) / 100,
+                    },
+                  })
+                }
+              />
+            </label>
+            <label>
+              Safe %
+              <input
+                type="number"
+                min="0"
+                max="40"
+                step="0.5"
+                value={Number((project.document.guides.safeAreaRatio * 100).toFixed(2))}
+                onChange={(event) =>
+                  onUpdateDocument({
+                    guides: {
+                      ...project.document.guides,
+                      safeAreaRatio: Number(event.target.value) / 100,
+                    },
+                  })
+                }
+              />
+            </label>
+          </div>
+        </div>
       </section>
 
       <section className="panel">

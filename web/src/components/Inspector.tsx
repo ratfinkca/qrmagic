@@ -8,6 +8,7 @@ type InspectorProps = {
   onExportPng: () => void;
   onExportBatch: () => void;
   isExportingBatch: boolean;
+  onSnapToPage: () => void;
 };
 
 export function Inspector({
@@ -17,6 +18,7 @@ export function Inspector({
   onExportPng,
   onExportBatch,
   isExportingBatch,
+  onSnapToPage,
 }: InspectorProps) {
   return (
     <aside className="inspector">
@@ -116,6 +118,11 @@ export function Inspector({
                 }
               />
             </label>
+            {selectedLayer.type === "shape" || selectedLayer.type === "image" ? (
+              <button className="secondary-action" onClick={onSnapToPage}>
+                Snap to page
+              </button>
+            ) : null}
             {selectedLayer.type === "qr" ? (
               <>
                 <label>

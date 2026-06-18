@@ -36,6 +36,7 @@ export type TextLayer = LayerBase & {
 export type ImageLayer = LayerBase & {
   type: "image";
   assetId: string;
+  src: string;
   fit: "stretch" | "contain" | "cover" | "original";
 };
 
@@ -69,6 +70,15 @@ export type QrMagicProject = {
     height: number;
     dpi: number;
     backgroundColor: string;
+    transparentBackground: boolean;
+    guides: {
+      enabled: boolean;
+      showTrim: boolean;
+      showBleed: boolean;
+      showSafeArea: boolean;
+      bleedRatio: number;
+      safeAreaRatio: number;
+    };
   };
   layers: ProjectLayer[];
   data: {

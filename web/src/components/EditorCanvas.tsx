@@ -64,6 +64,70 @@ function useHtmlImage(src: string) {
   return image;
 }
 
+function ImageNode({
+  layer,
+  selected,
+  onSelect,
+  onUpdate,
+}: {
+  layer: ProjectLayer;
+  selected: boolean;
+  onSelect: () => void;
+  onUpdate: (patch: Partial<ProjectLayer>) => void;
+}) {
+  const imageRef = useRef<Konva.Image>(null);
+  const transformerRef = useRef<Konva.Transformer>(null);
+  const image = useHtmlImage(layer.type === "image" ? layer.src : "");
+
+  useEffect(() => {
+    if (selected && transformerRef.current && imageRef.current) {
+      transformerRef.current.nodes([imageRef.current]);
+      transformerRef.current.getLayer()?.batchDraw();
+    }
+  }, [selected]);
+
+  if (layer.type !== "image") {
+    return null;
+  }
+
+  return (
+    <>
+      {image ? (
+        <KonvaImage
+          ref={imageRef}
+          image={image}
+          x={layer.x}
+          y={layer.y}
+          width={layer.width}
+          height={layer.height}
+          rotation={layer.rotation}
+          opacity={layer.opacity}
+          draggable={!layer.locked}
+          onClick={onSelect}
+          onTap={onSelect}
+          onDragEnd={(event) => onUpdate({ x: event.target.x(), y: event.target.y() })}
+          onTransformEnd={() => {
+            const node = imageRef.current;
+            if (!node) return;
+            const scaleX = node.scaleX();
+            const scaleY = node.scaleY();
+            node.scaleX(1);
+            node.scaleY(1);
+            onUpdate({
+              x: node.x(),
+              y: node.y(),
+              width: Math.max(20, layer.width * scaleX),
+              height: Math.max(20, layer.height * scaleY),
+              rotation: node.rotation(),
+            });
+          }}
+        />
+      ) : null}
+      {selected ? <Transformer ref={transformerRef} rotateEnabled /> : null}
+    </>
+  );
+}
+
 function QrNode({
   layer,
   selected,
@@ -298,6 +362,12 @@ export function EditorCanvas({
   const scale = Math.min(1, 860 / docSize.width, 610 / docSize.height);
   const stageWidth = docSize.width * scale;
   const stageHeight = docSize.height * scale;
+  const guideBleed = Math.round(
+    Math.min(docSize.width, docSize.height) * project.document.guides.bleedRatio,
+  );
+  const guideSafeArea = Math.round(
+    Math.min(docSize.width, docSize.height) * project.document.guides.safeAreaRatio,
+  );
 
   useEffect(() => {
     registerStage(stageRef.current);
@@ -326,7 +396,11 @@ export function EditorCanvas({
             <Rect
               width={docSize.width}
               height={docSize.height}
-              fill={project.document.backgroundColor}
+              fill={
+                project.document.transparentBackground
+                  ? "transparent"
+                  : project.document.backgroundColor
+              }
               shadowColor="rgba(15, 23, 42, 0.18)"
               shadowBlur={28}
               shadowOffsetY={16}
@@ -336,6 +410,17 @@ export function EditorCanvas({
               if (layer.type === "shape") {
                 return (
                   <ShapeNode
+                    key={layer.id}
+                    layer={layer}
+                    selected={layer.id === selectedLayerId}
+                    onSelect={() => onSelectLayer(layer.id)}
+                    onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
+                  />
+                );
+              }
+              if (layer.type === "image") {
+                return (
+                  <ImageNode
                     key={layer.id}
                     layer={layer}
                     selected={layer.id === selectedLayerId}
@@ -371,6 +456,46 @@ export function EditorCanvas({
               return null;
             })}
           </Layer>
+          {project.document.guides.enabled ? (
+            <Layer name="guides-layer" listening={false}>
+              {project.document.guides.showBleed ? (
+                <Rect
+                  x={guideBleed}
+                  y={guideBleed}
+                  width={docSize.width - guideBleed * 2}
+                  height={docSize.height - guideBleed * 2}
+                  stroke="#f97316"
+                  strokeWidth={2}
+                  dash={[10, 8]}
+                  opacity={0.9}
+                />
+              ) : null}
+              {project.document.guides.showTrim ? (
+                <Rect
+                  x={0.5}
+                  y={0.5}
+                  width={docSize.width - 1}
+                  height={docSize.height - 1}
+                  stroke="#0f172a"
+                  strokeWidth={2}
+                  dash={[18, 12]}
+                  opacity={0.75}
+                />
+              ) : null}
+              {project.document.guides.showSafeArea ? (
+                <Rect
+                  x={guideSafeArea}
+                  y={guideSafeArea}
+                  width={docSize.width - guideSafeArea * 2}
+                  height={docSize.height - guideSafeArea * 2}
+                  stroke="#0f766e"
+                  strokeWidth={2}
+                  dash={[6, 8]}
+                  opacity={0.9}
+                />
+              ) : null}
+            </Layer>
+          ) : null}
         </Stage>
       </div>
     </div>

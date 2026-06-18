@@ -66,6 +66,13 @@ button {
   gap: 6px;
 }
 
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: #cbd5e1;
+}
+
 .tool-button {
   display: inline-flex;
   align-items: center;
@@ -178,6 +185,46 @@ input:focus,
 select:focus {
   border-color: #0f766e;
   outline: 3px solid rgba(20, 184, 166, 0.18);
+}
+
+.color-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.checkbox-row input {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+}
+
+.guide-controls {
+  display: grid;
+  gap: 9px;
+  padding-top: 4px;
+}
+
+.panel-subtitle {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.guide-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .field-grid {
@@ -329,6 +376,16 @@ select:focus {
   text-align: center;
   font-size: 13px;
   font-weight: 700;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 @media (max-width: 1180px) {
