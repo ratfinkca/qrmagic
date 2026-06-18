@@ -220,6 +220,71 @@ function TextNode({
   );
 }
 
+function ShapeNode({
+  layer,
+  selected,
+  onSelect,
+  onUpdate,
+}: {
+  layer: ProjectLayer;
+  selected: boolean;
+  onSelect: () => void;
+  onUpdate: (patch: Partial<ProjectLayer>) => void;
+}) {
+  const rectRef = useRef<Konva.Rect>(null);
+  const transformerRef = useRef<Konva.Transformer>(null);
+
+  useEffect(() => {
+    if (selected && transformerRef.current && rectRef.current) {
+      transformerRef.current.nodes([rectRef.current]);
+      transformerRef.current.getLayer()?.batchDraw();
+    }
+  }, [selected]);
+
+  if (layer.type !== "shape") {
+    return null;
+  }
+
+  return (
+    <>
+      <Rect
+        ref={rectRef}
+        x={layer.x}
+        y={layer.y}
+        width={layer.width}
+        height={layer.height}
+        fill={layer.fill}
+        stroke={layer.stroke}
+        strokeWidth={layer.strokeWidth}
+        dash={layer.dash}
+        cornerRadius={layer.cornerRadius}
+        rotation={layer.rotation}
+        opacity={layer.opacity}
+        draggable={!layer.locked}
+        onClick={onSelect}
+        onTap={onSelect}
+        onDragEnd={(event) => onUpdate({ x: event.target.x(), y: event.target.y() })}
+        onTransformEnd={() => {
+          const node = rectRef.current;
+          if (!node) return;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+          node.scaleX(1);
+          node.scaleY(1);
+          onUpdate({
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(20, layer.width * scaleX),
+            height: Math.max(20, layer.height * scaleY),
+            rotation: node.rotation(),
+          });
+        }}
+      />
+      {selected ? <Transformer ref={transformerRef} rotateEnabled /> : null}
+    </>
+  );
+}
+
 export function EditorCanvas({
   project,
   selectedLayerId,
@@ -266,48 +331,19 @@ export function EditorCanvas({
               shadowBlur={28}
               shadowOffsetY={16}
             />
-            <Rect
-              x={36}
-              y={36}
-              width={docSize.width - 72}
-              height={docSize.height - 72}
-              fill="#f59e0b"
-              opacity={0.94}
-              cornerRadius={18}
-            />
-            <Rect
-              x={82}
-              y={82}
-              width={docSize.width - 164}
-              height={docSize.height - 164}
-              stroke="#111827"
-              strokeWidth={8}
-              dash={[18, 16]}
-              cornerRadius={24}
-              opacity={0.65}
-            />
-            <Text
-              x={96}
-              y={108}
-              width={760}
-              text="FESTIVAL PARKING"
-              fontFamily="Inter, Arial, sans-serif"
-              fontSize={54}
-              fontStyle="800"
-              fill="#111827"
-            />
-            <Text
-              x={100}
-              y={184}
-              width={560}
-              text="LOT A - WEEKEND ACCESS"
-              fontFamily="Inter, Arial, sans-serif"
-              fontSize={28}
-              fontStyle="700"
-              fill="#374151"
-            />
             {project.layers.map((layer) => {
               if (!layer.visible) return null;
+              if (layer.type === "shape") {
+                return (
+                  <ShapeNode
+                    key={layer.id}
+                    layer={layer}
+                    selected={layer.id === selectedLayerId}
+                    onSelect={() => onSelectLayer(layer.id)}
+                    onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
+                  />
+                );
+              }
               if (layer.type === "qr") {
                 return (
                   <QrNode

@@ -1,4 +1,4 @@
-import { Database, FileText, Layers, QrCode } from "lucide-react";
+import { Box, Database, FileText, Layers, QrCode, Type } from "lucide-react";
 import type { ProjectLayer, QrMagicProject } from "../types";
 
 type SidebarProps = {
@@ -73,6 +73,14 @@ export function Sidebar({
             />
           </label>
         </div>
+        <label>
+          Page color
+          <input
+            type="color"
+            value={project.document.backgroundColor}
+            onChange={(event) => onUpdateDocument({ backgroundColor: event.target.value })}
+          />
+        </label>
       </section>
 
       <section className="panel">
@@ -129,7 +137,10 @@ export function Sidebar({
               key={layer.id}
               onClick={() => onSelectLayer(layer.id)}
             >
-              <QrCode size={15} />
+              {layer.type === "qr" ? <QrCode size={15} /> : null}
+              {layer.type === "text" ? <Type size={15} /> : null}
+              {layer.type === "shape" ? <Box size={15} /> : null}
+              {layer.type === "image" ? <FileText size={15} /> : null}
               <span>{layer.name}</span>
               <small>{layer.type}</small>
             </button>

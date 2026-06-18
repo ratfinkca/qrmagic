@@ -1,6 +1,6 @@
 export type Unit = "px" | "in" | "mm";
 
-export type LayerType = "image" | "qr" | "text";
+export type LayerType = "image" | "qr" | "text" | "shape";
 
 export type LayerBase = {
   id: string;
@@ -39,7 +39,17 @@ export type ImageLayer = LayerBase & {
   fit: "stretch" | "contain" | "cover" | "original";
 };
 
-export type ProjectLayer = QrLayer | TextLayer | ImageLayer;
+export type ShapeLayer = LayerBase & {
+  type: "shape";
+  shape: "rectangle";
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  dash: number[];
+  cornerRadius: number;
+};
+
+export type ProjectLayer = QrLayer | TextLayer | ImageLayer | ShapeLayer;
 
 export type SerialSettings = {
   prefix: string;

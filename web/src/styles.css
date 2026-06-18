@@ -104,6 +104,10 @@ button {
   min-height: 0;
 }
 
+.workspace.panels-hidden {
+  grid-template-columns: 1fr;
+}
+
 .sidebar,
 .inspector {
   display: flex;
@@ -280,6 +284,30 @@ select:focus {
 
 .primary-action:hover {
   background: #115e59;
+}
+
+.secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.secondary-action:hover:not(:disabled) {
+  border-color: #14b8a6;
+  color: #0f766e;
+}
+
+.secondary-action:disabled {
+  cursor: wait;
+  opacity: 0.62;
 }
 
 .inspector-panel {

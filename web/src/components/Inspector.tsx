@@ -6,6 +6,8 @@ type InspectorProps = {
   project: QrMagicProject;
   onUpdateLayer: (layerId: string, patch: Partial<ProjectLayer>) => void;
   onExportPng: () => void;
+  onExportBatch: () => void;
+  isExportingBatch: boolean;
 };
 
 export function Inspector({
@@ -13,6 +15,8 @@ export function Inspector({
   project,
   onUpdateLayer,
   onExportPng,
+  onExportBatch,
+  isExportingBatch,
 }: InspectorProps) {
   return (
     <aside className="inspector">
@@ -28,6 +32,14 @@ export function Inspector({
         <button className="primary-action" onClick={onExportPng}>
           <Download size={16} />
           Export PNG
+        </button>
+        <button
+          className="secondary-action"
+          onClick={onExportBatch}
+          disabled={isExportingBatch}
+        >
+          <Download size={16} />
+          {isExportingBatch ? "Exporting set..." : "Export PNG Set"}
         </button>
       </section>
 
@@ -184,6 +196,80 @@ export function Inspector({
                     />
                   </label>
                 </div>
+              </>
+            ) : null}
+            {selectedLayer.type === "shape" ? (
+              <>
+                <div className="field-grid">
+                  <label>
+                    Fill
+                    <input
+                      type="color"
+                      value={
+                        selectedLayer.fill === "transparent" ? "#ffffff" : selectedLayer.fill
+                      }
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          fill: event.target.value,
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Stroke
+                    <input
+                      type="color"
+                      value={
+                        selectedLayer.stroke === "transparent" ? "#111827" : selectedLayer.stroke
+                      }
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          stroke: event.target.value,
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="field-grid">
+                  <label>
+                    Stroke width
+                    <input
+                      type="number"
+                      value={selectedLayer.strokeWidth}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          strokeWidth: Number(event.target.value),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Corner radius
+                    <input
+                      type="number"
+                      value={selectedLayer.cornerRadius}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          cornerRadius: Number(event.target.value),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+                <label>
+                  Dash pattern
+                  <input
+                    value={selectedLayer.dash.join(", ")}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        dash: event.target.value
+                          .split(",")
+                          .map((value) => Number(value.trim()))
+                          .filter((value) => Number.isFinite(value) && value >= 0),
+                      } as Partial<ProjectLayer>)
+                    }
+                  />
+                </label>
               </>
             ) : null}
           </>
