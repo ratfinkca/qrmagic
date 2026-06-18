@@ -1,0 +1,199 @@
+import { Box, Download, RotateCw, SlidersHorizontal } from "lucide-react";
+import type { ProjectLayer, QrMagicProject } from "../types";
+
+type InspectorProps = {
+  selectedLayer: ProjectLayer | undefined;
+  project: QrMagicProject;
+  onUpdateLayer: (layerId: string, patch: Partial<ProjectLayer>) => void;
+  onExportPng: () => void;
+};
+
+export function Inspector({
+  selectedLayer,
+  project,
+  onUpdateLayer,
+  onExportPng,
+}: InspectorProps) {
+  return (
+    <aside className="inspector">
+      <section className="panel">
+        <div className="panel-title">
+          <Download size={16} />
+          <span>Export</span>
+        </div>
+        <div className="export-summary">
+          <strong>{project.export.renderMode}</strong>
+          <span>{project.export.formats.join(", ").toUpperCase()}</span>
+        </div>
+        <button className="primary-action" onClick={onExportPng}>
+          <Download size={16} />
+          Export PNG
+        </button>
+      </section>
+
+      <section className="panel inspector-panel">
+        <div className="panel-title">
+          <SlidersHorizontal size={16} />
+          <span>Inspector</span>
+        </div>
+        {selectedLayer ? (
+          <>
+            <label>
+              Layer name
+              <input
+                value={selectedLayer.name}
+                onChange={(event) =>
+                  onUpdateLayer(selectedLayer.id, { name: event.target.value })
+                }
+              />
+            </label>
+            <div className="field-grid">
+              <label>
+                X
+                <input
+                  type="number"
+                  value={Math.round(selectedLayer.x)}
+                  onChange={(event) =>
+                    onUpdateLayer(selectedLayer.id, { x: Number(event.target.value) })
+                  }
+                />
+              </label>
+              <label>
+                Y
+                <input
+                  type="number"
+                  value={Math.round(selectedLayer.y)}
+                  onChange={(event) =>
+                    onUpdateLayer(selectedLayer.id, { y: Number(event.target.value) })
+                  }
+                />
+              </label>
+            </div>
+            <div className="field-grid">
+              <label>
+                Width
+                <input
+                  type="number"
+                  value={Math.round(selectedLayer.width)}
+                  onChange={(event) =>
+                    onUpdateLayer(selectedLayer.id, { width: Number(event.target.value) })
+                  }
+                />
+              </label>
+              <label>
+                Height
+                <input
+                  type="number"
+                  value={Math.round(selectedLayer.height)}
+                  onChange={(event) =>
+                    onUpdateLayer(selectedLayer.id, { height: Number(event.target.value) })
+                  }
+                />
+              </label>
+            </div>
+            <label>
+              <span className="inline-label">
+                <RotateCw size={14} />
+                Rotation
+              </span>
+              <input
+                type="number"
+                value={Math.round(selectedLayer.rotation)}
+                onChange={(event) =>
+                  onUpdateLayer(selectedLayer.id, { rotation: Number(event.target.value) })
+                }
+              />
+            </label>
+            {selectedLayer.type === "qr" ? (
+              <>
+                <label>
+                  Payload
+                  <input
+                    value={selectedLayer.payloadTemplate}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        payloadTemplate: event.target.value,
+                      } as Partial<ProjectLayer>)
+                    }
+                  />
+                </label>
+                <div className="field-grid">
+                  <label>
+                    Foreground
+                    <input
+                      type="color"
+                      value={selectedLayer.foreground}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          foreground: event.target.value,
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Background
+                    <input
+                      type="color"
+                      value={selectedLayer.background}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          background: event.target.value,
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+              </>
+            ) : null}
+            {selectedLayer.type === "text" ? (
+              <>
+                <label>
+                  Text
+                  <input
+                    value={selectedLayer.textTemplate}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        textTemplate: event.target.value,
+                      } as Partial<ProjectLayer>)
+                    }
+                  />
+                </label>
+                <div className="field-grid">
+                  <label>
+                    Size
+                    <input
+                      type="number"
+                      value={selectedLayer.fontSize}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          fontSize: Number(event.target.value),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Color
+                    <input
+                      type="color"
+                      value={selectedLayer.fill}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          fill: event.target.value,
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+              </>
+            ) : null}
+          </>
+        ) : (
+          <div className="empty-state">
+            <Box size={28} />
+            <span>Select a layer to edit it.</span>
+          </div>
+        )}
+      </section>
+    </aside>
+  );
+}

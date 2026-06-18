@@ -1,0 +1,7 @@
+.pnpm-store/
+node_modules/
+web/node_modules/
+web/dist/
+web/.vite/
+web/qa-screenshot.png
+web/*.tsbuildinfo
