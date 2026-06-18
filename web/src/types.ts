@@ -92,6 +92,7 @@ export type QrMagicProject = {
     filenameTemplate: string;
     formats: Array<"png" | "jpg" | "pdf" | "svg" | "eps" | "bmp">;
     renderMode: "flattened" | "layered";
+    includeGuides: boolean;
   };
 };
 

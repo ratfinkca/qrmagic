@@ -7,6 +7,7 @@ type InspectorProps = {
   onUpdateLayer: (layerId: string, patch: Partial<ProjectLayer>) => void;
   onExportPng: () => void;
   onExportBatch: () => void;
+  onUpdateExport: (patch: Partial<QrMagicProject["export"]>) => void;
   isExportingBatch: boolean;
   onSnapToPage: () => void;
 };
@@ -17,6 +18,7 @@ export function Inspector({
   onUpdateLayer,
   onExportPng,
   onExportBatch,
+  onUpdateExport,
   isExportingBatch,
   onSnapToPage,
 }: InspectorProps) {
@@ -31,6 +33,14 @@ export function Inspector({
           <strong>{project.export.renderMode}</strong>
           <span>{project.export.formats.join(", ").toUpperCase()}</span>
         </div>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={project.export.includeGuides}
+            onChange={(event) => onUpdateExport({ includeGuides: event.target.checked })}
+          />
+          Include visible guides
+        </label>
         <button className="primary-action" onClick={onExportPng}>
           <Download size={16} />
           Export PNG

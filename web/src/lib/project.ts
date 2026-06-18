@@ -133,6 +133,7 @@ export const initialProject: QrMagicProject = {
     filenameTemplate: "{{serial}}",
     formats: ["png"],
     renderMode: "flattened",
+    includeGuides: false,
   },
 };
 

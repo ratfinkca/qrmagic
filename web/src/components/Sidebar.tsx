@@ -1,9 +1,5 @@
 import { useState } from "react";
 import {
-  ArrowDown,
-  ArrowDownToLine,
-  ArrowUp,
-  ArrowUpToLine,
   Box,
   ChevronDown,
   ChevronRight,
@@ -11,9 +7,11 @@ import {
   Eye,
   EyeOff,
   FileText,
+  GripVertical,
   ImagePlus,
   Layers,
   QrCode,
+  Trash2,
   Type,
 } from "lucide-react";
 import type { ProjectLayer, QrMagicProject } from "../types";
@@ -28,11 +26,9 @@ type SidebarProps = {
   onAddTextLayer: () => void;
   onAddQrLayer: () => void;
   onAddImageLayer: () => void;
-  onMoveLayer: (
-    layerId: string,
-    direction: "front" | "forward" | "backward" | "back",
-  ) => void;
   onToggleLayerVisibility: (layerId: string) => void;
+  onDeleteLayer: (layerId: string) => void;
+  onReorderLayers: (layers: ProjectLayer[]) => void;
 };
 
 type OpenPanel = "document" | "guides" | "data" | "layers";
@@ -47,8 +43,9 @@ export function Sidebar({
   onAddTextLayer,
   onAddQrLayer,
   onAddImageLayer,
-  onMoveLayer,
   onToggleLayerVisibility,
+  onDeleteLayer,
+  onReorderLayers,
 }: SidebarProps) {
   const serial = project.data.serial;
   const [openPanels, setOpenPanels] = useState<Record<OpenPanel, boolean>>({
@@ -58,6 +55,8 @@ export function Sidebar({
     layers: true,
   });
   const layersTopFirst = [...project.layers].reverse();
+  const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null);
+  const [dragOverLayerId, setDragOverLayerId] = useState<string | null>(null);
 
   function togglePanel(panel: OpenPanel) {
     setOpenPanels((current) => ({
@@ -71,6 +70,25 @@ export function Sidebar({
     if (value === "text") onAddTextLayer();
     if (value === "qr") onAddQrLayer();
     if (value === "image") onAddImageLayer();
+  }
+
+  function reorderByDrop(targetLayerId: string) {
+    if (!draggingLayerId || draggingLayerId === targetLayerId) {
+      setDraggingLayerId(null);
+      setDragOverLayerId(null);
+      return;
+    }
+
+    const nextTopFirst = [...layersTopFirst];
+    const draggedIndex = nextTopFirst.findIndex((layer) => layer.id === draggingLayerId);
+    const targetIndex = nextTopFirst.findIndex((layer) => layer.id === targetLayerId);
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const [draggedLayer] = nextTopFirst.splice(draggedIndex, 1);
+    nextTopFirst.splice(targetIndex, 0, draggedLayer);
+    onReorderLayers([...nextTopFirst].reverse());
+    setDraggingLayerId(null);
+    setDragOverLayerId(null);
   }
 
   return (
@@ -349,9 +367,28 @@ export function Sidebar({
                 <div
                   className={`layer-row ${layer.id === selectedLayerId ? "selected" : ""} ${
                     layer.visible ? "" : "hidden-layer"
-                  }`}
+                  } ${layer.id === dragOverLayerId ? "drag-over" : ""}`}
                   key={layer.id}
+                  draggable
+                  onDragStart={() => setDraggingLayerId(layer.id)}
+                  onDragEnd={() => {
+                    if (dragOverLayerId) {
+                      reorderByDrop(dragOverLayerId);
+                    } else {
+                      setDraggingLayerId(null);
+                      setDragOverLayerId(null);
+                    }
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setDragOverLayerId(layer.id);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    reorderByDrop(layer.id);
+                  }}
                 >
+                  <GripVertical className="drag-handle" size={15} />
                   <button
                     className="icon-button"
                     title={layer.visible ? "Hide layer" : "Show layer"}
@@ -359,7 +396,11 @@ export function Sidebar({
                   >
                     {layer.visible ? <Eye size={15} /> : <EyeOff size={15} />}
                   </button>
-                  <button className="layer-main" onClick={() => onSelectLayer(layer.id)}>
+                  <button
+                    className="layer-main"
+                    title={layer.name}
+                    onClick={() => onSelectLayer(layer.id)}
+                  >
                     {layer.type === "qr" ? <QrCode size={15} /> : null}
                     {layer.type === "text" ? <Type size={15} /> : null}
                     {layer.type === "shape" ? <Box size={15} /> : null}
@@ -367,36 +408,13 @@ export function Sidebar({
                     <span>{layer.name}</span>
                     <small>{layer.type}</small>
                   </button>
-                  <div className="layer-order-controls">
-                    <button
-                      className="icon-button"
-                      title="Bring to front"
-                      onClick={() => onMoveLayer(layer.id, "front")}
-                    >
-                      <ArrowUpToLine size={13} />
-                    </button>
-                    <button
-                      className="icon-button"
-                      title="Move forward"
-                      onClick={() => onMoveLayer(layer.id, "forward")}
-                    >
-                      <ArrowUp size={13} />
-                    </button>
-                    <button
-                      className="icon-button"
-                      title="Move backward"
-                      onClick={() => onMoveLayer(layer.id, "backward")}
-                    >
-                      <ArrowDown size={13} />
-                    </button>
-                    <button
-                      className="icon-button"
-                      title="Send to back"
-                      onClick={() => onMoveLayer(layer.id, "back")}
-                    >
-                      <ArrowDownToLine size={13} />
-                    </button>
-                  </div>
+                  <button
+                    className="icon-button danger"
+                    title="Delete layer"
+                    onClick={() => onDeleteLayer(layer.id)}
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               ))}
             </div>

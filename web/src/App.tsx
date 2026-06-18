@@ -122,27 +122,29 @@ export function App() {
     });
   }
 
-  function updateLayerOrder(layerId: string, direction: "front" | "forward" | "backward" | "back") {
-    setProject((current) => {
-      const index = current.layers.findIndex((layer) => layer.id === layerId);
-      if (index === -1) return current;
-
-      const layers = [...current.layers];
-      const [layer] = layers.splice(index, 1);
-      if (direction === "front") layers.push(layer);
-      if (direction === "back") layers.unshift(layer);
-      if (direction === "forward") layers.splice(Math.min(index + 1, layers.length), 0, layer);
-      if (direction === "backward") layers.splice(Math.max(index - 1, 0), 0, layer);
-      return { ...current, layers };
-    });
-  }
-
   function toggleLayerVisibility(layerId: string) {
     setProject((current) => ({
       ...current,
       layers: current.layers.map((layer) =>
         layer.id === layerId ? { ...layer, visible: !layer.visible } : layer,
       ),
+    }));
+  }
+
+  function deleteLayer(layerId: string) {
+    setProject((current) => {
+      const layers = current.layers.filter((layer) => layer.id !== layerId);
+      if (selectedLayerId === layerId) {
+        setSelectedLayerId(layers[layers.length - 1]?.id ?? "");
+      }
+      return { ...current, layers };
+    });
+  }
+
+  function reorderLayers(layers: ProjectLayer[]) {
+    setProject((current) => ({
+      ...current,
+      layers,
     }));
   }
 
@@ -164,6 +166,16 @@ export function App() {
       ...current,
       document: {
         ...current.document,
+        ...patch,
+      },
+    }));
+  }
+
+  function updateExport(patch: Partial<QrMagicProject["export"]>) {
+    setProject((current) => ({
+      ...current,
+      export: {
+        ...current.export,
         ...patch,
       },
     }));
@@ -199,10 +211,17 @@ export function App() {
   function exportStageDataUrl(stage: Konva.Stage) {
     const guidesLayer = stage.findOne(".guides-layer");
     const wasVisible = guidesLayer?.visible() ?? false;
-    guidesLayer?.visible(false);
+    const transformerNodes = stage.find("Transformer");
+    const transformerVisibility = transformerNodes.map((node) => node.visible());
+
+    if (!project.export.includeGuides) {
+      guidesLayer?.visible(false);
+    }
+    transformerNodes.forEach((node) => node.visible(false));
     stage.batchDraw();
     const uri = stage.toDataURL({ pixelRatio: 2 });
     guidesLayer?.visible(wasVisible);
+    transformerNodes.forEach((node, index) => node.visible(transformerVisibility[index]));
     stage.batchDraw();
     return uri;
   }
@@ -365,8 +384,9 @@ export function App() {
             onAddTextLayer={addTextLayer}
             onAddQrLayer={addQrLayer}
             onAddImageLayer={() => imageInputRef.current?.click()}
-            onMoveLayer={updateLayerOrder}
             onToggleLayerVisibility={toggleLayerVisibility}
+            onDeleteLayer={deleteLayer}
+            onReorderLayers={reorderLayers}
           />
         ) : null}
         <EditorCanvas
@@ -386,6 +406,7 @@ export function App() {
             onUpdateLayer={updateLayer}
             onExportPng={exportPng}
             onExportBatch={exportBatchPngs}
+            onUpdateExport={updateExport}
             isExportingBatch={isExportingBatch}
             onSnapToPage={snapSelectedLayerToPage}
           />
