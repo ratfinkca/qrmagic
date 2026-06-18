@@ -405,6 +405,13 @@ export function EditorCanvas({
   const bleedRect = guideSnapRect(project, "bleed");
   const safeAreaRect = guideSnapRect(project, "safeArea");
   const layerEditingEnabled = activeTool === "select";
+  const previousScaleRef = useRef(scale);
+  const pendingWheelZoomRef = useRef<{
+    viewportX: number;
+    viewportY: number;
+    documentX: number;
+    documentY: number;
+  } | null>(null);
 
   useEffect(() => {
     registerStage(stageRef.current);
@@ -412,17 +419,38 @@ export function EditorCanvas({
   }, [registerStage]);
 
   useEffect(() => {
+    const pendingZoom = pendingWheelZoomRef.current;
+    const viewport = viewportRef.current;
+    if (pendingZoom && viewport) {
+      viewport.scrollLeft = pendingZoom.documentX * scale - pendingZoom.viewportX;
+      viewport.scrollTop = pendingZoom.documentY * scale - pendingZoom.viewportY;
+      pendingWheelZoomRef.current = null;
+    }
+    previousScaleRef.current = scale;
+  }, [scale]);
+
+  useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return undefined;
+    const wheelViewport = viewport;
 
     function zoomPanMode(event: WheelEvent) {
       if (activeTool !== "pan") return;
       event.preventDefault();
+      const rect = wheelViewport.getBoundingClientRect();
+      const viewportX = event.clientX - rect.left;
+      const viewportY = event.clientY - rect.top;
+      pendingWheelZoomRef.current = {
+        viewportX,
+        viewportY,
+        documentX: (wheelViewport.scrollLeft + viewportX) / previousScaleRef.current,
+        documentY: (wheelViewport.scrollTop + viewportY) / previousScaleRef.current,
+      };
       onZoomDelta(event.deltaY > 0 ? -0.1 : 0.1);
     }
 
-    viewport.addEventListener("wheel", zoomPanMode, { passive: false });
-    return () => viewport.removeEventListener("wheel", zoomPanMode);
+    wheelViewport.addEventListener("wheel", zoomPanMode, { passive: false });
+    return () => wheelViewport.removeEventListener("wheel", zoomPanMode);
   }, [activeTool, onZoomDelta]);
 
   function startPan(event: MouseEvent<HTMLDivElement>) {
