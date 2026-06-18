@@ -409,6 +409,19 @@ select:focus {
   overflow: auto;
 }
 
+.canvas-viewport.pan-mode {
+  cursor: grab;
+  user-select: none;
+}
+
+.canvas-viewport.pan-mode:active {
+  cursor: grabbing;
+}
+
+.canvas-viewport.pan-mode canvas {
+  cursor: grab;
+}
+
 .canvas-stage-wrap {
   display: grid;
   place-items: center;
@@ -480,6 +493,12 @@ select:focus {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 84px;
   gap: 8px;
+}
+
+.alignment-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 34px);
+  gap: 6px;
 }
 
 .inspector-panel {

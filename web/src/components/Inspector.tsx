@@ -1,6 +1,21 @@
 import { useState } from "react";
-import { Box, Download, RotateCw, SlidersHorizontal } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignHorizontalJustifyEnd,
+  AlignHorizontalJustifyStart,
+  AlignVerticalJustifyEnd,
+  AlignVerticalJustifyStart,
+  Box,
+  Download,
+  RotateCw,
+  SlidersHorizontal,
+} from "lucide-react";
+import { documentPixelSize } from "../lib/project";
 import type { GuideSnapTarget, ProjectLayer, QrMagicProject } from "../types";
+
+type Alignment = "left" | "center-x" | "right" | "top" | "center-y" | "bottom";
 
 type InspectorProps = {
   selectedLayer: ProjectLayer | undefined;
@@ -11,6 +26,7 @@ type InspectorProps = {
   onUpdateExport: (patch: Partial<QrMagicProject["export"]>) => void;
   isExportingBatch: boolean;
   onSnapToTarget: (target: GuideSnapTarget) => void;
+  onAlignLayer: (layerId: string, alignment: Alignment) => void;
 };
 
 export function Inspector({
@@ -22,8 +38,40 @@ export function Inspector({
   onUpdateExport,
   isExportingBatch,
   onSnapToTarget,
+  onAlignLayer,
 }: InspectorProps) {
   const [snapTarget, setSnapTarget] = useState<GuideSnapTarget>("page");
+  const docSize = documentPixelSize(project);
+
+  function isAligned(alignment: Alignment) {
+    if (!selectedLayer) return false;
+    const tolerance = 0.5;
+    if (alignment === "left") return Math.abs(selectedLayer.x) <= tolerance;
+    if (alignment === "center-x") {
+      return Math.abs(selectedLayer.x - (docSize.width - selectedLayer.width) / 2) <= tolerance;
+    }
+    if (alignment === "right") {
+      return Math.abs(selectedLayer.x - (docSize.width - selectedLayer.width)) <= tolerance;
+    }
+    if (alignment === "top") return Math.abs(selectedLayer.y) <= tolerance;
+    if (alignment === "center-y") {
+      return Math.abs(selectedLayer.y - (docSize.height - selectedLayer.height) / 2) <= tolerance;
+    }
+    return Math.abs(selectedLayer.y - (docSize.height - selectedLayer.height)) <= tolerance;
+  }
+
+  function alignmentButton(alignment: Alignment, title: string, icon: ReactNode) {
+    if (!selectedLayer) return null;
+    return (
+      <button
+        className={`tool-button ${isAligned(alignment) ? "selected" : ""}`}
+        title={title}
+        onClick={() => onAlignLayer(selectedLayer.id, alignment)}
+      >
+        {icon}
+      </button>
+    );
+  }
 
   return (
     <aside className="inspector">
@@ -143,6 +191,37 @@ export function Inspector({
                   onUpdateLayer(selectedLayer.id, { opacity: Number(event.target.value) })
                 }
               />
+            </label>
+            <label>
+              Align to document
+              <div className="alignment-grid">
+                {alignmentButton(
+                  "left",
+                  "Align left",
+                  <AlignHorizontalJustifyStart size={16} />,
+                )}
+                {alignmentButton(
+                  "center-x",
+                  "Align horizontal center",
+                  <AlignCenterHorizontal size={16} />,
+                )}
+                {alignmentButton(
+                  "right",
+                  "Align right",
+                  <AlignHorizontalJustifyEnd size={16} />,
+                )}
+                {alignmentButton("top", "Align top", <AlignVerticalJustifyStart size={16} />)}
+                {alignmentButton(
+                  "center-y",
+                  "Align vertical center",
+                  <AlignCenterVertical size={16} />,
+                )}
+                {alignmentButton(
+                  "bottom",
+                  "Align bottom",
+                  <AlignVerticalJustifyEnd size={16} />,
+                )}
+              </div>
             </label>
             {selectedLayer.type === "shape" || selectedLayer.type === "image" ? (
               <label>

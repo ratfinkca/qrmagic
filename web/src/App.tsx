@@ -2,13 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import JSZip from "jszip";
 import {
-  AlignCenterHorizontal,
-  AlignCenterVertical,
-  AlignHorizontalJustifyEnd,
-  AlignHorizontalJustifyStart,
-  AlignVerticalJustifyEnd,
-  AlignVerticalJustifyStart,
   ArrowDownToLine,
+  Hand,
   MousePointer2,
   PanelLeft,
   ScanQrCode,
@@ -21,7 +16,7 @@ import { Inspector } from "./components/Inspector";
 import { Sidebar } from "./components/Sidebar";
 import { documentPixelSize, guideSnapRect, initialProject } from "./lib/project";
 import { createSerialRecords, renderTemplate } from "./lib/serial";
-import type { GuideSnapTarget, ProjectLayer, QrMagicProject } from "./types";
+import type { EditorTool, GuideSnapTarget, ProjectLayer, QrMagicProject } from "./types";
 
 export function App() {
   const [project, setProject] = useState<QrMagicProject>(initialProject);
@@ -30,6 +25,7 @@ export function App() {
   const [panelsVisible, setPanelsVisible] = useState(true);
   const [isExportingBatch, setIsExportingBatch] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [activeTool, setActiveTool] = useState<EditorTool>("select");
   const stageRef = useRef<Konva.Stage | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const records = useMemo(
@@ -280,19 +276,21 @@ export function App() {
     setZoom((current) => Math.min(3, Math.max(0.25, Number((current + delta).toFixed(2)))));
   }
 
-  function alignSelectedLayer(
+  function alignLayer(
+    layerId: string,
     alignment: "left" | "center-x" | "right" | "top" | "center-y" | "bottom",
   ) {
-    if (!selectedLayer) return;
+    const layer = project.layers.find((currentLayer) => currentLayer.id === layerId);
+    if (!layer) return;
 
     const patch: Partial<ProjectLayer> = {};
     if (alignment === "left") patch.x = 0;
-    if (alignment === "center-x") patch.x = (docSize.width - selectedLayer.width) / 2;
-    if (alignment === "right") patch.x = docSize.width - selectedLayer.width;
+    if (alignment === "center-x") patch.x = (docSize.width - layer.width) / 2;
+    if (alignment === "right") patch.x = docSize.width - layer.width;
     if (alignment === "top") patch.y = 0;
-    if (alignment === "center-y") patch.y = (docSize.height - selectedLayer.height) / 2;
-    if (alignment === "bottom") patch.y = docSize.height - selectedLayer.height;
-    updateLayer(selectedLayer.id, patch);
+    if (alignment === "center-y") patch.y = (docSize.height - layer.height) / 2;
+    if (alignment === "bottom") patch.y = docSize.height - layer.height;
+    updateLayer(layer.id, patch);
   }
 
   function addImageLayer(file: File) {
@@ -329,8 +327,19 @@ export function App() {
           <span>QR Magic</span>
         </div>
         <nav className="tool-strip" aria-label="Editor tools">
-          <button className="tool-button selected" title="Select">
+          <button
+            className={`tool-button ${activeTool === "select" ? "selected" : ""}`}
+            title="Select"
+            onClick={() => setActiveTool("select")}
+          >
             <MousePointer2 size={17} />
+          </button>
+          <button
+            className={`tool-button ${activeTool === "pan" ? "selected" : ""}`}
+            title="Pan canvas"
+            onClick={() => setActiveTool("pan")}
+          >
+            <Hand size={17} />
           </button>
           <button
             className={`tool-button ${panelsVisible ? "" : "selected"}`}
@@ -349,32 +358,6 @@ export function App() {
           </button>
           <button className="tool-button" title="Zoom in" onClick={() => updateZoom(0.1)}>
             <ZoomIn size={17} />
-          </button>
-          <button className="tool-button" title="Align left" onClick={() => alignSelectedLayer("left")}>
-            <AlignHorizontalJustifyStart size={17} />
-          </button>
-          <button
-            className="tool-button"
-            title="Align horizontal center"
-            onClick={() => alignSelectedLayer("center-x")}
-          >
-            <AlignCenterHorizontal size={17} />
-          </button>
-          <button className="tool-button" title="Align right" onClick={() => alignSelectedLayer("right")}>
-            <AlignHorizontalJustifyEnd size={17} />
-          </button>
-          <button className="tool-button" title="Align top" onClick={() => alignSelectedLayer("top")}>
-            <AlignVerticalJustifyStart size={17} />
-          </button>
-          <button
-            className="tool-button"
-            title="Align vertical center"
-            onClick={() => alignSelectedLayer("center-y")}
-          >
-            <AlignCenterVertical size={17} />
-          </button>
-          <button className="tool-button" title="Align bottom" onClick={() => alignSelectedLayer("bottom")}>
-            <AlignVerticalJustifyEnd size={17} />
           </button>
           <span className="toolbar-divider" />
           <button className="tool-button" title="Export PNG set" onClick={exportBatchPngs}>
@@ -420,6 +403,7 @@ export function App() {
           selectedLayerId={selectedLayerId}
           record={currentRecord}
           zoom={zoom}
+          activeTool={activeTool}
           onSelectLayer={setSelectedLayerId}
           onUpdateLayer={updateLayer}
           registerStage={(stage) => {
@@ -436,6 +420,7 @@ export function App() {
             onUpdateExport={updateExport}
             isExportingBatch={isExportingBatch}
             onSnapToTarget={snapSelectedLayerToTarget}
+            onAlignLayer={alignLayer}
           />
         ) : null}
       </div>

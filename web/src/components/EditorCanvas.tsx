@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent } from "react";
 import { Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from "react-konva";
 import type Konva from "konva";
 import QRCode from "qrcode";
-import type { ProjectLayer, QrMagicProject, RenderRecord } from "../types";
+import type { EditorTool, ProjectLayer, QrMagicProject, RenderRecord } from "../types";
 import { documentPixelSize, guideSnapRect } from "../lib/project";
 import { renderTemplate } from "../lib/serial";
 
@@ -11,6 +12,7 @@ type EditorCanvasProps = {
   selectedLayerId: string;
   record: RenderRecord;
   zoom: number;
+  activeTool: EditorTool;
   onSelectLayer: (layerId: string) => void;
   onUpdateLayer: (layerId: string, patch: Partial<ProjectLayer>) => void;
   registerStage: (stage: Konva.Stage | null) => void;
@@ -84,11 +86,13 @@ function useHtmlImage(src: string) {
 function ImageNode({
   layer,
   selected,
+  editable,
   onSelect,
   onUpdate,
 }: {
   layer: ProjectLayer;
   selected: boolean;
+  editable: boolean;
   onSelect: () => void;
   onUpdate: (patch: Partial<ProjectLayer>) => void;
 }) {
@@ -97,11 +101,11 @@ function ImageNode({
   const image = useHtmlImage(layer.type === "image" ? layer.src : "");
 
   useEffect(() => {
-    if (selected && transformerRef.current && imageRef.current) {
+    if (selected && editable && transformerRef.current && imageRef.current) {
       transformerRef.current.nodes([imageRef.current]);
       transformerRef.current.getLayer()?.batchDraw();
     }
-  }, [selected]);
+  }, [editable, selected]);
 
   if (layer.type !== "image") {
     return null;
@@ -119,9 +123,9 @@ function ImageNode({
           height={layer.height}
           rotation={layer.rotation}
           opacity={layer.opacity}
-          draggable={!layer.locked}
-          onClick={onSelect}
-          onTap={onSelect}
+          draggable={editable && !layer.locked}
+          onClick={() => editable && onSelect()}
+          onTap={() => editable && onSelect()}
           onDragEnd={(event) => onUpdate({ x: event.target.x(), y: event.target.y() })}
           onTransformEnd={() => {
             const node = imageRef.current;
@@ -140,7 +144,7 @@ function ImageNode({
           }}
         />
       ) : null}
-      {selected ? <Transformer ref={transformerRef} rotateEnabled /> : null}
+      {selected && editable ? <Transformer ref={transformerRef} rotateEnabled /> : null}
     </>
   );
 }
@@ -148,12 +152,14 @@ function ImageNode({
 function QrNode({
   layer,
   selected,
+  editable,
   record,
   onSelect,
   onUpdate,
 }: {
   layer: ProjectLayer;
   selected: boolean;
+  editable: boolean;
   record: RenderRecord;
   onSelect: () => void;
   onUpdate: (patch: Partial<ProjectLayer>) => void;
@@ -164,11 +170,11 @@ function QrNode({
   const image = useHtmlImage(dataUrl);
 
   useEffect(() => {
-    if (selected && transformerRef.current && groupRef.current) {
+    if (selected && editable && transformerRef.current && groupRef.current) {
       transformerRef.current.nodes([groupRef.current]);
       transformerRef.current.getLayer()?.batchDraw();
     }
-  }, [selected]);
+  }, [editable, selected]);
 
   if (layer.type !== "qr") {
     return null;
@@ -184,9 +190,9 @@ function QrNode({
         height={layer.height}
         rotation={layer.rotation}
         opacity={layer.opacity}
-        draggable={!layer.locked}
-        onClick={onSelect}
-        onTap={onSelect}
+        draggable={editable && !layer.locked}
+        onClick={() => editable && onSelect()}
+        onTap={() => editable && onSelect()}
         onDragEnd={(event) => onUpdate({ x: event.target.x(), y: event.target.y() })}
         onTransformEnd={() => {
           const node = groupRef.current;
@@ -217,7 +223,7 @@ function QrNode({
           <KonvaImage image={image} width={layer.width} height={layer.height} />
         ) : null}
       </Group>
-      {selected ? (
+      {selected && editable ? (
         <Transformer
           ref={transformerRef}
           rotateEnabled
@@ -235,12 +241,14 @@ function QrNode({
 function TextNode({
   layer,
   selected,
+  editable,
   record,
   onSelect,
   onUpdate,
 }: {
   layer: ProjectLayer;
   selected: boolean;
+  editable: boolean;
   record: RenderRecord;
   onSelect: () => void;
   onUpdate: (patch: Partial<ProjectLayer>) => void;
@@ -249,11 +257,11 @@ function TextNode({
   const transformerRef = useRef<Konva.Transformer>(null);
 
   useEffect(() => {
-    if (selected && transformerRef.current && textRef.current) {
+    if (selected && editable && transformerRef.current && textRef.current) {
       transformerRef.current.nodes([textRef.current]);
       transformerRef.current.getLayer()?.batchDraw();
     }
-  }, [selected]);
+  }, [editable, selected]);
 
   if (layer.type !== "text") {
     return null;
@@ -276,9 +284,9 @@ function TextNode({
         verticalAlign="middle"
         rotation={layer.rotation}
         opacity={layer.opacity}
-        draggable={!layer.locked}
-        onClick={onSelect}
-        onTap={onSelect}
+        draggable={editable && !layer.locked}
+        onClick={() => editable && onSelect()}
+        onTap={() => editable && onSelect()}
         onDragEnd={(event) => onUpdate({ x: event.target.x(), y: event.target.y() })}
         onTransformEnd={() => {
           const node = textRef.current;
@@ -296,7 +304,7 @@ function TextNode({
           });
         }}
       />
-      {selected ? <Transformer ref={transformerRef} rotateEnabled /> : null}
+      {selected && editable ? <Transformer ref={transformerRef} rotateEnabled /> : null}
     </>
   );
 }
@@ -304,11 +312,13 @@ function TextNode({
 function ShapeNode({
   layer,
   selected,
+  editable,
   onSelect,
   onUpdate,
 }: {
   layer: ProjectLayer;
   selected: boolean;
+  editable: boolean;
   onSelect: () => void;
   onUpdate: (patch: Partial<ProjectLayer>) => void;
 }) {
@@ -316,11 +326,11 @@ function ShapeNode({
   const transformerRef = useRef<Konva.Transformer>(null);
 
   useEffect(() => {
-    if (selected && transformerRef.current && rectRef.current) {
+    if (selected && editable && transformerRef.current && rectRef.current) {
       transformerRef.current.nodes([rectRef.current]);
       transformerRef.current.getLayer()?.batchDraw();
     }
-  }, [selected]);
+  }, [editable, selected]);
 
   if (layer.type !== "shape") {
     return null;
@@ -341,9 +351,9 @@ function ShapeNode({
         cornerRadius={layer.cornerRadius}
         rotation={layer.rotation}
         opacity={layer.opacity}
-        draggable={!layer.locked}
-        onClick={onSelect}
-        onTap={onSelect}
+        draggable={editable && !layer.locked}
+        onClick={() => editable && onSelect()}
+        onTap={() => editable && onSelect()}
         onDragEnd={(event) => onUpdate({ x: event.target.x(), y: event.target.y() })}
         onTransformEnd={() => {
           const node = rectRef.current;
@@ -361,7 +371,7 @@ function ShapeNode({
           });
         }}
       />
-      {selected ? <Transformer ref={transformerRef} rotateEnabled /> : null}
+      {selected && editable ? <Transformer ref={transformerRef} rotateEnabled /> : null}
     </>
   );
 }
@@ -371,11 +381,20 @@ export function EditorCanvas({
   selectedLayerId,
   record,
   zoom,
+  activeTool,
   onSelectLayer,
   onUpdateLayer,
   registerStage,
 }: EditorCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const panRef = useRef({
+    active: false,
+    x: 0,
+    y: 0,
+    scrollLeft: 0,
+    scrollTop: 0,
+  });
   const docSize = useMemo(() => documentPixelSize(project), [project]);
   const fitScale = Math.min(1, 860 / docSize.width, 610 / docSize.height);
   const scale = fitScale * zoom;
@@ -383,11 +402,35 @@ export function EditorCanvas({
   const stageHeight = docSize.height * scale;
   const bleedRect = guideSnapRect(project, "bleed");
   const safeAreaRect = guideSnapRect(project, "safeArea");
+  const layerEditingEnabled = activeTool === "select";
 
   useEffect(() => {
     registerStage(stageRef.current);
     return () => registerStage(null);
   }, [registerStage]);
+
+  function startPan(event: MouseEvent<HTMLDivElement>) {
+    if (activeTool !== "pan" || !viewportRef.current) return;
+    panRef.current = {
+      active: true,
+      x: event.clientX,
+      y: event.clientY,
+      scrollLeft: viewportRef.current.scrollLeft,
+      scrollTop: viewportRef.current.scrollTop,
+    };
+    event.preventDefault();
+  }
+
+  function movePan(event: MouseEvent<HTMLDivElement>) {
+    const viewport = viewportRef.current;
+    if (!panRef.current.active || !viewport) return;
+    viewport.scrollLeft = panRef.current.scrollLeft - (event.clientX - panRef.current.x);
+    viewport.scrollTop = panRef.current.scrollTop - (event.clientY - panRef.current.y);
+  }
+
+  function stopPan() {
+    panRef.current.active = false;
+  }
 
   return (
     <div className="canvas-shell">
@@ -398,7 +441,14 @@ export function EditorCanvas({
           {project.document.unit} at {project.document.dpi} DPI
         </span>
       </div>
-      <div className="canvas-viewport">
+      <div
+        ref={viewportRef}
+        className={`canvas-viewport ${activeTool === "pan" ? "pan-mode" : ""}`}
+        onMouseDown={startPan}
+        onMouseMove={movePan}
+        onMouseUp={stopPan}
+        onMouseLeave={stopPan}
+      >
         <div className="canvas-stage-wrap">
           <Stage
             ref={stageRef}
@@ -429,6 +479,7 @@ export function EditorCanvas({
                       key={layer.id}
                       layer={layer}
                       selected={layer.id === selectedLayerId}
+                      editable={layerEditingEnabled}
                       onSelect={() => onSelectLayer(layer.id)}
                       onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
                     />
@@ -440,6 +491,7 @@ export function EditorCanvas({
                       key={layer.id}
                       layer={layer}
                       selected={layer.id === selectedLayerId}
+                      editable={layerEditingEnabled}
                       onSelect={() => onSelectLayer(layer.id)}
                       onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
                     />
@@ -451,6 +503,7 @@ export function EditorCanvas({
                       key={layer.id}
                       layer={layer}
                       selected={layer.id === selectedLayerId}
+                      editable={layerEditingEnabled}
                       record={record}
                       onSelect={() => onSelectLayer(layer.id)}
                       onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
@@ -463,6 +516,7 @@ export function EditorCanvas({
                       key={layer.id}
                       layer={layer}
                       selected={layer.id === selectedLayerId}
+                      editable={layerEditingEnabled}
                       record={record}
                       onSelect={() => onSelectLayer(layer.id)}
                       onUpdate={(patch) => onUpdateLayer(layer.id, patch)}

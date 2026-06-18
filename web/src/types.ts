@@ -4,6 +4,8 @@ export type LayerType = "image" | "qr" | "text" | "shape";
 
 export type GuideSnapTarget = "page" | "trim" | "bleed" | "safeArea";
 
+export type EditorTool = "select" | "pan";
+
 export type LayerBase = {
   id: string;
   type: LayerType;
