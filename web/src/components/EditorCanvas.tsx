@@ -3,13 +3,14 @@ import { Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } fro
 import type Konva from "konva";
 import QRCode from "qrcode";
 import type { ProjectLayer, QrMagicProject, RenderRecord } from "../types";
-import { documentPixelSize } from "../lib/project";
+import { documentPixelSize, guideSnapRect } from "../lib/project";
 import { renderTemplate } from "../lib/serial";
 
 type EditorCanvasProps = {
   project: QrMagicProject;
   selectedLayerId: string;
   record: RenderRecord;
+  zoom: number;
   onSelectLayer: (layerId: string) => void;
   onUpdateLayer: (layerId: string, patch: Partial<ProjectLayer>) => void;
   registerStage: (stage: Konva.Stage | null) => void;
@@ -369,21 +370,19 @@ export function EditorCanvas({
   project,
   selectedLayerId,
   record,
+  zoom,
   onSelectLayer,
   onUpdateLayer,
   registerStage,
 }: EditorCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
   const docSize = useMemo(() => documentPixelSize(project), [project]);
-  const scale = Math.min(1, 860 / docSize.width, 610 / docSize.height);
+  const fitScale = Math.min(1, 860 / docSize.width, 610 / docSize.height);
+  const scale = fitScale * zoom;
   const stageWidth = docSize.width * scale;
   const stageHeight = docSize.height * scale;
-  const guideBleed = Math.round(
-    Math.min(docSize.width, docSize.height) * project.document.guides.bleedRatio,
-  );
-  const guideSafeArea = Math.round(
-    Math.min(docSize.width, docSize.height) * project.document.guides.safeAreaRatio,
-  );
+  const bleedRect = guideSnapRect(project, "bleed");
+  const safeAreaRect = guideSnapRect(project, "safeArea");
 
   useEffect(() => {
     registerStage(stageRef.current);
@@ -400,119 +399,121 @@ export function EditorCanvas({
         </span>
       </div>
       <div className="canvas-viewport">
-        <Stage
-          ref={stageRef}
-          width={stageWidth}
-          height={stageHeight}
-          scaleX={scale}
-          scaleY={scale}
-          className="document-stage"
-        >
-          <Layer>
-            <Rect
-              width={docSize.width}
-              height={docSize.height}
-              fill={
-                project.document.transparentBackground
-                  ? "transparent"
-                  : project.document.backgroundColor
-              }
-              shadowColor="rgba(15, 23, 42, 0.18)"
-              shadowBlur={28}
-              shadowOffsetY={16}
-            />
-            {project.layers.map((layer) => {
-              if (!layer.visible) return null;
-              if (layer.type === "shape") {
-                return (
-                  <ShapeNode
-                    key={layer.id}
-                    layer={layer}
-                    selected={layer.id === selectedLayerId}
-                    onSelect={() => onSelectLayer(layer.id)}
-                    onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
-                  />
-                );
-              }
-              if (layer.type === "image") {
-                return (
-                  <ImageNode
-                    key={layer.id}
-                    layer={layer}
-                    selected={layer.id === selectedLayerId}
-                    onSelect={() => onSelectLayer(layer.id)}
-                    onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
-                  />
-                );
-              }
-              if (layer.type === "qr") {
-                return (
-                  <QrNode
-                    key={layer.id}
-                    layer={layer}
-                    selected={layer.id === selectedLayerId}
-                    record={record}
-                    onSelect={() => onSelectLayer(layer.id)}
-                    onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
-                  />
-                );
-              }
-              if (layer.type === "text") {
-                return (
-                  <TextNode
-                    key={layer.id}
-                    layer={layer}
-                    selected={layer.id === selectedLayerId}
-                    record={record}
-                    onSelect={() => onSelectLayer(layer.id)}
-                    onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
-                  />
-                );
-              }
-              return null;
-            })}
-          </Layer>
-          {project.document.guides.enabled ? (
-            <Layer name="guides-layer" listening={false}>
-              {project.document.guides.showBleed ? (
-                <Rect
-                  x={guideBleed}
-                  y={guideBleed}
-                  width={docSize.width - guideBleed * 2}
-                  height={docSize.height - guideBleed * 2}
-                  stroke="#f97316"
-                  strokeWidth={2}
-                  dash={[10, 8]}
-                  opacity={0.9}
-                />
-              ) : null}
-              {project.document.guides.showTrim ? (
-                <Rect
-                  x={0.5}
-                  y={0.5}
-                  width={docSize.width - 1}
-                  height={docSize.height - 1}
-                  stroke="#0f172a"
-                  strokeWidth={2}
-                  dash={[18, 12]}
-                  opacity={0.75}
-                />
-              ) : null}
-              {project.document.guides.showSafeArea ? (
-                <Rect
-                  x={guideSafeArea}
-                  y={guideSafeArea}
-                  width={docSize.width - guideSafeArea * 2}
-                  height={docSize.height - guideSafeArea * 2}
-                  stroke="#0f766e"
-                  strokeWidth={2}
-                  dash={[6, 8]}
-                  opacity={0.9}
-                />
-              ) : null}
+        <div className="canvas-stage-wrap">
+          <Stage
+            ref={stageRef}
+            width={stageWidth}
+            height={stageHeight}
+            scaleX={scale}
+            scaleY={scale}
+            className="document-stage"
+          >
+            <Layer>
+              <Rect
+                width={docSize.width}
+                height={docSize.height}
+                fill={
+                  project.document.transparentBackground
+                    ? "transparent"
+                    : project.document.backgroundColor
+                }
+                shadowColor="rgba(15, 23, 42, 0.18)"
+                shadowBlur={28}
+                shadowOffsetY={16}
+              />
+              {project.layers.map((layer) => {
+                if (!layer.visible) return null;
+                if (layer.type === "shape") {
+                  return (
+                    <ShapeNode
+                      key={layer.id}
+                      layer={layer}
+                      selected={layer.id === selectedLayerId}
+                      onSelect={() => onSelectLayer(layer.id)}
+                      onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
+                    />
+                  );
+                }
+                if (layer.type === "image") {
+                  return (
+                    <ImageNode
+                      key={layer.id}
+                      layer={layer}
+                      selected={layer.id === selectedLayerId}
+                      onSelect={() => onSelectLayer(layer.id)}
+                      onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
+                    />
+                  );
+                }
+                if (layer.type === "qr") {
+                  return (
+                    <QrNode
+                      key={layer.id}
+                      layer={layer}
+                      selected={layer.id === selectedLayerId}
+                      record={record}
+                      onSelect={() => onSelectLayer(layer.id)}
+                      onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
+                    />
+                  );
+                }
+                if (layer.type === "text") {
+                  return (
+                    <TextNode
+                      key={layer.id}
+                      layer={layer}
+                      selected={layer.id === selectedLayerId}
+                      record={record}
+                      onSelect={() => onSelectLayer(layer.id)}
+                      onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
+                    />
+                  );
+                }
+                return null;
+              })}
             </Layer>
-          ) : null}
-        </Stage>
+            {project.document.guides.enabled ? (
+              <Layer name="guides-layer" listening={false}>
+                {project.document.guides.showBleed ? (
+                  <Rect
+                    x={bleedRect.x}
+                    y={bleedRect.y}
+                    width={bleedRect.width}
+                    height={bleedRect.height}
+                    stroke="#f97316"
+                    strokeWidth={2}
+                    dash={[10, 8]}
+                    opacity={0.9}
+                  />
+                ) : null}
+                {project.document.guides.showTrim ? (
+                  <Rect
+                    x={0.5}
+                    y={0.5}
+                    width={docSize.width - 1}
+                    height={docSize.height - 1}
+                    stroke="#0f172a"
+                    strokeWidth={2}
+                    dash={[18, 12]}
+                    opacity={0.75}
+                  />
+                ) : null}
+                {project.document.guides.showSafeArea ? (
+                  <Rect
+                    x={safeAreaRect.x}
+                    y={safeAreaRect.y}
+                    width={safeAreaRect.width}
+                    height={safeAreaRect.height}
+                    stroke="#0f766e"
+                    strokeWidth={2}
+                    dash={[6, 8]}
+                    opacity={0.9}
+                  />
+                ) : null}
+              </Layer>
+            ) : null}
+          </Stage>
+        </div>
       </div>
     </div>
   );

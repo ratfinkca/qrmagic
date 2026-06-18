@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Box, Download, RotateCw, SlidersHorizontal } from "lucide-react";
-import type { ProjectLayer, QrMagicProject } from "../types";
+import type { GuideSnapTarget, ProjectLayer, QrMagicProject } from "../types";
 
 type InspectorProps = {
   selectedLayer: ProjectLayer | undefined;
@@ -9,7 +10,7 @@ type InspectorProps = {
   onExportBatch: () => void;
   onUpdateExport: (patch: Partial<QrMagicProject["export"]>) => void;
   isExportingBatch: boolean;
-  onSnapToPage: () => void;
+  onSnapToTarget: (target: GuideSnapTarget) => void;
 };
 
 export function Inspector({
@@ -20,8 +21,10 @@ export function Inspector({
   onExportBatch,
   onUpdateExport,
   isExportingBatch,
-  onSnapToPage,
+  onSnapToTarget,
 }: InspectorProps) {
+  const [snapTarget, setSnapTarget] = useState<GuideSnapTarget>("page");
+
   return (
     <aside className="inspector">
       <section className="panel">
@@ -142,9 +145,26 @@ export function Inspector({
               />
             </label>
             {selectedLayer.type === "shape" || selectedLayer.type === "image" ? (
-              <button className="secondary-action" onClick={onSnapToPage}>
-                Snap to page
-              </button>
+              <label>
+                Snap layer to
+                <div className="snap-row">
+                  <select
+                    value={snapTarget}
+                    onChange={(event) => setSnapTarget(event.target.value as GuideSnapTarget)}
+                  >
+                    <option value="page">Page bounds</option>
+                    <option value="trim">Trim line</option>
+                    <option value="bleed">Bleed guide</option>
+                    <option value="safeArea">Safe area</option>
+                  </select>
+                  <button
+                    className="secondary-action"
+                    onClick={() => onSnapToTarget(snapTarget)}
+                  >
+                    Snap
+                  </button>
+                </div>
+              </label>
             ) : null}
             {selectedLayer.type === "qr" ? (
               <>

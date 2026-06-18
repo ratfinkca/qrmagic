@@ -1,4 +1,4 @@
-import type { QrMagicProject } from "../types";
+import type { GuideSnapTarget, QrMagicProject } from "../types";
 
 export const initialProject: QrMagicProject = {
   version: 1,
@@ -155,5 +155,27 @@ export function documentPixelSize(project: QrMagicProject) {
   return {
     width: Math.round(project.document.width * project.document.dpi),
     height: Math.round(project.document.height * project.document.dpi),
+  };
+}
+
+export function guideInset(project: QrMagicProject, guide: "bleed" | "safeArea") {
+  const size = documentPixelSize(project);
+  const ratio =
+    guide === "bleed"
+      ? project.document.guides.bleedRatio
+      : project.document.guides.safeAreaRatio;
+  return Math.round(Math.min(size.width, size.height) * ratio);
+}
+
+export function guideSnapRect(project: QrMagicProject, target: GuideSnapTarget) {
+  const size = documentPixelSize(project);
+  const inset =
+    target === "bleed" || target === "safeArea" ? guideInset(project, target) : 0;
+
+  return {
+    x: inset,
+    y: inset,
+    width: Math.max(1, size.width - inset * 2),
+    height: Math.max(1, size.height - inset * 2),
   };
 }

@@ -2,6 +2,8 @@ export type Unit = "px" | "in" | "mm";
 
 export type LayerType = "image" | "qr" | "text" | "shape";
 
+export type GuideSnapTarget = "page" | "trim" | "bleed" | "safeArea";
+
 export type LayerBase = {
   id: string;
   type: LayerType;

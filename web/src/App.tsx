@@ -12,13 +12,16 @@ import {
   MousePointer2,
   PanelLeft,
   ScanQrCode,
+  Search,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { EditorCanvas } from "./components/EditorCanvas";
 import { Inspector } from "./components/Inspector";
 import { Sidebar } from "./components/Sidebar";
-import { documentPixelSize, initialProject } from "./lib/project";
+import { documentPixelSize, guideSnapRect, initialProject } from "./lib/project";
 import { createSerialRecords, renderTemplate } from "./lib/serial";
-import type { ProjectLayer, QrMagicProject } from "./types";
+import type { GuideSnapTarget, ProjectLayer, QrMagicProject } from "./types";
 
 export function App() {
   const [project, setProject] = useState<QrMagicProject>(initialProject);
@@ -26,6 +29,7 @@ export function App() {
   const [selectedRecordIndex, setSelectedRecordIndex] = useState(0);
   const [panelsVisible, setPanelsVisible] = useState(true);
   const [isExportingBatch, setIsExportingBatch] = useState(false);
+  const [zoom, setZoom] = useState(1);
   const stageRef = useRef<Konva.Stage | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const records = useMemo(
@@ -213,13 +217,19 @@ export function App() {
     const wasVisible = guidesLayer?.visible() ?? false;
     const transformerNodes = stage.find("Transformer");
     const transformerVisibility = transformerNodes.map((node) => node.visible());
+    const originalStageSize = stage.size();
+    const originalScale = stage.scale();
 
     if (!project.export.includeGuides) {
       guidesLayer?.visible(false);
     }
     transformerNodes.forEach((node) => node.visible(false));
+    stage.size(docSize);
+    stage.scale({ x: 1, y: 1 });
     stage.batchDraw();
-    const uri = stage.toDataURL({ pixelRatio: 2 });
+    const uri = stage.toDataURL({ pixelRatio: 1 });
+    stage.size(originalStageSize);
+    stage.scale(originalScale);
     guidesLayer?.visible(wasVisible);
     transformerNodes.forEach((node, index) => node.visible(transformerVisibility[index]));
     stage.batchDraw();
@@ -254,15 +264,20 @@ export function App() {
     setIsExportingBatch(false);
   }
 
-  function snapSelectedLayerToPage() {
+  function snapSelectedLayerToTarget(target: GuideSnapTarget) {
     if (!selectedLayer) return;
+    const snapRect = guideSnapRect(project, target);
     updateLayer(selectedLayer.id, {
-      x: 0,
-      y: 0,
-      width: docSize.width,
-      height: docSize.height,
+      x: snapRect.x,
+      y: snapRect.y,
+      width: snapRect.width,
+      height: snapRect.height,
       rotation: 0,
     });
+  }
+
+  function updateZoom(delta: number) {
+    setZoom((current) => Math.min(3, Math.max(0.25, Number((current + delta).toFixed(2)))));
   }
 
   function alignSelectedLayer(
@@ -323,6 +338,17 @@ export function App() {
             onClick={() => setPanelsVisible((visible) => !visible)}
           >
             <PanelLeft size={17} />
+          </button>
+          <span className="toolbar-divider" />
+          <button className="tool-button" title="Zoom out" onClick={() => updateZoom(-0.1)}>
+            <ZoomOut size={17} />
+          </button>
+          <button className="zoom-indicator" title="Reset zoom" onClick={() => setZoom(1)}>
+            <Search size={14} />
+            <span>{Math.round(zoom * 100)}%</span>
+          </button>
+          <button className="tool-button" title="Zoom in" onClick={() => updateZoom(0.1)}>
+            <ZoomIn size={17} />
           </button>
           <button className="tool-button" title="Align left" onClick={() => alignSelectedLayer("left")}>
             <AlignHorizontalJustifyStart size={17} />
@@ -393,6 +419,7 @@ export function App() {
           project={project}
           selectedLayerId={selectedLayerId}
           record={currentRecord}
+          zoom={zoom}
           onSelectLayer={setSelectedLayerId}
           onUpdateLayer={updateLayer}
           registerStage={(stage) => {
@@ -408,7 +435,7 @@ export function App() {
             onExportBatch={exportBatchPngs}
             onUpdateExport={updateExport}
             isExportingBatch={isExportingBatch}
-            onSnapToPage={snapSelectedLayerToPage}
+            onSnapToTarget={snapSelectedLayerToTarget}
           />
         ) : null}
       </div>
