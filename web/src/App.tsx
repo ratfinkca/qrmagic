@@ -2,10 +2,11 @@ import { useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import JSZip from "jszip";
 import {
-  ArrowDownToLine,
+  FolderOpen,
   Hand,
   MousePointer2,
   PanelLeft,
+  Save,
   ScanQrCode,
   Search,
   ZoomIn,
@@ -16,7 +17,13 @@ import { Inspector } from "./components/Inspector";
 import { Sidebar } from "./components/Sidebar";
 import { documentPixelSize, guideSnapRect, initialProject } from "./lib/project";
 import { createSerialRecords, renderTemplate } from "./lib/serial";
-import type { EditorTool, GuideSnapTarget, ProjectLayer, QrMagicProject } from "./types";
+import type {
+  EditorTool,
+  GuideSnapTarget,
+  ProjectLayer,
+  QrMagicProject,
+  QrMagicProjectFile,
+} from "./types";
 
 export function App() {
   const [project, setProject] = useState<QrMagicProject>(initialProject);
@@ -28,6 +35,7 @@ export function App() {
   const [activeTool, setActiveTool] = useState<EditorTool>("select");
   const stageRef = useRef<Konva.Stage | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const projectInputRef = useRef<HTMLInputElement | null>(null);
   const records = useMemo(
     () => createSerialRecords(project.data.serial),
     [project.data.serial],
@@ -202,6 +210,14 @@ export function App() {
     return new Blob([bytes], { type: mime });
   }
 
+  function downloadBlob(blob: Blob, filename: string) {
+    const link = document.createElement("a");
+    link.download = filename;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
   function waitForCanvasUpdate() {
     return new Promise<void>((resolve) => {
       window.setTimeout(() => resolve(), 50);
@@ -252,12 +268,69 @@ export function App() {
 
     setSelectedRecordIndex(originalRecordIndex);
     const blob = await zip.generateAsync({ type: "blob" });
-    const link = document.createElement("a");
-    link.download = `${project.document.name.replace(/[\\/:*?"<>|]/g, "_") || "qrmagic"}-png-set.zip`;
-    link.href = URL.createObjectURL(blob);
-    link.click();
-    URL.revokeObjectURL(link.href);
+    downloadBlob(
+      blob,
+      `${project.document.name.replace(/[\\/:*?"<>|]/g, "_") || "qrmagic"}-png-set.zip`,
+    );
     setIsExportingBatch(false);
+  }
+
+  function sanitizeFilename(value: string) {
+    return value.replace(/[\\/:*?"<>|]/g, "_").trim() || "qrmagic";
+  }
+
+  function saveProjectFile() {
+    const projectFile: QrMagicProjectFile = {
+      format: "qrmagic.project",
+      savedAt: new Date().toISOString(),
+      project,
+    };
+    downloadBlob(
+      new Blob([JSON.stringify(projectFile, null, 2)], { type: "application/json" }),
+      `${sanitizeFilename(project.document.name)}.qrmagic.json`,
+    );
+  }
+
+  function isProject(value: unknown): value is QrMagicProject {
+    if (!value || typeof value !== "object") return false;
+    const candidate = value as Partial<QrMagicProject>;
+    return (
+      candidate.version === 1 &&
+      Boolean(candidate.document) &&
+      Array.isArray(candidate.layers) &&
+      Boolean(candidate.data) &&
+      Boolean(candidate.export)
+    );
+  }
+
+  function projectFromFile(value: unknown) {
+    if (isProject(value)) return value;
+    if (!value || typeof value !== "object") return null;
+    const candidate = value as Partial<QrMagicProjectFile>;
+    return candidate.format === "qrmagic.project" && isProject(candidate.project)
+      ? candidate.project
+      : null;
+  }
+
+  function openProjectFile(file: File) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const loadedProject = projectFromFile(JSON.parse(String(reader.result)));
+        if (!loadedProject) {
+          window.alert("That file does not look like a QR Magic project.");
+          return;
+        }
+        setProject(loadedProject);
+        setSelectedLayerId(loadedProject.layers[0]?.id ?? "");
+        setSelectedRecordIndex(0);
+        setZoom(1);
+        setActiveTool("select");
+      } catch {
+        window.alert("QR Magic could not read that project file.");
+      }
+    };
+    reader.readAsText(file);
   }
 
   function snapSelectedLayerToTarget(target: GuideSnapTarget) {
@@ -360,9 +433,27 @@ export function App() {
             <ZoomIn size={17} />
           </button>
           <span className="toolbar-divider" />
-          <button className="tool-button" title="Export PNG set" onClick={exportBatchPngs}>
-            <ArrowDownToLine size={17} />
+          <button
+            className="tool-button"
+            title="Open project"
+            onClick={() => projectInputRef.current?.click()}
+          >
+            <FolderOpen size={17} />
           </button>
+          <button className="tool-button" title="Save project" onClick={saveProjectFile}>
+            <Save size={17} />
+          </button>
+          <input
+            ref={projectInputRef}
+            type="file"
+            accept=".qrmagic.json,application/json"
+            className="visually-hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) openProjectFile(file);
+              event.target.value = "";
+            }}
+          />
           <input
             ref={imageInputRef}
             type="file"
@@ -404,6 +495,7 @@ export function App() {
           record={currentRecord}
           zoom={zoom}
           activeTool={activeTool}
+          onZoomDelta={updateZoom}
           onSelectLayer={setSelectedLayerId}
           onUpdateLayer={updateLayer}
           registerStage={(stage) => {

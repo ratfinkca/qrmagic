@@ -100,6 +100,12 @@ export type QrMagicProject = {
   };
 };
 
+export type QrMagicProjectFile = {
+  format: "qrmagic.project";
+  savedAt: string;
+  project: QrMagicProject;
+};
+
 export type RenderRecord = {
   index: number;
   serial: string;

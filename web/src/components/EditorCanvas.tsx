@@ -13,6 +13,7 @@ type EditorCanvasProps = {
   record: RenderRecord;
   zoom: number;
   activeTool: EditorTool;
+  onZoomDelta: (delta: number) => void;
   onSelectLayer: (layerId: string) => void;
   onUpdateLayer: (layerId: string, patch: Partial<ProjectLayer>) => void;
   registerStage: (stage: Konva.Stage | null) => void;
@@ -382,6 +383,7 @@ export function EditorCanvas({
   record,
   zoom,
   activeTool,
+  onZoomDelta,
   onSelectLayer,
   onUpdateLayer,
   registerStage,
@@ -408,6 +410,20 @@ export function EditorCanvas({
     registerStage(stageRef.current);
     return () => registerStage(null);
   }, [registerStage]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return undefined;
+
+    function zoomPanMode(event: WheelEvent) {
+      if (activeTool !== "pan") return;
+      event.preventDefault();
+      onZoomDelta(event.deltaY > 0 ? -0.1 : 0.1);
+    }
+
+    viewport.addEventListener("wheel", zoomPanMode, { passive: false });
+    return () => viewport.removeEventListener("wheel", zoomPanMode);
+  }, [activeTool, onZoomDelta]);
 
   function startPan(event: MouseEvent<HTMLDivElement>) {
     if (activeTool !== "pan" || !viewportRef.current) return;
