@@ -9,7 +9,6 @@ import {
   AlignVerticalJustifyEnd,
   AlignVerticalJustifyStart,
   ArrowDownToLine,
-  ImagePlus,
   MousePointer2,
   PanelLeft,
   ScanQrCode,
@@ -42,6 +41,107 @@ export function App() {
       ...current,
       layers: current.layers.map((layer) =>
         layer.id === layerId ? ({ ...layer, ...patch } as ProjectLayer) : layer,
+      ),
+    }));
+  }
+
+  function addLayer(layer: ProjectLayer) {
+    setProject((current) => ({
+      ...current,
+      layers: [...current.layers, layer],
+    }));
+    setSelectedLayerId(layer.id);
+  }
+
+  function addShapeLayer() {
+    const layerId = `layer_shape_${Date.now()}`;
+    addLayer({
+      id: layerId,
+      type: "shape",
+      shape: "rectangle",
+      name: "Color Shape",
+      visible: true,
+      locked: false,
+      x: Math.round(docSize.width * 0.15),
+      y: Math.round(docSize.height * 0.15),
+      width: Math.round(docSize.width * 0.35),
+      height: Math.round(docSize.height * 0.25),
+      rotation: 0,
+      opacity: 1,
+      fill: "#14b8a6",
+      fillOpacity: 1,
+      stroke: "transparent",
+      strokeOpacity: 1,
+      strokeWidth: 0,
+      dash: [],
+      cornerRadius: 12,
+    });
+  }
+
+  function addTextLayer() {
+    const layerId = `layer_text_${Date.now()}`;
+    addLayer({
+      id: layerId,
+      type: "text",
+      name: "Text",
+      visible: true,
+      locked: false,
+      x: Math.round(docSize.width * 0.2),
+      y: Math.round(docSize.height * 0.2),
+      width: Math.round(docSize.width * 0.5),
+      height: 64,
+      rotation: 0,
+      opacity: 1,
+      textTemplate: "New text",
+      fontFamily: "Inter, Arial, sans-serif",
+      fontSize: 36,
+      fontWeight: 800,
+      fill: "#111827",
+      fillOpacity: 1,
+      align: "left",
+    });
+  }
+
+  function addQrLayer() {
+    const layerId = `layer_qr_${Date.now()}`;
+    addLayer({
+      id: layerId,
+      type: "qr",
+      name: "QR Code",
+      visible: true,
+      locked: false,
+      x: Math.round(docSize.width * 0.35),
+      y: Math.round(docSize.height * 0.3),
+      width: 240,
+      height: 240,
+      rotation: 0,
+      opacity: 1,
+      payloadTemplate: "{{serial}}",
+      foreground: "#111827",
+      background: "#ffffff",
+    });
+  }
+
+  function updateLayerOrder(layerId: string, direction: "front" | "forward" | "backward" | "back") {
+    setProject((current) => {
+      const index = current.layers.findIndex((layer) => layer.id === layerId);
+      if (index === -1) return current;
+
+      const layers = [...current.layers];
+      const [layer] = layers.splice(index, 1);
+      if (direction === "front") layers.push(layer);
+      if (direction === "back") layers.unshift(layer);
+      if (direction === "forward") layers.splice(Math.min(index + 1, layers.length), 0, layer);
+      if (direction === "backward") layers.splice(Math.max(index - 1, 0), 0, layer);
+      return { ...current, layers };
+    });
+  }
+
+  function toggleLayerVisibility(layerId: string) {
+    setProject((current) => ({
+      ...current,
+      layers: current.layers.map((layer) =>
+        layer.id === layerId ? { ...layer, visible: !layer.visible } : layer,
       ),
     }));
   }
@@ -182,11 +282,7 @@ export function App() {
         src,
         fit: "stretch",
       };
-      setProject((current) => ({
-        ...current,
-        layers: [layer, ...current.layers],
-      }));
-      setSelectedLayerId(layerId);
+      addLayer(layer);
     };
     reader.readAsDataURL(file);
   }
@@ -209,14 +305,6 @@ export function App() {
           >
             <PanelLeft size={17} />
           </button>
-          <button
-            className="tool-button"
-            title="Upload image"
-            onClick={() => imageInputRef.current?.click()}
-          >
-            <ImagePlus size={17} />
-          </button>
-          <span className="toolbar-divider" />
           <button className="tool-button" title="Align left" onClick={() => alignSelectedLayer("left")}>
             <AlignHorizontalJustifyStart size={17} />
           </button>
@@ -273,6 +361,12 @@ export function App() {
             onSelectLayer={setSelectedLayerId}
             onUpdateSerial={updateSerial}
             onUpdateDocument={updateDocument}
+            onAddShapeLayer={addShapeLayer}
+            onAddTextLayer={addTextLayer}
+            onAddQrLayer={addQrLayer}
+            onAddImageLayer={() => imageInputRef.current?.click()}
+            onMoveLayer={updateLayerOrder}
+            onToggleLayerVisibility={toggleLayerVisibility}
           />
         ) : null}
         <EditorCanvas

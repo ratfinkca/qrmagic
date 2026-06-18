@@ -30,6 +30,7 @@ export type TextLayer = LayerBase & {
   fontSize: number;
   fontWeight: number;
   fill: string;
+  fillOpacity: number;
   align: "left" | "center" | "right";
 };
 
@@ -44,7 +45,9 @@ export type ShapeLayer = LayerBase & {
   type: "shape";
   shape: "rectangle";
   fill: string;
+  fillOpacity: number;
   stroke: string;
+  strokeOpacity: number;
   strokeWidth: number;
   dash: number[];
   cornerRadius: number;

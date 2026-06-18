@@ -118,6 +118,19 @@ export function Inspector({
                 }
               />
             </label>
+            <label>
+              Layer opacity
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={selectedLayer.opacity}
+                onChange={(event) =>
+                  onUpdateLayer(selectedLayer.id, { opacity: Number(event.target.value) })
+                }
+              />
+            </label>
             {selectedLayer.type === "shape" || selectedLayer.type === "image" ? (
               <button className="secondary-action" onClick={onSnapToPage}>
                 Snap to page
@@ -203,6 +216,21 @@ export function Inspector({
                     />
                   </label>
                 </div>
+                <label>
+                  Color opacity
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={selectedLayer.fillOpacity}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        fillOpacity: Number(event.target.value),
+                      } as Partial<ProjectLayer>)
+                    }
+                  />
+                </label>
               </>
             ) : null}
             {selectedLayer.type === "shape" ? (
@@ -232,6 +260,38 @@ export function Inspector({
                       onChange={(event) =>
                         onUpdateLayer(selectedLayer.id, {
                           stroke: event.target.value,
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="field-grid">
+                  <label>
+                    Fill opacity
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={selectedLayer.fillOpacity}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          fillOpacity: Number(event.target.value),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Stroke opacity
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={selectedLayer.strokeOpacity}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          strokeOpacity: Number(event.target.value),
                         } as Partial<ProjectLayer>)
                       }
                     />

@@ -15,6 +15,22 @@ type EditorCanvasProps = {
   registerStage: (stage: Konva.Stage | null) => void;
 };
 
+function colorWithOpacity(color: string, opacity: number) {
+  if (color === "transparent") {
+    return color;
+  }
+
+  const normalized = color.replace("#", "");
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return color;
+  }
+
+  const red = parseInt(normalized.slice(0, 2), 16);
+  const green = parseInt(normalized.slice(2, 4), 16);
+  const blue = parseInt(normalized.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, opacity))})`;
+}
+
 function useQrDataUrl(layer: ProjectLayer, record: RenderRecord) {
   const [dataUrl, setDataUrl] = useState("");
 
@@ -254,7 +270,7 @@ function TextNode({
         fontFamily={layer.fontFamily}
         fontSize={layer.fontSize}
         fontStyle={String(layer.fontWeight)}
-        fill={layer.fill}
+        fill={colorWithOpacity(layer.fill, layer.fillOpacity)}
         align={layer.align}
         verticalAlign="middle"
         rotation={layer.rotation}
@@ -317,8 +333,8 @@ function ShapeNode({
         y={layer.y}
         width={layer.width}
         height={layer.height}
-        fill={layer.fill}
-        stroke={layer.stroke}
+        fill={colorWithOpacity(layer.fill, layer.fillOpacity)}
+        stroke={colorWithOpacity(layer.stroke, layer.strokeOpacity)}
         strokeWidth={layer.strokeWidth}
         dash={layer.dash}
         cornerRadius={layer.cornerRadius}
