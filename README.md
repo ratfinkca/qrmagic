@@ -2,6 +2,9 @@
 
 A cross-platform batch QR code generator with a simple GUI, built in Python/Tkinter.
 
+> Next-edition work is underway on `codex/convert_2_web_00`.
+> The original Python/Tkinter app remains the working reference implementation, while the new `web/` app is a local-first browser prototype for a more flexible visual designer.
+
 **Features**
 
 * Import data from a text/CSV file (optional)
@@ -14,6 +17,41 @@ A cross-platform batch QR code generator with a simple GUI, built in Python/Tkin
 ---
 
 ## Getting Started
+
+### Web Prototype
+
+The next-edition web app lives in `web/`.
+
+```bash
+cd web
+pnpm install
+pnpm dev
+```
+
+Common checks:
+
+```bash
+pnpm build
+```
+
+Current prototype capabilities include:
+
+* Visual canvas editor with select, pan, zoom, lasso, and multi-select.
+* DPI-aware document setup with page color, transparency, trim, bleed, and safe-area guides.
+* Layer management for shape/color, image, QR, and text layers.
+* Layer visibility, deletion, drag ordering, opacity, color, and sizing controls.
+* Multiple serial data groups, with new QR layers paired to their own serial text layer.
+* Alignment tools for single layers, selected groups, and document guide targets.
+* Save/open `.qrmagic.json` project files.
+* Flattened PNG export for a single record and zipped PNG batch export.
+
+Known prototype limits:
+
+* Layered/vector/design-tool exports are planned but not implemented.
+* CSV import and manifest export are still planned.
+* The production build currently emits a large-bundle warning because canvas, QR, ZIP, and export libraries are all loaded in the main client bundle.
+
+See [docs/next-edition-plan.md](docs/next-edition-plan.md), [docs/project-model.md](docs/project-model.md), and [docs/engineering-guardrails.md](docs/engineering-guardrails.md) for the current rewrite direction.
 
 ### Prerequisites
 
