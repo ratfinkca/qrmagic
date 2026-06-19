@@ -17,6 +17,7 @@ import { Inspector } from "./components/Inspector";
 import { Sidebar } from "./components/Sidebar";
 import {
   createDataGroup,
+  createProjectId,
   documentPixelSize,
   guideSnapRect,
   initialProject,
@@ -65,8 +66,18 @@ export function App() {
     setSelectedLayerId(layer.id);
   }
 
+  function uniqueName(baseName: string, existingNames: string[]) {
+    if (!existingNames.includes(baseName)) return baseName;
+
+    let suffix = 2;
+    while (existingNames.includes(`${baseName} ${suffix}`)) {
+      suffix += 1;
+    }
+    return `${baseName} ${suffix}`;
+  }
+
   function addShapeLayer() {
-    const layerId = `layer_shape_${Date.now()}`;
+    const layerId = createProjectId("layer_shape");
     addLayer({
       id: layerId,
       type: "shape",
@@ -91,7 +102,7 @@ export function App() {
   }
 
   function addTextLayer() {
-    const layerId = `layer_text_${Date.now()}`;
+    const layerId = createProjectId("layer_text");
     addLayer({
       id: layerId,
       type: "text",
@@ -116,34 +127,69 @@ export function App() {
   }
 
   function addQrLayer() {
-    const layerId = `layer_qr_${Date.now()}`;
-    const group = createDataGroup("QR serial");
-    const layer: ProjectLayer = {
-      id: layerId,
-      type: "qr",
-      name: "QR Code",
-      dataGroupId: group.id,
-      visible: true,
-      locked: false,
-      x: Math.round(docSize.width * 0.35),
-      y: Math.round(docSize.height * 0.3),
-      width: 240,
-      height: 240,
-      rotation: 0,
-      opacity: 1,
-      payloadTemplate: "{{serial}}",
-      foreground: "#111827",
-      background: "#ffffff",
-    };
-    setProject((current) => ({
-      ...current,
-      data: {
-        mode: "serial",
-        groups: [...current.data.groups, group],
-      },
-      layers: [...current.layers, layer],
-    }));
-    setSelectedLayerId(layerId);
+    const qrLayerId = createProjectId("layer_qr");
+    const serialLayerId = createProjectId("layer_text");
+    setProject((current) => {
+      const group = createDataGroup(
+        uniqueName(
+          "QR serial",
+          current.data.groups.map((groupItem) => groupItem.name),
+        ),
+      );
+      const layerNames = current.layers.map((layer) => layer.name);
+      const qrX = Math.round(docSize.width * 0.35);
+      const qrY = Math.round(docSize.height * 0.3);
+      const qrSize = 240;
+      const serialWidth = Math.max(260, Math.round(qrSize * 1.5));
+      const qrLayer: ProjectLayer = {
+        id: qrLayerId,
+        type: "qr",
+        name: uniqueName("QR Code", layerNames),
+        dataGroupId: group.id,
+        visible: true,
+        locked: false,
+        x: qrX,
+        y: qrY,
+        width: qrSize,
+        height: qrSize,
+        rotation: 0,
+        opacity: 1,
+        payloadTemplate: "{{serial}}",
+        foreground: "#111827",
+        background: "#ffffff",
+      };
+      const serialLayer: ProjectLayer = {
+        id: serialLayerId,
+        type: "text",
+        name: uniqueName("Serial", [...layerNames, qrLayer.name]),
+        dataGroupId: group.id,
+        visible: true,
+        locked: false,
+        x: Math.round(qrX + qrSize / 2 - serialWidth / 2),
+        y: qrY + qrSize + 24,
+        width: serialWidth,
+        height: 52,
+        rotation: 0,
+        opacity: 1,
+        textTemplate: "{{serial}}",
+        fontFamily: "Inter, Arial, sans-serif",
+        fontSize: 34,
+        fontWeight: 800,
+        fill: "#111827",
+        fillOpacity: 1,
+        align: "center",
+      };
+
+      return {
+        ...current,
+        data: {
+          mode: "serial",
+          groups: [...current.data.groups, group],
+        },
+        layers: [...current.layers, qrLayer, serialLayer],
+      };
+    });
+    setSelectedLayerId(qrLayerId);
   }
 
   function toggleLayerVisibility(layerId: string) {
@@ -194,16 +240,6 @@ export function App() {
             ? { ...group, serial: { ...group.serial, ...patch } }
             : group,
         ),
-      },
-    }));
-  }
-
-  function addDataGroup() {
-    setProject((current) => ({
-      ...current,
-      data: {
-        mode: "serial",
-        groups: [...current.data.groups, createDataGroup("New serial")],
       },
     }));
   }
@@ -409,7 +445,7 @@ export function App() {
     const reader = new FileReader();
     reader.onload = () => {
       const src = String(reader.result);
-      const layerId = `layer_image_${Date.now()}`;
+      const layerId = createProjectId("layer_image");
       const layer: ProjectLayer = {
         id: layerId,
         type: "image",
@@ -519,7 +555,6 @@ export function App() {
             onSelectLayer={setSelectedLayerId}
             onUpdateDataGroup={updateDataGroup}
             onUpdateDataGroupSerial={updateDataGroupSerial}
-            onAddDataGroup={addDataGroup}
             onUpdateDocument={updateDocument}
             onAddShapeLayer={addShapeLayer}
             onAddTextLayer={addTextLayer}

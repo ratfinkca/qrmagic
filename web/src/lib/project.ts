@@ -11,10 +11,17 @@ const defaultSerialSettings: SerialSettings = {
   padding: 4,
 };
 
-export function createDataGroup(name = "Primary serial"): DataGroup {
-  const timestamp = Date.now();
+export function createProjectId(prefix: string) {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `${prefix}_${crypto.randomUUID()}`;
+  }
+
+  return `${prefix}_${Date.now()}_${Math.round(Math.random() * 1_000_000)}`;
+}
+
+export function createDataGroup(name = "Primary serial", id = createProjectId("group")): DataGroup {
   return {
-    id: `group_${timestamp}`,
+    id,
     name,
     mode: "serial",
     serial: {

@@ -10,7 +10,6 @@ import {
   GripVertical,
   ImagePlus,
   Layers,
-  Plus,
   QrCode,
   Trash2,
   Type,
@@ -23,7 +22,6 @@ type SidebarProps = {
   onSelectLayer: (layerId: string) => void;
   onUpdateDataGroup: (groupId: string, patch: Partial<DataGroup>) => void;
   onUpdateDataGroupSerial: (groupId: string, patch: Partial<DataGroup["serial"]>) => void;
-  onAddDataGroup: () => void;
   onUpdateDocument: (patch: Partial<QrMagicProject["document"]>) => void;
   onAddShapeLayer: () => void;
   onAddTextLayer: () => void;
@@ -42,7 +40,6 @@ export function Sidebar({
   onSelectLayer,
   onUpdateDataGroup,
   onUpdateDataGroupSerial,
-  onAddDataGroup,
   onUpdateDocument,
   onAddShapeLayer,
   onAddTextLayer,
@@ -299,10 +296,6 @@ export function Sidebar({
         </button>
         {openPanels.data ? (
           <>
-            <button className="secondary-action" onClick={onAddDataGroup}>
-              <Plus size={15} />
-              Add data group
-            </button>
             <div className="data-group-list">
               {project.data.groups.map((group) => (
                 <div className="data-group-editor" key={group.id}>
