@@ -55,6 +55,7 @@ export function ColorControl({
 }: ColorControlProps) {
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<"down" | "up">("down");
+  const [alignment, setAlignment] = useState<"left" | "right">("left");
   const [eyeDropperSupported, setEyeDropperSupported] = useState(false);
   const controlRef = useRef<HTMLDivElement>(null);
   const color = normalizeHex(value);
@@ -111,7 +112,9 @@ export function ColorControl({
     if (rect) {
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
+      const spaceRight = window.innerWidth - rect.left;
       setPlacement(spaceBelow < 460 && spaceAbove > spaceBelow ? "up" : "down");
+      setAlignment(spaceRight < 268 ? "right" : "left");
     }
     setOpen((current) => !current);
   }
@@ -121,15 +124,20 @@ export function ColorControl({
       <button
         type="button"
         className="color-trigger"
+        aria-label={`${label} ${color}`}
+        title={color}
         onClick={togglePopover}
         disabled={disabled}
       >
         <span className="color-trigger-label">{label}</span>
-        <span className="color-trigger-value">{color}</span>
         <span className="color-preview" style={{ background: color }} />
       </button>
       {open ? (
-        <div className={`color-popover ${placement === "up" ? "open-up" : ""}`}>
+        <div
+          className={`color-popover ${placement === "up" ? "open-up" : ""} ${
+            alignment === "right" ? "align-right" : ""
+          }`}
+        >
           <HexColorPicker color={color} onChange={onChange} onChangeEnd={onChangeEnd} />
           <label>
             Hex

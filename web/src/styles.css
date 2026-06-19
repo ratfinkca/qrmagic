@@ -266,7 +266,7 @@ select:focus {
 
 .color-trigger {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 28px;
+  grid-template-columns: minmax(0, 1fr) 28px;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -297,13 +297,6 @@ select:focus {
   white-space: nowrap;
 }
 
-.color-trigger-value {
-  color: #0f172a;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
 .color-preview {
   width: 24px;
   height: 22px;
@@ -330,6 +323,11 @@ select:focus {
 .color-popover.open-up {
   top: auto;
   bottom: calc(100% + 6px);
+}
+
+.color-popover.align-right {
+  right: 0;
+  left: auto;
 }
 
 .color-popover .react-colorful {
@@ -486,6 +484,23 @@ select:focus {
 
 .shape-customize[open] summary {
   margin-bottom: 8px;
+}
+
+.appearance-group {
+  display: grid;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.appearance-group + .appearance-group {
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.appearance-group-title {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .layer-list {

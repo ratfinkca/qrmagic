@@ -824,62 +824,58 @@ export function Inspector({
                     ))}
                   </select>
                 </label>
-                <div className="field-grid">
-                  <label>
-                    Fill mode
-                    <select
-                      value={selectedLayer.fillMode}
-                      onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
-                          fillMode: event.target.value as ShapeFillMode,
-                        } as Partial<ProjectLayer>)
-                      }
-                    >
-                      <option value="solid">Solid</option>
-                      <option value="linear-gradient">Linear gradient</option>
-                      <option value="radial-gradient">Radial gradient</option>
-                    </select>
-                  </label>
-                  {layerColorControl(
-                    selectedLayer.fillMode === "solid" ? "Fill" : "Gradient from",
-                    selectedLayer.fillMode === "solid"
-                      ? selectedLayer.fill
-                      : selectedLayer.fillGradientFrom,
-                    (color) =>
-                      selectedLayer.fillMode === "solid"
-                        ? { fill: color }
-                        : { fillGradientFrom: color },
-                  )}
-                </div>
-                {selectedLayer.fillMode !== "solid" ? (
+                <div className="appearance-group">
+                  <div className="appearance-group-title">Fill</div>
                   <div className="field-grid">
-                    {layerColorControl("Gradient to", selectedLayer.fillGradientTo, (color) => ({
-                      fillGradientTo: color,
-                    }))}
-                    {selectedLayer.fillMode === "linear-gradient" ? (
-                      <label>
-                        Angle
-                        <input
-                          type="number"
-                          value={selectedLayer.fillGradientAngle}
-                          onChange={(event) =>
-                            onUpdateLayer(selectedLayer.id, {
-                              fillGradientAngle: Number(event.target.value),
-                            } as Partial<ProjectLayer>)
-                          }
-                        />
-                      </label>
-                    ) : null}
+                    <label>
+                      Mode
+                      <select
+                        value={selectedLayer.fillMode}
+                        onChange={(event) =>
+                          onUpdateLayer(selectedLayer.id, {
+                            fillMode: event.target.value as ShapeFillMode,
+                          } as Partial<ProjectLayer>)
+                        }
+                      >
+                        <option value="solid">Solid</option>
+                        <option value="linear-gradient">Linear gradient</option>
+                        <option value="radial-gradient">Radial gradient</option>
+                      </select>
+                    </label>
+                    {layerColorControl(
+                      selectedLayer.fillMode === "solid" ? "Color" : "From",
+                      selectedLayer.fillMode === "solid"
+                        ? selectedLayer.fill
+                        : selectedLayer.fillGradientFrom,
+                      (color) =>
+                        selectedLayer.fillMode === "solid"
+                          ? { fill: color }
+                          : { fillGradientFrom: color },
+                    )}
                   </div>
-                ) : null}
-                <div className="field-grid">
-                  {layerColorControl("Stroke", selectedLayer.stroke, (color) => ({
-                    stroke: color,
-                  }))}
-                </div>
-                <div className="field-grid">
+                  {selectedLayer.fillMode !== "solid" ? (
+                    <div className="field-grid">
+                      {layerColorControl("To", selectedLayer.fillGradientTo, (color) => ({
+                        fillGradientTo: color,
+                      }))}
+                      {selectedLayer.fillMode === "linear-gradient" ? (
+                        <label>
+                          Angle
+                          <input
+                            type="number"
+                            value={selectedLayer.fillGradientAngle}
+                            onChange={(event) =>
+                              onUpdateLayer(selectedLayer.id, {
+                                fillGradientAngle: Number(event.target.value),
+                              } as Partial<ProjectLayer>)
+                            }
+                          />
+                        </label>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <label>
-                    Fill opacity
+                    Opacity
                     <input
                       type="range"
                       min="0"
@@ -894,8 +890,28 @@ export function Inspector({
                       }
                     />
                   </label>
+                </div>
+                <div className="appearance-group">
+                  <div className="appearance-group-title">Stroke</div>
+                  <div className="field-grid">
+                    {layerColorControl("Color", selectedLayer.stroke, (color) => ({
+                      stroke: color,
+                    }))}
+                    <label>
+                      Width
+                      <input
+                        type="number"
+                        value={selectedLayer.strokeWidth}
+                        onChange={(event) =>
+                          onUpdateLayer(selectedLayer.id, {
+                            strokeWidth: Number(event.target.value),
+                          } as Partial<ProjectLayer>)
+                        }
+                      />
+                    </label>
+                  </div>
                   <label>
-                    Stroke opacity
+                    Opacity
                     <input
                       type="range"
                       min="0"
@@ -912,18 +928,6 @@ export function Inspector({
                   </label>
                 </div>
                 <div className="field-grid">
-                  <label>
-                    Stroke width
-                    <input
-                      type="number"
-                      value={selectedLayer.strokeWidth}
-                      onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
-                          strokeWidth: Number(event.target.value),
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
                   {selectedLayer.shape === "rectangle" ? (
                   <label>
                     Corner radius
