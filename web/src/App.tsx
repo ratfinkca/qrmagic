@@ -1,14 +1,18 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type Konva from "konva";
 import JSZip from "jszip";
 import {
+  Focus,
   FolderOpen,
   Hand,
+  Maximize2,
   MousePointer2,
   PanelLeft,
+  Redo2,
   Save,
   ScanQrCode,
   Search,
+  Undo2,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -35,18 +39,36 @@ import type {
 
 type Alignment = "left" | "center-x" | "right" | "top" | "center-y" | "bottom";
 type AlignTarget = GuideSnapTarget | "selection";
+type ProjectHistory = {
+  past: QrMagicProject[];
+  future: QrMagicProject[];
+};
+type ZoomCommand = {
+  id: number;
+  mode: "fit" | "selection";
+};
+type ProjectUpdateOptions = {
+  recordHistory?: boolean;
+};
+
+const MAX_HISTORY_STEPS = 80;
 
 export function App() {
   const [project, setProject] = useState<QrMagicProject>(initialProject);
+  const [projectHistory, setProjectHistory] = useState<ProjectHistory>({ past: [], future: [] });
   const [selectedLayerIds, setSelectedLayerIds] = useState([initialProject.layers[0].id]);
   const [selectedRecordIndex, setSelectedRecordIndex] = useState(0);
   const [panelsVisible, setPanelsVisible] = useState(true);
   const [isExportingBatch, setIsExportingBatch] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [fitScale, setFitScale] = useState(1);
+  const [zoomCommand, setZoomCommand] = useState<ZoomCommand | null>(null);
   const [activeTool, setActiveTool] = useState<EditorTool>("select");
   const stageRef = useRef<Konva.Stage | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const projectInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingProjectHistoryRef = useRef<QrMagicProject | null>(null);
+  const projectRef = useRef(project);
   const records = useMemo(() => createDataRecords(project.data.groups), [project.data.groups]);
   const docSize = useMemo(() => documentPixelSize(project), [project]);
   const currentRecord = records[Math.min(selectedRecordIndex, records.length - 1)] ?? records[0];
@@ -56,18 +78,130 @@ export function App() {
       ? project.layers.find((layer) => layer.id === primarySelectedLayerId)
       : undefined;
   const selectedLayers = project.layers.filter((layer) => selectedLayerIds.includes(layer.id));
+  const canUndo = projectHistory.past.length > 0;
+  const canRedo = projectHistory.future.length > 0;
 
-  function updateLayer(layerId: string, patch: Partial<ProjectLayer>) {
-    setProject((current) => ({
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
+
+  const updateProject = useCallback(
+    (
+      updater: QrMagicProject | ((current: QrMagicProject) => QrMagicProject),
+      options: ProjectUpdateOptions = {},
+    ) => {
+      setProject((current) => {
+        const nextProject = typeof updater === "function" ? updater(current) : updater;
+        if (nextProject === current) return current;
+
+        if (options.recordHistory !== false) {
+          setProjectHistory((history) => ({
+            past: [...history.past, current].slice(-MAX_HISTORY_STEPS),
+            future: [],
+          }));
+        }
+        return nextProject;
+      });
+    },
+    [],
+  );
+
+  const resetProject = useCallback((nextProject: QrMagicProject) => {
+    setProject(nextProject);
+    setProjectHistory({ past: [], future: [] });
+  }, []);
+
+  const undoProjectChange = useCallback(() => {
+    setProjectHistory((history) => {
+      const previousProject = history.past.at(-1);
+      if (!previousProject) return history;
+
+      setProject(previousProject);
+      return {
+        past: history.past.slice(0, -1),
+        future: [project, ...history.future].slice(0, MAX_HISTORY_STEPS),
+      };
+    });
+  }, [project]);
+
+  const redoProjectChange = useCallback(() => {
+    setProjectHistory((history) => {
+      const nextProject = history.future[0];
+      if (!nextProject) return history;
+
+      setProject(nextProject);
+      return {
+        past: [...history.past, project].slice(-MAX_HISTORY_STEPS),
+        future: history.future.slice(1),
+      };
+    });
+  }, [project]);
+
+  const beginProjectChangeTransaction = useCallback(() => {
+    pendingProjectHistoryRef.current ??= projectRef.current;
+  }, []);
+
+  const commitProjectChangeTransaction = useCallback(() => {
+    const historySnapshot = pendingProjectHistoryRef.current;
+    const currentProject = projectRef.current;
+    pendingProjectHistoryRef.current = null;
+    if (!historySnapshot || historySnapshot === currentProject) return;
+
+    setProjectHistory((history) => ({
+      past: [...history.past, historySnapshot].slice(-MAX_HISTORY_STEPS),
+      future: [],
+    }));
+  }, []);
+
+  useEffect(() => {
+    setSelectedLayerIds((currentSelection) => {
+      const layerIds = new Set(project.layers.map((layer) => layer.id));
+      const validSelection = currentSelection.filter((layerId) => layerIds.has(layerId));
+      if (validSelection.length) return validSelection;
+      return [project.layers[project.layers.length - 1]?.id ?? ""].filter(Boolean);
+    });
+  }, [project.layers]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const isEditableTarget =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable;
+      if (isEditableTarget || (!event.ctrlKey && !event.metaKey)) return;
+
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undoProjectChange();
+      }
+      if (key === "y" || (key === "z" && event.shiftKey)) {
+        event.preventDefault();
+        redoProjectChange();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [redoProjectChange, undoProjectChange]);
+
+  function updateLayer(
+    layerId: string,
+    patch: Partial<ProjectLayer>,
+    options?: ProjectUpdateOptions,
+  ) {
+    updateProject((current) => ({
       ...current,
       layers: current.layers.map((layer) =>
         layer.id === layerId ? ({ ...layer, ...patch } as ProjectLayer) : layer,
       ),
-    }));
+    }), options);
   }
 
   function addLayer(layer: ProjectLayer) {
-    setProject((current) => ({
+    updateProject((current) => ({
       ...current,
       layers: [...current.layers, layer],
     }));
@@ -137,7 +271,7 @@ export function App() {
   function addQrLayer() {
     const qrLayerId = createProjectId("layer_qr");
     const serialLayerId = createProjectId("layer_text");
-    setProject((current) => {
+    updateProject((current) => {
       const group = createDataGroup(
         uniqueName(
           "QR serial",
@@ -201,7 +335,7 @@ export function App() {
   }
 
   function toggleLayerVisibility(layerId: string) {
-    setProject((current) => ({
+    updateProject((current) => ({
       ...current,
       layers: current.layers.map((layer) =>
         layer.id === layerId ? { ...layer, visible: !layer.visible } : layer,
@@ -210,7 +344,7 @@ export function App() {
   }
 
   function deleteLayer(layerId: string) {
-    setProject((current) => {
+    updateProject((current) => {
       const layers = current.layers.filter((layer) => layer.id !== layerId);
       if (selectedLayerIds.includes(layerId)) {
         setSelectedLayerIds((currentSelection) => {
@@ -223,14 +357,14 @@ export function App() {
   }
 
   function reorderLayers(layers: ProjectLayer[]) {
-    setProject((current) => ({
+    updateProject((current) => ({
       ...current,
       layers,
     }));
   }
 
   function updateDataGroup(groupId: string, patch: Partial<DataGroup>) {
-    setProject((current) => ({
+    updateProject((current) => ({
       ...current,
       data: {
         ...current.data,
@@ -242,7 +376,7 @@ export function App() {
   }
 
   function updateDataGroupSerial(groupId: string, patch: Partial<DataGroup["serial"]>) {
-    setProject((current) => ({
+    updateProject((current) => ({
       ...current,
       data: {
         ...current.data,
@@ -256,7 +390,7 @@ export function App() {
   }
 
   function updateDocument(patch: Partial<QrMagicProject["document"]>) {
-    setProject((current) => ({
+    updateProject((current) => ({
       ...current,
       document: {
         ...current.document,
@@ -266,7 +400,7 @@ export function App() {
   }
 
   function updateExport(patch: Partial<QrMagicProject["export"]>) {
-    setProject((current) => ({
+    updateProject((current) => ({
       ...current,
       export: {
         ...current.export,
@@ -418,7 +552,7 @@ export function App() {
           window.alert("That file does not look like a QR Magic project.");
           return;
         }
-        setProject(loadedProject);
+        resetProject(loadedProject);
         setSelectedLayerIds([loadedProject.layers[0]?.id ?? ""].filter(Boolean));
         setSelectedRecordIndex(0);
         setZoom(1);
@@ -444,6 +578,15 @@ export function App() {
 
   function updateZoom(delta: number) {
     setZoom((current) => Math.min(3, Math.max(0.25, Number((current + delta).toFixed(2)))));
+  }
+
+  function setActualZoom(nextScale: number) {
+    const safeFitScale = fitScale > 0 ? fitScale : 1;
+    setZoom(Math.min(8, Math.max(0.25, Number((nextScale / safeFitScale).toFixed(3)))));
+  }
+
+  function requestZoomCommand(mode: ZoomCommand["mode"]) {
+    setZoomCommand((current) => ({ id: (current?.id ?? 0) + 1, mode }));
   }
 
   function selectionBounds(layers: ProjectLayer[]) {
@@ -489,7 +632,7 @@ export function App() {
         deltaY = targetRect.y + targetRect.height - (selectedBounds.y + selectedBounds.height);
       }
 
-      setProject((current) => ({
+      updateProject((current) => ({
         ...current,
         layers: current.layers.map((layer) =>
           layerIds.has(layer.id)
@@ -522,7 +665,7 @@ export function App() {
         nextY += layer.height;
       });
 
-      setProject((current) => ({
+      updateProject((current) => ({
         ...current,
         layers: current.layers.map((layer) =>
           layerIds.has(layer.id)
@@ -533,7 +676,7 @@ export function App() {
       return;
     }
 
-    setProject((current) => ({
+    updateProject((current) => ({
       ...current,
       layers: current.layers.map((layer) => {
         if (!layerIds.has(layer.id)) return layer;
@@ -557,7 +700,7 @@ export function App() {
     patch: Partial<Pick<ProjectLayer, "x" | "y" | "width" | "height">>,
   ) {
     const selectedIds = new Set(selectedLayerIds);
-    setProject((current) => {
+    updateProject((current) => {
       const layers = current.layers.filter((layer) => selectedIds.has(layer.id));
       if (!layers.length) return current;
 
@@ -587,14 +730,17 @@ export function App() {
     });
   }
 
-  function updateSelectedLayers(patch: Partial<Pick<ProjectLayer, "opacity">>) {
+  function updateSelectedLayers(
+    patch: Partial<Pick<ProjectLayer, "opacity">>,
+    options?: ProjectUpdateOptions,
+  ) {
     const selectedIds = new Set(selectedLayerIds);
-    setProject((current) => ({
+    updateProject((current) => ({
       ...current,
       layers: current.layers.map((layer) =>
         selectedIds.has(layer.id) ? ({ ...layer, ...patch } as ProjectLayer) : layer,
       ),
-    }));
+    }), options);
   }
 
   function addImageLayer(file: File) {
@@ -653,15 +799,33 @@ export function App() {
             <PanelLeft size={17} />
           </button>
           <span className="toolbar-divider" />
+          <button className="tool-button" title="Undo" onClick={undoProjectChange} disabled={!canUndo}>
+            <Undo2 size={17} />
+          </button>
+          <button className="tool-button" title="Redo" onClick={redoProjectChange} disabled={!canRedo}>
+            <Redo2 size={17} />
+          </button>
+          <span className="toolbar-divider" />
           <button className="tool-button" title="Zoom out" onClick={() => updateZoom(-0.1)}>
             <ZoomOut size={17} />
           </button>
-          <button className="zoom-indicator" title="Reset zoom" onClick={() => setZoom(1)}>
+          <button className="zoom-indicator" title="Actual size" onClick={() => setActualZoom(1)}>
             <Search size={14} />
-            <span>{Math.round(zoom * 100)}%</span>
+            <span>{Math.round(fitScale * zoom * 100)}%</span>
           </button>
           <button className="tool-button" title="Zoom in" onClick={() => updateZoom(0.1)}>
             <ZoomIn size={17} />
+          </button>
+          <button className="tool-button" title="Fit page" onClick={() => requestZoomCommand("fit")}>
+            <Maximize2 size={17} />
+          </button>
+          <button
+            className="tool-button"
+            title="Zoom to selection"
+            onClick={() => requestZoomCommand("selection")}
+            disabled={!selectedLayerIds.length}
+          >
+            <Focus size={17} />
           </button>
           <span className="toolbar-divider" />
           <button
@@ -726,8 +890,11 @@ export function App() {
           selectedLayerIds={selectedLayerIds}
           record={currentRecord}
           zoom={zoom}
+          zoomCommand={zoomCommand}
           activeTool={activeTool}
           onZoomDelta={updateZoom}
+          onZoomChange={setZoom}
+          onFitScaleChange={setFitScale}
           onSelectLayers={setSelectedLayerIds}
           onUpdateLayer={updateLayer}
           registerStage={(stage) => {
@@ -750,6 +917,8 @@ export function App() {
             onAlignSelection={alignSelectedLayers}
             onUpdateSelectionBounds={updateSelectedGroupBounds}
             onUpdateSelectedLayers={updateSelectedLayers}
+            onBeginProjectChange={beginProjectChangeTransaction}
+            onCommitProjectChange={commitProjectChangeTransaction}
           />
         ) : null}
       </div>
