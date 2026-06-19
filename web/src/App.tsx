@@ -462,11 +462,39 @@ export function App() {
   function alignSelectedLayers(alignment: Alignment, target: AlignTarget) {
     const layers = project.layers.filter((layer) => selectedLayerIds.includes(layer.id));
     if (!layers.length) return;
-    const targetRect =
-      target === "selection" || layers.length > 1
-        ? selectionBounds(layers)
-        : guideSnapRect(project, target);
+    const selectedBounds = selectionBounds(layers);
+    const targetRect = target === "selection" ? selectedBounds : guideSnapRect(project, target);
     const layerIds = new Set(layers.map((layer) => layer.id));
+
+    if (target !== "selection" && layers.length > 1) {
+      const targetCenterX = targetRect.x + targetRect.width / 2;
+      const targetCenterY = targetRect.y + targetRect.height / 2;
+      const selectionCenterX = selectedBounds.x + selectedBounds.width / 2;
+      const selectionCenterY = selectedBounds.y + selectedBounds.height / 2;
+      let deltaX = 0;
+      let deltaY = 0;
+
+      if (alignment === "left") deltaX = targetRect.x - selectedBounds.x;
+      if (alignment === "center-x") deltaX = targetCenterX - selectionCenterX;
+      if (alignment === "right") {
+        deltaX = targetRect.x + targetRect.width - (selectedBounds.x + selectedBounds.width);
+      }
+      if (alignment === "top") deltaY = targetRect.y - selectedBounds.y;
+      if (alignment === "center-y") deltaY = targetCenterY - selectionCenterY;
+      if (alignment === "bottom") {
+        deltaY = targetRect.y + targetRect.height - (selectedBounds.y + selectedBounds.height);
+      }
+
+      setProject((current) => ({
+        ...current,
+        layers: current.layers.map((layer) =>
+          layerIds.has(layer.id)
+            ? ({ ...layer, x: layer.x + deltaX, y: layer.y + deltaY } as ProjectLayer)
+            : layer,
+        ),
+      }));
+      return;
+    }
 
     setProject((current) => ({
       ...current,

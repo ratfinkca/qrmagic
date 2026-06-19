@@ -54,9 +54,9 @@ export function Inspector({
   onUpdateSelectedLayers,
 }: InspectorProps) {
   const [snapTarget, setSnapTarget] = useState<GuideSnapTarget>("page");
-  const [alignTarget, setAlignTarget] = useState<GuideSnapTarget>("page");
+  const [alignTarget, setAlignTarget] = useState<AlignTarget>("selection");
   const effectiveAlignTarget: AlignTarget =
-    selectedLayerCount > 1 ? "selection" : alignTarget;
+    selectedLayerCount > 1 || alignTarget !== "selection" ? alignTarget : "page";
 
   function selectionBounds(layers: ProjectLayer[]) {
     if (!layers.length) return { x: 0, y: 0, width: 0, height: 0 };
@@ -82,6 +82,49 @@ export function Inspector({
         ? selectedGroupBounds
         : guideSnapRect(project, effectiveAlignTarget);
 
+    if (selectedLayerCount > 1 && effectiveAlignTarget !== "selection") {
+      if (alignment === "left") {
+        return Math.abs(selectedGroupBounds.x - targetRect.x) <= tolerance;
+      }
+      if (alignment === "center-x") {
+        return (
+          Math.abs(
+            selectedGroupBounds.x +
+              selectedGroupBounds.width / 2 -
+              (targetRect.x + targetRect.width / 2),
+          ) <= tolerance
+        );
+      }
+      if (alignment === "right") {
+        return (
+          Math.abs(
+            selectedGroupBounds.x +
+              selectedGroupBounds.width -
+              (targetRect.x + targetRect.width),
+          ) <= tolerance
+        );
+      }
+      if (alignment === "top") {
+        return Math.abs(selectedGroupBounds.y - targetRect.y) <= tolerance;
+      }
+      if (alignment === "center-y") {
+        return (
+          Math.abs(
+            selectedGroupBounds.y +
+              selectedGroupBounds.height / 2 -
+              (targetRect.y + targetRect.height / 2),
+          ) <= tolerance
+        );
+      }
+      return (
+        Math.abs(
+          selectedGroupBounds.y +
+            selectedGroupBounds.height -
+            (targetRect.y + targetRect.height),
+        ) <= tolerance
+      );
+    }
+
     return selectedLayers.every((layer) => {
       if (alignment === "left") return Math.abs(layer.x - targetRect.x) <= tolerance;
       if (alignment === "center-x") {
@@ -103,19 +146,12 @@ export function Inspector({
   }
 
   function alignTargetSelect() {
-    if (selectedLayerCount > 1) {
-      return (
-        <select value="selection" disabled>
-          <option value="selection">Selection</option>
-        </select>
-      );
-    }
-
     return (
       <select
-        value={alignTarget}
-        onChange={(event) => setAlignTarget(event.target.value as GuideSnapTarget)}
+        value={effectiveAlignTarget}
+        onChange={(event) => setAlignTarget(event.target.value as AlignTarget)}
       >
+        {selectedLayerCount > 1 ? <option value="selection">Selection</option> : null}
         <option value="page">Page bounds</option>
         <option value="trim">Trim line</option>
         <option value="bleed">Bleed guide</option>
