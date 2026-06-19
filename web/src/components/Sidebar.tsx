@@ -18,8 +18,8 @@ import type { DataGroup, ProjectLayer, QrMagicProject } from "../types";
 
 type SidebarProps = {
   project: QrMagicProject;
-  selectedLayerId: string;
-  onSelectLayer: (layerId: string) => void;
+  selectedLayerIds: string[];
+  onSelectLayers: (layerIds: string[]) => void;
   onUpdateDataGroup: (groupId: string, patch: Partial<DataGroup>) => void;
   onUpdateDataGroupSerial: (groupId: string, patch: Partial<DataGroup["serial"]>) => void;
   onUpdateDocument: (patch: Partial<QrMagicProject["document"]>) => void;
@@ -36,8 +36,8 @@ type OpenPanel = "document" | "guides" | "data" | "layers";
 
 export function Sidebar({
   project,
-  selectedLayerId,
-  onSelectLayer,
+  selectedLayerIds,
+  onSelectLayers,
   onUpdateDataGroup,
   onUpdateDataGroupSerial,
   onUpdateDocument,
@@ -56,6 +56,7 @@ export function Sidebar({
     layers: true,
   });
   const layersTopFirst = [...project.layers].reverse();
+  const selectedLayerSet = new Set(selectedLayerIds);
   const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null);
   const [dragOverLayerId, setDragOverLayerId] = useState<string | null>(null);
 
@@ -416,7 +417,7 @@ export function Sidebar({
             <div className="layer-list">
               {layersTopFirst.map((layer: ProjectLayer) => (
                 <div
-                  className={`layer-row ${layer.id === selectedLayerId ? "selected" : ""} ${
+                  className={`layer-row ${selectedLayerSet.has(layer.id) ? "selected" : ""} ${
                     layer.visible ? "" : "hidden-layer"
                   } ${layer.id === dragOverLayerId ? "drag-over" : ""}`}
                   key={layer.id}
@@ -450,7 +451,15 @@ export function Sidebar({
                   <button
                     className="layer-main"
                     title={layer.name}
-                    onClick={() => onSelectLayer(layer.id)}
+                    onClick={(event) =>
+                      onSelectLayers(
+                        event.shiftKey
+                          ? selectedLayerSet.has(layer.id)
+                            ? selectedLayerIds.filter((selectedId) => selectedId !== layer.id)
+                            : [...selectedLayerIds, layer.id]
+                          : [layer.id],
+                      )
+                    }
                   >
                     {layer.type === "qr" ? <QrCode size={15} /> : null}
                     {layer.type === "text" ? <Type size={15} /> : null}

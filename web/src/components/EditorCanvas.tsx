@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from "react-konva";
-import type Konva from "konva";
+import Konva from "konva";
 import QRCode from "qrcode";
 import type { EditorTool, ProjectLayer, QrMagicProject, RenderRecord } from "../types";
 import { documentPixelSize, guideSnapRect } from "../lib/project";
@@ -9,12 +9,12 @@ import { renderTemplate } from "../lib/serial";
 
 type EditorCanvasProps = {
   project: QrMagicProject;
-  selectedLayerId: string;
+  selectedLayerIds: string[];
   record: RenderRecord;
   zoom: number;
   activeTool: EditorTool;
   onZoomDelta: (delta: number) => void;
-  onSelectLayer: (layerId: string) => void;
+  onSelectLayers: (layerIds: string[]) => void;
   onUpdateLayer: (layerId: string, patch: Partial<ProjectLayer>) => void;
   registerStage: (stage: Konva.Stage | null) => void;
 };
@@ -89,24 +89,26 @@ function ImageNode({
   selected,
   editable,
   onSelect,
-  onUpdate,
+  onPointerDown,
+  onPointerMove,
+  onPointerLeave,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
 }: {
   layer: ProjectLayer;
   selected: boolean;
   editable: boolean;
-  onSelect: () => void;
-  onUpdate: (patch: Partial<ProjectLayer>) => void;
+  onSelect: (additive: boolean) => void;
+  onPointerDown: (layer: ProjectLayer, node: Konva.Node) => void;
+  onPointerMove: (layer: ProjectLayer, node: Konva.Node) => void;
+  onPointerLeave: (node: Konva.Node) => void;
+  onDragStart: (layerId: string, node: Konva.Node) => void;
+  onDragMove: (layerId: string, node: Konva.Node) => void;
+  onDragEnd: (layerId: string, node: Konva.Node) => void;
 }) {
   const imageRef = useRef<Konva.Image>(null);
-  const transformerRef = useRef<Konva.Transformer>(null);
   const image = useHtmlImage(layer.type === "image" ? layer.src : "");
-
-  useEffect(() => {
-    if (selected && editable && transformerRef.current && imageRef.current) {
-      transformerRef.current.nodes([imageRef.current]);
-      transformerRef.current.getLayer()?.batchDraw();
-    }
-  }, [editable, selected]);
 
   if (layer.type !== "image") {
     return null;
@@ -117,6 +119,8 @@ function ImageNode({
       {image ? (
         <KonvaImage
           ref={imageRef}
+          id={layer.id}
+          name="design-layer"
           image={image}
           x={layer.x}
           y={layer.y}
@@ -124,28 +128,17 @@ function ImageNode({
           height={layer.height}
           rotation={layer.rotation}
           opacity={layer.opacity}
-          draggable={editable && !layer.locked}
-          onClick={() => editable && onSelect()}
-          onTap={() => editable && onSelect()}
-          onDragEnd={(event) => onUpdate({ x: event.target.x(), y: event.target.y() })}
-          onTransformEnd={() => {
-            const node = imageRef.current;
-            if (!node) return;
-            const scaleX = node.scaleX();
-            const scaleY = node.scaleY();
-            node.scaleX(1);
-            node.scaleY(1);
-            onUpdate({
-              x: node.x(),
-              y: node.y(),
-              width: Math.max(20, layer.width * scaleX),
-              height: Math.max(20, layer.height * scaleY),
-              rotation: node.rotation(),
-            });
-          }}
+          draggable={false}
+          onMouseDown={(event) => editable && onPointerDown(layer, event.target)}
+          onMouseMove={(event) => editable && onPointerMove(layer, event.target)}
+          onMouseLeave={(event) => editable && onPointerLeave(event.target)}
+          onClick={(event) => editable && onSelect(event.evt.shiftKey)}
+          onTap={() => editable && onSelect(false)}
+          onDragStart={(event) => onDragStart(layer.id, event.target)}
+          onDragMove={(event) => onDragMove(layer.id, event.target)}
+          onDragEnd={(event) => onDragEnd(layer.id, event.target)}
         />
       ) : null}
-      {selected && editable ? <Transformer ref={transformerRef} rotateEnabled /> : null}
     </>
   );
 }
@@ -156,26 +149,28 @@ function QrNode({
   editable,
   record,
   onSelect,
-  onUpdate,
+  onPointerDown,
+  onPointerMove,
+  onPointerLeave,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
 }: {
   layer: ProjectLayer;
   selected: boolean;
   editable: boolean;
   record: RenderRecord;
-  onSelect: () => void;
-  onUpdate: (patch: Partial<ProjectLayer>) => void;
+  onSelect: (additive: boolean) => void;
+  onPointerDown: (layer: ProjectLayer, node: Konva.Node) => void;
+  onPointerMove: (layer: ProjectLayer, node: Konva.Node) => void;
+  onPointerLeave: (node: Konva.Node) => void;
+  onDragStart: (layerId: string, node: Konva.Node) => void;
+  onDragMove: (layerId: string, node: Konva.Node) => void;
+  onDragEnd: (layerId: string, node: Konva.Node) => void;
 }) {
   const groupRef = useRef<Konva.Group>(null);
-  const transformerRef = useRef<Konva.Transformer>(null);
   const dataUrl = useQrDataUrl(layer, record);
   const image = useHtmlImage(dataUrl);
-
-  useEffect(() => {
-    if (selected && editable && transformerRef.current && groupRef.current) {
-      transformerRef.current.nodes([groupRef.current]);
-      transformerRef.current.getLayer()?.batchDraw();
-    }
-  }, [editable, selected]);
 
   if (layer.type !== "qr") {
     return null;
@@ -185,31 +180,23 @@ function QrNode({
     <>
       <Group
         ref={groupRef}
+        id={layer.id}
+        name="design-layer"
         x={layer.x}
         y={layer.y}
         width={layer.width}
         height={layer.height}
         rotation={layer.rotation}
         opacity={layer.opacity}
-        draggable={editable && !layer.locked}
-        onClick={() => editable && onSelect()}
-        onTap={() => editable && onSelect()}
-        onDragEnd={(event) => onUpdate({ x: event.target.x(), y: event.target.y() })}
-        onTransformEnd={() => {
-          const node = groupRef.current;
-          if (!node) return;
-          const scaleX = node.scaleX();
-          const scaleY = node.scaleY();
-          node.scaleX(1);
-          node.scaleY(1);
-          onUpdate({
-            x: node.x(),
-            y: node.y(),
-            width: Math.max(72, layer.width * scaleX),
-            height: Math.max(72, layer.height * scaleY),
-            rotation: node.rotation(),
-          });
-        }}
+        draggable={false}
+        onMouseDown={(event) => editable && onPointerDown(layer, event.target)}
+        onMouseMove={(event) => editable && onPointerMove(layer, event.target)}
+        onMouseLeave={(event) => editable && onPointerLeave(event.target)}
+        onClick={(event) => editable && onSelect(event.evt.shiftKey)}
+        onTap={() => editable && onSelect(false)}
+        onDragStart={(event) => onDragStart(layer.id, event.target)}
+        onDragMove={(event) => onDragMove(layer.id, event.target)}
+        onDragEnd={(event) => onDragEnd(layer.id, event.target)}
       >
         <Rect
           width={layer.width}
@@ -224,17 +211,6 @@ function QrNode({
           <KonvaImage image={image} width={layer.width} height={layer.height} />
         ) : null}
       </Group>
-      {selected && editable ? (
-        <Transformer
-          ref={transformerRef}
-          rotateEnabled
-          enabledAnchors={["top-left", "top-right", "bottom-left", "bottom-right"]}
-          boundBoxFunc={(oldBox, newBox) => {
-            if (newBox.width < 72 || newBox.height < 72) return oldBox;
-            return newBox;
-          }}
-        />
-      ) : null}
     </>
   );
 }
@@ -245,24 +221,26 @@ function TextNode({
   editable,
   record,
   onSelect,
-  onUpdate,
+  onPointerDown,
+  onPointerMove,
+  onPointerLeave,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
 }: {
   layer: ProjectLayer;
   selected: boolean;
   editable: boolean;
   record: RenderRecord;
-  onSelect: () => void;
-  onUpdate: (patch: Partial<ProjectLayer>) => void;
+  onSelect: (additive: boolean) => void;
+  onPointerDown: (layer: ProjectLayer, node: Konva.Node) => void;
+  onPointerMove: (layer: ProjectLayer, node: Konva.Node) => void;
+  onPointerLeave: (node: Konva.Node) => void;
+  onDragStart: (layerId: string, node: Konva.Node) => void;
+  onDragMove: (layerId: string, node: Konva.Node) => void;
+  onDragEnd: (layerId: string, node: Konva.Node) => void;
 }) {
   const textRef = useRef<Konva.Text>(null);
-  const transformerRef = useRef<Konva.Transformer>(null);
-
-  useEffect(() => {
-    if (selected && editable && transformerRef.current && textRef.current) {
-      transformerRef.current.nodes([textRef.current]);
-      transformerRef.current.getLayer()?.batchDraw();
-    }
-  }, [editable, selected]);
 
   if (layer.type !== "text") {
     return null;
@@ -272,6 +250,8 @@ function TextNode({
     <>
       <Text
         ref={textRef}
+        id={layer.id}
+        name="design-layer"
         x={layer.x}
         y={layer.y}
         width={layer.width}
@@ -285,27 +265,16 @@ function TextNode({
         verticalAlign="middle"
         rotation={layer.rotation}
         opacity={layer.opacity}
-        draggable={editable && !layer.locked}
-        onClick={() => editable && onSelect()}
-        onTap={() => editable && onSelect()}
-        onDragEnd={(event) => onUpdate({ x: event.target.x(), y: event.target.y() })}
-        onTransformEnd={() => {
-          const node = textRef.current;
-          if (!node) return;
-          const scaleX = node.scaleX();
-          const scaleY = node.scaleY();
-          node.scaleX(1);
-          node.scaleY(1);
-          onUpdate({
-            x: node.x(),
-            y: node.y(),
-            width: Math.max(80, layer.width * scaleX),
-            height: Math.max(28, layer.height * scaleY),
-            rotation: node.rotation(),
-          });
-        }}
+        draggable={false}
+        onMouseDown={(event) => editable && onPointerDown(layer, event.target)}
+        onMouseMove={(event) => editable && onPointerMove(layer, event.target)}
+        onMouseLeave={(event) => editable && onPointerLeave(event.target)}
+        onClick={(event) => editable && onSelect(event.evt.shiftKey)}
+        onTap={() => editable && onSelect(false)}
+        onDragStart={(event) => onDragStart(layer.id, event.target)}
+        onDragMove={(event) => onDragMove(layer.id, event.target)}
+        onDragEnd={(event) => onDragEnd(layer.id, event.target)}
       />
-      {selected && editable ? <Transformer ref={transformerRef} rotateEnabled /> : null}
     </>
   );
 }
@@ -315,23 +284,25 @@ function ShapeNode({
   selected,
   editable,
   onSelect,
-  onUpdate,
+  onPointerDown,
+  onPointerMove,
+  onPointerLeave,
+  onDragStart,
+  onDragMove,
+  onDragEnd,
 }: {
   layer: ProjectLayer;
   selected: boolean;
   editable: boolean;
-  onSelect: () => void;
-  onUpdate: (patch: Partial<ProjectLayer>) => void;
+  onSelect: (additive: boolean) => void;
+  onPointerDown: (layer: ProjectLayer, node: Konva.Node) => void;
+  onPointerMove: (layer: ProjectLayer, node: Konva.Node) => void;
+  onPointerLeave: (node: Konva.Node) => void;
+  onDragStart: (layerId: string, node: Konva.Node) => void;
+  onDragMove: (layerId: string, node: Konva.Node) => void;
+  onDragEnd: (layerId: string, node: Konva.Node) => void;
 }) {
   const rectRef = useRef<Konva.Rect>(null);
-  const transformerRef = useRef<Konva.Transformer>(null);
-
-  useEffect(() => {
-    if (selected && editable && transformerRef.current && rectRef.current) {
-      transformerRef.current.nodes([rectRef.current]);
-      transformerRef.current.getLayer()?.batchDraw();
-    }
-  }, [editable, selected]);
 
   if (layer.type !== "shape") {
     return null;
@@ -341,6 +312,8 @@ function ShapeNode({
     <>
       <Rect
         ref={rectRef}
+        id={layer.id}
+        name="design-layer"
         x={layer.x}
         y={layer.y}
         width={layer.width}
@@ -352,44 +325,47 @@ function ShapeNode({
         cornerRadius={layer.cornerRadius}
         rotation={layer.rotation}
         opacity={layer.opacity}
-        draggable={editable && !layer.locked}
-        onClick={() => editable && onSelect()}
-        onTap={() => editable && onSelect()}
-        onDragEnd={(event) => onUpdate({ x: event.target.x(), y: event.target.y() })}
-        onTransformEnd={() => {
-          const node = rectRef.current;
-          if (!node) return;
-          const scaleX = node.scaleX();
-          const scaleY = node.scaleY();
-          node.scaleX(1);
-          node.scaleY(1);
-          onUpdate({
-            x: node.x(),
-            y: node.y(),
-            width: Math.max(20, layer.width * scaleX),
-            height: Math.max(20, layer.height * scaleY),
-            rotation: node.rotation(),
-          });
-        }}
+        draggable={false}
+        onMouseDown={(event) => editable && onPointerDown(layer, event.target)}
+        onMouseMove={(event) => editable && onPointerMove(layer, event.target)}
+        onMouseLeave={(event) => editable && onPointerLeave(event.target)}
+        onClick={(event) => editable && onSelect(event.evt.shiftKey)}
+        onTap={() => editable && onSelect(false)}
+        onDragStart={(event) => onDragStart(layer.id, event.target)}
+        onDragMove={(event) => onDragMove(layer.id, event.target)}
+        onDragEnd={(event) => onDragEnd(layer.id, event.target)}
       />
-      {selected && editable ? <Transformer ref={transformerRef} rotateEnabled /> : null}
     </>
   );
 }
 
 export function EditorCanvas({
   project,
-  selectedLayerId,
+  selectedLayerIds,
   record,
   zoom,
   activeTool,
   onZoomDelta,
-  onSelectLayer,
+  onSelectLayers,
   onUpdateLayer,
   registerStage,
 }: EditorCanvasProps) {
   const stageRef = useRef<Konva.Stage>(null);
+  const transformerRef = useRef<Konva.Transformer>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const [selectionRect, setSelectionRect] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
   const panRef = useRef({
     active: false,
     x: 0,
@@ -397,6 +373,23 @@ export function EditorCanvas({
     scrollLeft: 0,
     scrollTop: 0,
   });
+  const lassoRef = useRef<{
+    active: boolean;
+    additive: boolean;
+    startX: number;
+    startY: number;
+  }>({
+    active: false,
+    additive: false,
+    startX: 0,
+    startY: 0,
+  });
+  const dragGroupRef = useRef<{
+    layerId: string;
+    startX: number;
+    startY: number;
+    positions: Record<string, { x: number; y: number }>;
+  } | null>(null);
   const docSize = useMemo(() => documentPixelSize(project), [project]);
   const fitScale = Math.min(1, 860 / docSize.width, 610 / docSize.height);
   const scale = fitScale * zoom;
@@ -412,11 +405,31 @@ export function EditorCanvas({
     documentX: number;
     documentY: number;
   } | null>(null);
+  const selectedLayers = useMemo(
+    () => project.layers.filter((layer) => selectedLayerIds.includes(layer.id)),
+    [project.layers, selectedLayerIds],
+  );
+  const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
 
   useEffect(() => {
     registerStage(stageRef.current);
     return () => registerStage(null);
   }, [registerStage]);
+
+  useEffect(() => {
+    const transformer = transformerRef.current;
+    const stage = stageRef.current;
+    if (!transformer || !stage || activeTool !== "select") {
+      transformer?.nodes([]);
+      return;
+    }
+
+    const selectedNodes = selectedLayerIds
+      .map((layerId) => stage.findOne(`#${layerId}`))
+      .filter((node): node is Konva.Node => Boolean(node));
+    transformer.nodes(selectedNodes);
+    transformer.getLayer()?.batchDraw();
+  }, [activeTool, project.layers, selectedLayerIds]);
 
   useEffect(() => {
     const pendingZoom = pendingWheelZoomRef.current;
@@ -453,7 +466,7 @@ export function EditorCanvas({
     return () => wheelViewport.removeEventListener("wheel", zoomPanMode);
   }, [activeTool, onZoomDelta]);
 
-  function startPan(event: MouseEvent<HTMLDivElement>) {
+  function startPan(event: ReactMouseEvent<HTMLDivElement>) {
     if (activeTool !== "pan" || !viewportRef.current) return;
     panRef.current = {
       active: true,
@@ -465,7 +478,7 @@ export function EditorCanvas({
     event.preventDefault();
   }
 
-  function movePan(event: MouseEvent<HTMLDivElement>) {
+  function movePan(event: ReactMouseEvent<HTMLDivElement>) {
     const viewport = viewportRef.current;
     if (!panRef.current.active || !viewport) return;
     viewport.scrollLeft = panRef.current.scrollLeft - (event.clientX - panRef.current.x);
@@ -474,6 +487,223 @@ export function EditorCanvas({
 
   function stopPan() {
     panRef.current.active = false;
+  }
+
+  function selectLayer(layerId: string, additive: boolean) {
+    if (!additive) {
+      onSelectLayers([layerId]);
+      return;
+    }
+
+    onSelectLayers(
+      selectedLayerIds.includes(layerId)
+        ? selectedLayerIds.filter((selectedId) => selectedId !== layerId)
+        : [...selectedLayerIds, layerId],
+    );
+  }
+
+  function documentPointerPosition() {
+    const stage = stageRef.current;
+    const pointer = stage?.getPointerPosition();
+    if (!pointer) return null;
+    return {
+      x: pointer.x / scale,
+      y: pointer.y / scale,
+    };
+  }
+
+  function pointerIsNearLayerEdge(layer: ProjectLayer) {
+    if (!selectedLayerSet.has(layer.id) || layer.locked) return false;
+    const pointer = documentPointerPosition();
+    if (!pointer) return false;
+    const tolerance = Math.max(8, 12 / scale);
+    const insideX = pointer.x >= layer.x - tolerance && pointer.x <= layer.x + layer.width + tolerance;
+    const insideY = pointer.y >= layer.y - tolerance && pointer.y <= layer.y + layer.height + tolerance;
+    if (!insideX || !insideY) return false;
+
+    return (
+      Math.abs(pointer.x - layer.x) <= tolerance ||
+      Math.abs(pointer.x - (layer.x + layer.width)) <= tolerance ||
+      Math.abs(pointer.y - layer.y) <= tolerance ||
+      Math.abs(pointer.y - (layer.y + layer.height)) <= tolerance
+    );
+  }
+
+  function setStageCursor(cursor: string) {
+    const container = stageRef.current?.container();
+    if (container) {
+      container.style.cursor = cursor;
+    }
+  }
+
+  function prepareLayerMove(layer: ProjectLayer, node: Konva.Node) {
+    const canMove = activeTool === "select" && pointerIsNearLayerEdge(layer);
+    node.draggable(canMove);
+    setStageCursor(canMove ? "move" : "crosshair");
+  }
+
+  function updateLayerMoveCursor(layer: ProjectLayer, node: Konva.Node) {
+    const canMove = activeTool === "select" && pointerIsNearLayerEdge(layer);
+    node.draggable(canMove);
+    if (activeTool === "select") {
+      setStageCursor(canMove ? "move" : "crosshair");
+    }
+  }
+
+  function clearLayerMove(node: Konva.Node) {
+    node.draggable(false);
+    setStageCursor(activeTool === "select" ? "default" : "");
+  }
+
+  function startLasso(event: Konva.KonvaEventObject<globalThis.MouseEvent>) {
+    if (activeTool !== "select") return;
+    const target = event.target;
+    const targetIsTransformer = target.getParent()?.className === "Transformer";
+    const targetIsSelectedLayer =
+      target.hasName("design-layer") && selectedLayerSet.has(target.id()) && target.draggable();
+    if (targetIsTransformer || targetIsSelectedLayer) return;
+
+    const pointer = documentPointerPosition();
+    if (!pointer) return;
+    lassoRef.current = {
+      active: true,
+      additive: event.evt.shiftKey,
+      startX: pointer.x,
+      startY: pointer.y,
+    };
+    setSelectionRect({
+      visible: true,
+      x: pointer.x,
+      y: pointer.y,
+      width: 0,
+      height: 0,
+    });
+  }
+
+  function moveLasso() {
+    if (!lassoRef.current.active) return;
+    const pointer = documentPointerPosition();
+    if (!pointer) return;
+    const x = Math.min(lassoRef.current.startX, pointer.x);
+    const y = Math.min(lassoRef.current.startY, pointer.y);
+    const width = Math.abs(pointer.x - lassoRef.current.startX);
+    const height = Math.abs(pointer.y - lassoRef.current.startY);
+    setSelectionRect({ visible: true, x, y, width, height });
+  }
+
+  function stopLasso() {
+    if (!lassoRef.current.active) return;
+    const nextSelectionRect = selectionRect;
+    const wasClick = nextSelectionRect.width < 4 && nextSelectionRect.height < 4;
+    if (wasClick) {
+      onSelectLayers([]);
+    } else {
+      const box = {
+        x: nextSelectionRect.x,
+        y: nextSelectionRect.y,
+        width: nextSelectionRect.width,
+        height: nextSelectionRect.height,
+      };
+      const selectedIds = project.layers
+        .filter((layer) => layer.visible && !layer.locked)
+        .filter((layer) => {
+          const center = {
+            x: layer.x + layer.width / 2,
+            y: layer.y + layer.height / 2,
+          };
+          return (
+            center.x >= box.x &&
+            center.x <= box.x + box.width &&
+            center.y >= box.y &&
+            center.y <= box.y + box.height
+          );
+        })
+        .map((layer) => layer.id);
+      onSelectLayers(
+        lassoRef.current.additive
+          ? Array.from(new Set([...selectedLayerIds, ...selectedIds]))
+          : selectedIds,
+      );
+    }
+
+    lassoRef.current.active = false;
+    setSelectionRect((current) => ({ ...current, visible: false }));
+  }
+
+  function dragSelectedLayersStart(layerId: string, node: Konva.Node) {
+    if (!selectedLayerSet.has(layerId)) return;
+    dragGroupRef.current = {
+      layerId,
+      startX: node.x(),
+      startY: node.y(),
+      positions: Object.fromEntries(
+        selectedLayers.map((layer) => [layer.id, { x: layer.x, y: layer.y }]),
+      ),
+    };
+  }
+
+  function dragSelectedLayersMove(layerId: string, node: Konva.Node) {
+    const dragState = dragGroupRef.current;
+    const stage = stageRef.current;
+    if (!dragState || !stage || dragState.layerId !== layerId || selectedLayerIds.length < 2) {
+      return;
+    }
+
+    const deltaX = node.x() - dragState.startX;
+    const deltaY = node.y() - dragState.startY;
+    selectedLayerIds.forEach((selectedId) => {
+      if (selectedId === layerId) return;
+      const otherNode = stage.findOne(`#${selectedId}`);
+      const otherPosition = dragState.positions[selectedId];
+      if (!otherNode || !otherPosition) return;
+      otherNode.position({
+        x: otherPosition.x + deltaX,
+        y: otherPosition.y + deltaY,
+      });
+    });
+    transformerRef.current?.forceUpdate();
+  }
+
+  function dragSelectedLayersEnd(layerId: string, node: Konva.Node) {
+    const dragState = dragGroupRef.current;
+    if (!dragState || dragState.layerId !== layerId) {
+      onUpdateLayer(layerId, { x: node.x(), y: node.y() });
+      return;
+    }
+
+    const deltaX = node.x() - dragState.startX;
+    const deltaY = node.y() - dragState.startY;
+    selectedLayerIds.forEach((selectedId) => {
+      const position = dragState.positions[selectedId];
+      if (!position) return;
+      onUpdateLayer(selectedId, {
+        x: position.x + deltaX,
+        y: position.y + deltaY,
+      });
+    });
+    dragGroupRef.current = null;
+  }
+
+  function finishTransform() {
+    const transformer = transformerRef.current;
+    if (!transformer) return;
+
+    transformer.nodes().forEach((node) => {
+      const layer = project.layers.find((currentLayer) => currentLayer.id === node.id());
+      if (!layer) return;
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+      node.scaleX(1);
+      node.scaleY(1);
+      const minSize = layer.type === "qr" ? 72 : layer.type === "text" ? 28 : 20;
+      onUpdateLayer(layer.id, {
+        x: node.x(),
+        y: node.y(),
+        width: Math.max(minSize, layer.width * scaleX),
+        height: Math.max(minSize, layer.height * scaleY),
+        rotation: node.rotation(),
+      });
+    });
   }
 
   return (
@@ -501,9 +731,13 @@ export function EditorCanvas({
             scaleX={scale}
             scaleY={scale}
             className="document-stage"
+            onMouseDown={startLasso}
+            onMouseMove={moveLasso}
+            onMouseUp={stopLasso}
           >
             <Layer>
               <Rect
+                name="document-background"
                 width={docSize.width}
                 height={docSize.height}
                 fill={
@@ -522,10 +756,15 @@ export function EditorCanvas({
                     <ShapeNode
                       key={layer.id}
                       layer={layer}
-                      selected={layer.id === selectedLayerId}
+                      selected={selectedLayerSet.has(layer.id)}
                       editable={layerEditingEnabled}
-                      onSelect={() => onSelectLayer(layer.id)}
-                      onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
+                      onSelect={(additive) => selectLayer(layer.id, additive)}
+                      onPointerDown={prepareLayerMove}
+                      onPointerMove={updateLayerMoveCursor}
+                      onPointerLeave={clearLayerMove}
+                      onDragStart={dragSelectedLayersStart}
+                      onDragMove={dragSelectedLayersMove}
+                      onDragEnd={dragSelectedLayersEnd}
                     />
                   );
                 }
@@ -534,10 +773,15 @@ export function EditorCanvas({
                     <ImageNode
                       key={layer.id}
                       layer={layer}
-                      selected={layer.id === selectedLayerId}
+                      selected={selectedLayerSet.has(layer.id)}
                       editable={layerEditingEnabled}
-                      onSelect={() => onSelectLayer(layer.id)}
-                      onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
+                      onSelect={(additive) => selectLayer(layer.id, additive)}
+                      onPointerDown={prepareLayerMove}
+                      onPointerMove={updateLayerMoveCursor}
+                      onPointerLeave={clearLayerMove}
+                      onDragStart={dragSelectedLayersStart}
+                      onDragMove={dragSelectedLayersMove}
+                      onDragEnd={dragSelectedLayersEnd}
                     />
                   );
                 }
@@ -546,11 +790,16 @@ export function EditorCanvas({
                     <QrNode
                       key={layer.id}
                       layer={layer}
-                      selected={layer.id === selectedLayerId}
+                      selected={selectedLayerSet.has(layer.id)}
                       editable={layerEditingEnabled}
                       record={record}
-                      onSelect={() => onSelectLayer(layer.id)}
-                      onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
+                      onSelect={(additive) => selectLayer(layer.id, additive)}
+                      onPointerDown={prepareLayerMove}
+                      onPointerMove={updateLayerMoveCursor}
+                      onPointerLeave={clearLayerMove}
+                      onDragStart={dragSelectedLayersStart}
+                      onDragMove={dragSelectedLayersMove}
+                      onDragEnd={dragSelectedLayersEnd}
                     />
                   );
                 }
@@ -559,16 +808,45 @@ export function EditorCanvas({
                     <TextNode
                       key={layer.id}
                       layer={layer}
-                      selected={layer.id === selectedLayerId}
+                      selected={selectedLayerSet.has(layer.id)}
                       editable={layerEditingEnabled}
                       record={record}
-                      onSelect={() => onSelectLayer(layer.id)}
-                      onUpdate={(patch) => onUpdateLayer(layer.id, patch)}
+                      onSelect={(additive) => selectLayer(layer.id, additive)}
+                      onPointerDown={prepareLayerMove}
+                      onPointerMove={updateLayerMoveCursor}
+                      onPointerLeave={clearLayerMove}
+                      onDragStart={dragSelectedLayersStart}
+                      onDragMove={dragSelectedLayersMove}
+                      onDragEnd={dragSelectedLayersEnd}
                     />
                   );
                 }
                 return null;
               })}
+              {layerEditingEnabled ? (
+                <Transformer
+                  ref={transformerRef}
+                  rotateEnabled
+                  onTransformEnd={finishTransform}
+                  boundBoxFunc={(oldBox, newBox) => {
+                    if (newBox.width < 20 || newBox.height < 20) return oldBox;
+                    return newBox;
+                  }}
+                />
+              ) : null}
+              {selectionRect.visible ? (
+                <Rect
+                  x={selectionRect.x}
+                  y={selectionRect.y}
+                  width={selectionRect.width}
+                  height={selectionRect.height}
+                  fill="rgba(20, 184, 166, 0.12)"
+                  stroke="#0f766e"
+                  strokeWidth={1.5}
+                  dash={[6, 5]}
+                  listening={false}
+                />
+              ) : null}
             </Layer>
             {project.document.guides.enabled ? (
               <Layer name="guides-layer" listening={false}>

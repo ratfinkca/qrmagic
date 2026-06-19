@@ -19,6 +19,7 @@ type Alignment = "left" | "center-x" | "right" | "top" | "center-y" | "bottom";
 
 type InspectorProps = {
   selectedLayer: ProjectLayer | undefined;
+  selectedLayerCount: number;
   project: QrMagicProject;
   dataGroups: DataGroup[];
   onUpdateLayer: (layerId: string, patch: Partial<ProjectLayer>) => void;
@@ -32,6 +33,7 @@ type InspectorProps = {
 
 export function Inspector({
   selectedLayer,
+  selectedLayerCount,
   project,
   dataGroups,
   onUpdateLayer,
@@ -489,7 +491,11 @@ export function Inspector({
         ) : (
           <div className="empty-state">
             <Box size={28} />
-            <span>Select a layer to edit it.</span>
+            <span>
+              {selectedLayerCount > 1
+                ? `${selectedLayerCount} layers selected. Use the canvas handles to move or resize them.`
+                : "Select a layer to edit it."}
+            </span>
           </div>
         )}
       </section>

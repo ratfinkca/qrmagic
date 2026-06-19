@@ -35,7 +35,7 @@ import type {
 
 export function App() {
   const [project, setProject] = useState<QrMagicProject>(initialProject);
-  const [selectedLayerId, setSelectedLayerId] = useState(initialProject.layers[0].id);
+  const [selectedLayerIds, setSelectedLayerIds] = useState([initialProject.layers[0].id]);
   const [selectedRecordIndex, setSelectedRecordIndex] = useState(0);
   const [panelsVisible, setPanelsVisible] = useState(true);
   const [isExportingBatch, setIsExportingBatch] = useState(false);
@@ -47,7 +47,11 @@ export function App() {
   const records = useMemo(() => createDataRecords(project.data.groups), [project.data.groups]);
   const docSize = useMemo(() => documentPixelSize(project), [project]);
   const currentRecord = records[Math.min(selectedRecordIndex, records.length - 1)] ?? records[0];
-  const selectedLayer = project.layers.find((layer) => layer.id === selectedLayerId);
+  const primarySelectedLayerId = selectedLayerIds[selectedLayerIds.length - 1] ?? "";
+  const selectedLayer =
+    selectedLayerIds.length === 1
+      ? project.layers.find((layer) => layer.id === primarySelectedLayerId)
+      : undefined;
 
   function updateLayer(layerId: string, patch: Partial<ProjectLayer>) {
     setProject((current) => ({
@@ -63,7 +67,7 @@ export function App() {
       ...current,
       layers: [...current.layers, layer],
     }));
-    setSelectedLayerId(layer.id);
+    setSelectedLayerIds([layer.id]);
   }
 
   function uniqueName(baseName: string, existingNames: string[]) {
@@ -189,7 +193,7 @@ export function App() {
         layers: [...current.layers, qrLayer, serialLayer],
       };
     });
-    setSelectedLayerId(qrLayerId);
+    setSelectedLayerIds([qrLayerId]);
   }
 
   function toggleLayerVisibility(layerId: string) {
@@ -204,8 +208,11 @@ export function App() {
   function deleteLayer(layerId: string) {
     setProject((current) => {
       const layers = current.layers.filter((layer) => layer.id !== layerId);
-      if (selectedLayerId === layerId) {
-        setSelectedLayerId(layers[layers.length - 1]?.id ?? "");
+      if (selectedLayerIds.includes(layerId)) {
+        setSelectedLayerIds((currentSelection) => {
+          const remainingSelection = currentSelection.filter((selectedId) => selectedId !== layerId);
+          return remainingSelection.length ? remainingSelection : [layers[layers.length - 1]?.id ?? ""].filter(Boolean);
+        });
       }
       return { ...current, layers };
     });
@@ -397,7 +404,7 @@ export function App() {
           return;
         }
         setProject(loadedProject);
-        setSelectedLayerId(loadedProject.layers[0]?.id ?? "");
+        setSelectedLayerIds([loadedProject.layers[0]?.id ?? ""].filter(Boolean));
         setSelectedRecordIndex(0);
         setZoom(1);
         setActiveTool("select");
@@ -551,8 +558,8 @@ export function App() {
         {panelsVisible ? (
           <Sidebar
             project={project}
-            selectedLayerId={selectedLayerId}
-            onSelectLayer={setSelectedLayerId}
+            selectedLayerIds={selectedLayerIds}
+            onSelectLayers={(layerIds) => setSelectedLayerIds(layerIds)}
             onUpdateDataGroup={updateDataGroup}
             onUpdateDataGroupSerial={updateDataGroupSerial}
             onUpdateDocument={updateDocument}
@@ -567,12 +574,12 @@ export function App() {
         ) : null}
         <EditorCanvas
           project={project}
-          selectedLayerId={selectedLayerId}
+          selectedLayerIds={selectedLayerIds}
           record={currentRecord}
           zoom={zoom}
           activeTool={activeTool}
           onZoomDelta={updateZoom}
-          onSelectLayer={setSelectedLayerId}
+          onSelectLayers={setSelectedLayerIds}
           onUpdateLayer={updateLayer}
           registerStage={(stage) => {
             stageRef.current = stage;
@@ -581,6 +588,7 @@ export function App() {
         {panelsVisible ? (
           <Inspector
             selectedLayer={selectedLayer}
+            selectedLayerCount={selectedLayerIds.length}
             project={project}
             dataGroups={project.data.groups}
             onUpdateLayer={updateLayer}
