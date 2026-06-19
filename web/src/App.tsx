@@ -33,6 +33,9 @@ import type {
   QrMagicProjectFile,
 } from "./types";
 
+type Alignment = "left" | "center-x" | "right" | "top" | "center-y" | "bottom";
+type AlignTarget = GuideSnapTarget | "selection";
+
 export function App() {
   const [project, setProject] = useState<QrMagicProject>(initialProject);
   const [selectedLayerIds, setSelectedLayerIds] = useState([initialProject.layers[0].id]);
@@ -52,6 +55,7 @@ export function App() {
     selectedLayerIds.length === 1
       ? project.layers.find((layer) => layer.id === primarySelectedLayerId)
       : undefined;
+  const selectedLayers = project.layers.filter((layer) => selectedLayerIds.includes(layer.id));
 
   function updateLayer(layerId: string, patch: Partial<ProjectLayer>) {
     setProject((current) => ({
@@ -442,21 +446,90 @@ export function App() {
     setZoom((current) => Math.min(3, Math.max(0.25, Number((current + delta).toFixed(2)))));
   }
 
-  function alignLayer(
-    layerId: string,
-    alignment: "left" | "center-x" | "right" | "top" | "center-y" | "bottom",
-  ) {
-    const layer = project.layers.find((currentLayer) => currentLayer.id === layerId);
-    if (!layer) return;
+  function selectionBounds(layers: ProjectLayer[]) {
+    const minX = Math.min(...layers.map((layer) => layer.x));
+    const minY = Math.min(...layers.map((layer) => layer.y));
+    const maxX = Math.max(...layers.map((layer) => layer.x + layer.width));
+    const maxY = Math.max(...layers.map((layer) => layer.y + layer.height));
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  }
 
-    const patch: Partial<ProjectLayer> = {};
-    if (alignment === "left") patch.x = 0;
-    if (alignment === "center-x") patch.x = (docSize.width - layer.width) / 2;
-    if (alignment === "right") patch.x = docSize.width - layer.width;
-    if (alignment === "top") patch.y = 0;
-    if (alignment === "center-y") patch.y = (docSize.height - layer.height) / 2;
-    if (alignment === "bottom") patch.y = docSize.height - layer.height;
-    updateLayer(layer.id, patch);
+  function alignSelectedLayers(alignment: Alignment, target: AlignTarget) {
+    const layers = project.layers.filter((layer) => selectedLayerIds.includes(layer.id));
+    if (!layers.length) return;
+    const targetRect =
+      target === "selection" || layers.length > 1
+        ? selectionBounds(layers)
+        : guideSnapRect(project, target);
+    const layerIds = new Set(layers.map((layer) => layer.id));
+
+    setProject((current) => ({
+      ...current,
+      layers: current.layers.map((layer) => {
+        if (!layerIds.has(layer.id)) return layer;
+        const patch: Partial<ProjectLayer> = {};
+        if (alignment === "left") patch.x = targetRect.x;
+        if (alignment === "center-x") {
+          patch.x = targetRect.x + (targetRect.width - layer.width) / 2;
+        }
+        if (alignment === "right") patch.x = targetRect.x + targetRect.width - layer.width;
+        if (alignment === "top") patch.y = targetRect.y;
+        if (alignment === "center-y") {
+          patch.y = targetRect.y + (targetRect.height - layer.height) / 2;
+        }
+        if (alignment === "bottom") patch.y = targetRect.y + targetRect.height - layer.height;
+        return { ...layer, ...patch } as ProjectLayer;
+      }),
+    }));
+  }
+
+  function updateSelectedGroupBounds(
+    patch: Partial<Pick<ProjectLayer, "x" | "y" | "width" | "height">>,
+  ) {
+    const selectedIds = new Set(selectedLayerIds);
+    setProject((current) => {
+      const layers = current.layers.filter((layer) => selectedIds.has(layer.id));
+      if (!layers.length) return current;
+
+      const bounds = selectionBounds(layers);
+      const nextBounds = {
+        x: patch.x ?? bounds.x,
+        y: patch.y ?? bounds.y,
+        width: patch.width ?? bounds.width,
+        height: patch.height ?? bounds.height,
+      };
+      const scaleX = bounds.width > 0 ? nextBounds.width / bounds.width : 1;
+      const scaleY = bounds.height > 0 ? nextBounds.height / bounds.height : 1;
+
+      return {
+        ...current,
+        layers: current.layers.map((layer) => {
+          if (!selectedIds.has(layer.id)) return layer;
+          return {
+            ...layer,
+            x: nextBounds.x + (layer.x - bounds.x) * scaleX,
+            y: nextBounds.y + (layer.y - bounds.y) * scaleY,
+            width: layer.width * scaleX,
+            height: layer.height * scaleY,
+          } as ProjectLayer;
+        }),
+      };
+    });
+  }
+
+  function updateSelectedLayers(patch: Partial<Pick<ProjectLayer, "opacity">>) {
+    const selectedIds = new Set(selectedLayerIds);
+    setProject((current) => ({
+      ...current,
+      layers: current.layers.map((layer) =>
+        selectedIds.has(layer.id) ? ({ ...layer, ...patch } as ProjectLayer) : layer,
+      ),
+    }));
   }
 
   function addImageLayer(file: File) {
@@ -599,6 +672,7 @@ export function App() {
         {panelsVisible ? (
           <Inspector
             selectedLayer={selectedLayer}
+            selectedLayers={selectedLayers}
             selectedLayerCount={selectedLayerIds.length}
             project={project}
             dataGroups={project.data.groups}
@@ -608,7 +682,9 @@ export function App() {
             onUpdateExport={updateExport}
             isExportingBatch={isExportingBatch}
             onSnapToTarget={snapSelectedLayerToTarget}
-            onAlignLayer={alignLayer}
+            onAlignSelection={alignSelectedLayers}
+            onUpdateSelectionBounds={updateSelectedGroupBounds}
+            onUpdateSelectedLayers={updateSelectedLayers}
           />
         ) : null}
       </div>

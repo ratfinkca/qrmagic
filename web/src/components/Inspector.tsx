@@ -12,13 +12,15 @@ import {
   RotateCw,
   SlidersHorizontal,
 } from "lucide-react";
-import { documentPixelSize } from "../lib/project";
+import { guideSnapRect } from "../lib/project";
 import type { DataGroup, GuideSnapTarget, ProjectLayer, QrMagicProject } from "../types";
 
 type Alignment = "left" | "center-x" | "right" | "top" | "center-y" | "bottom";
+type AlignTarget = GuideSnapTarget | "selection";
 
 type InspectorProps = {
   selectedLayer: ProjectLayer | undefined;
+  selectedLayers: ProjectLayer[];
   selectedLayerCount: number;
   project: QrMagicProject;
   dataGroups: DataGroup[];
@@ -28,11 +30,16 @@ type InspectorProps = {
   onUpdateExport: (patch: Partial<QrMagicProject["export"]>) => void;
   isExportingBatch: boolean;
   onSnapToTarget: (target: GuideSnapTarget) => void;
-  onAlignLayer: (layerId: string, alignment: Alignment) => void;
+  onAlignSelection: (alignment: Alignment, target: AlignTarget) => void;
+  onUpdateSelectionBounds: (
+    patch: Partial<Pick<ProjectLayer, "x" | "y" | "width" | "height">>,
+  ) => void;
+  onUpdateSelectedLayers: (patch: Partial<Pick<ProjectLayer, "opacity">>) => void;
 };
 
 export function Inspector({
   selectedLayer,
+  selectedLayers,
   selectedLayerCount,
   project,
   dataGroups,
@@ -42,38 +49,132 @@ export function Inspector({
   onUpdateExport,
   isExportingBatch,
   onSnapToTarget,
-  onAlignLayer,
+  onAlignSelection,
+  onUpdateSelectionBounds,
+  onUpdateSelectedLayers,
 }: InspectorProps) {
   const [snapTarget, setSnapTarget] = useState<GuideSnapTarget>("page");
-  const docSize = documentPixelSize(project);
+  const [alignTarget, setAlignTarget] = useState<GuideSnapTarget>("page");
+  const effectiveAlignTarget: AlignTarget =
+    selectedLayerCount > 1 ? "selection" : alignTarget;
+
+  function selectionBounds(layers: ProjectLayer[]) {
+    if (!layers.length) return { x: 0, y: 0, width: 0, height: 0 };
+    const minX = Math.min(...layers.map((layer) => layer.x));
+    const minY = Math.min(...layers.map((layer) => layer.y));
+    const maxX = Math.max(...layers.map((layer) => layer.x + layer.width));
+    const maxY = Math.max(...layers.map((layer) => layer.y + layer.height));
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  }
+
+  const selectedGroupBounds = selectionBounds(selectedLayers);
 
   function isAligned(alignment: Alignment) {
-    if (!selectedLayer) return false;
+    if (!selectedLayers.length) return false;
     const tolerance = 0.5;
-    if (alignment === "left") return Math.abs(selectedLayer.x) <= tolerance;
-    if (alignment === "center-x") {
-      return Math.abs(selectedLayer.x - (docSize.width - selectedLayer.width) / 2) <= tolerance;
+    const targetRect =
+      effectiveAlignTarget === "selection"
+        ? selectedGroupBounds
+        : guideSnapRect(project, effectiveAlignTarget);
+
+    return selectedLayers.every((layer) => {
+      if (alignment === "left") return Math.abs(layer.x - targetRect.x) <= tolerance;
+      if (alignment === "center-x") {
+        return (
+          Math.abs(layer.x - (targetRect.x + (targetRect.width - layer.width) / 2)) <= tolerance
+        );
+      }
+      if (alignment === "right") {
+        return Math.abs(layer.x - (targetRect.x + targetRect.width - layer.width)) <= tolerance;
+      }
+      if (alignment === "top") return Math.abs(layer.y - targetRect.y) <= tolerance;
+      if (alignment === "center-y") {
+        return (
+          Math.abs(layer.y - (targetRect.y + (targetRect.height - layer.height) / 2)) <= tolerance
+        );
+      }
+      return Math.abs(layer.y - (targetRect.y + targetRect.height - layer.height)) <= tolerance;
+    });
+  }
+
+  function alignTargetSelect() {
+    if (selectedLayerCount > 1) {
+      return (
+        <select value="selection" disabled>
+          <option value="selection">Selection</option>
+        </select>
+      );
     }
-    if (alignment === "right") {
-      return Math.abs(selectedLayer.x - (docSize.width - selectedLayer.width)) <= tolerance;
-    }
-    if (alignment === "top") return Math.abs(selectedLayer.y) <= tolerance;
-    if (alignment === "center-y") {
-      return Math.abs(selectedLayer.y - (docSize.height - selectedLayer.height) / 2) <= tolerance;
-    }
-    return Math.abs(selectedLayer.y - (docSize.height - selectedLayer.height)) <= tolerance;
+
+    return (
+      <select
+        value={alignTarget}
+        onChange={(event) => setAlignTarget(event.target.value as GuideSnapTarget)}
+      >
+        <option value="page">Page bounds</option>
+        <option value="trim">Trim line</option>
+        <option value="bleed">Bleed guide</option>
+        <option value="safeArea">Safe area</option>
+      </select>
+    );
   }
 
   function alignmentButton(alignment: Alignment, title: string, icon: ReactNode) {
-    if (!selectedLayer) return null;
+    if (!selectedLayers.length) return null;
     return (
       <button
         className={`tool-button ${isAligned(alignment) ? "selected" : ""}`}
         title={title}
-        onClick={() => onAlignLayer(selectedLayer.id, alignment)}
+        onClick={() => onAlignSelection(alignment, effectiveAlignTarget)}
       >
         {icon}
       </button>
+    );
+  }
+
+  function alignmentControls() {
+    if (!selectedLayers.length) return null;
+
+    return (
+      <label>
+        Align to
+        <div className="align-target-row">
+          {alignTargetSelect()}
+          <div className="alignment-grid">
+            {alignmentButton(
+              "left",
+              "Align left",
+              <AlignHorizontalJustifyStart size={16} />,
+            )}
+            {alignmentButton(
+              "center-x",
+              "Align horizontal center",
+              <AlignCenterHorizontal size={16} />,
+            )}
+            {alignmentButton(
+              "right",
+              "Align right",
+              <AlignHorizontalJustifyEnd size={16} />,
+            )}
+            {alignmentButton("top", "Align top", <AlignVerticalJustifyStart size={16} />)}
+            {alignmentButton(
+              "center-y",
+              "Align vertical center",
+              <AlignCenterVertical size={16} />,
+            )}
+            {alignmentButton(
+              "bottom",
+              "Align bottom",
+              <AlignVerticalJustifyEnd size={16} />,
+            )}
+          </div>
+        </div>
+      </label>
     );
   }
 
@@ -196,37 +297,7 @@ export function Inspector({
                 }
               />
             </label>
-            <label>
-              Align to document
-              <div className="alignment-grid">
-                {alignmentButton(
-                  "left",
-                  "Align left",
-                  <AlignHorizontalJustifyStart size={16} />,
-                )}
-                {alignmentButton(
-                  "center-x",
-                  "Align horizontal center",
-                  <AlignCenterHorizontal size={16} />,
-                )}
-                {alignmentButton(
-                  "right",
-                  "Align right",
-                  <AlignHorizontalJustifyEnd size={16} />,
-                )}
-                {alignmentButton("top", "Align top", <AlignVerticalJustifyStart size={16} />)}
-                {alignmentButton(
-                  "center-y",
-                  "Align vertical center",
-                  <AlignCenterVertical size={16} />,
-                )}
-                {alignmentButton(
-                  "bottom",
-                  "Align bottom",
-                  <AlignVerticalJustifyEnd size={16} />,
-                )}
-              </div>
-            </label>
+            {alignmentControls()}
             {selectedLayer.type === "shape" || selectedLayer.type === "image" ? (
               <label>
                 Snap layer to
@@ -488,14 +559,81 @@ export function Inspector({
               </>
             ) : null}
           </>
+        ) : selectedLayerCount > 1 ? (
+          <>
+            <label>
+              Selection name
+              <input value={`${selectedLayerCount} selected layers`} disabled />
+            </label>
+            <div className="field-grid">
+              <label>
+                X
+                <input
+                  type="number"
+                  value={Math.round(selectedGroupBounds.x)}
+                  onChange={(event) =>
+                    onUpdateSelectionBounds({ x: Number(event.target.value) })
+                  }
+                />
+              </label>
+              <label>
+                Y
+                <input
+                  type="number"
+                  value={Math.round(selectedGroupBounds.y)}
+                  onChange={(event) =>
+                    onUpdateSelectionBounds({ y: Number(event.target.value) })
+                  }
+                />
+              </label>
+            </div>
+            <div className="field-grid">
+              <label>
+                Width
+                <input
+                  type="number"
+                  value={Math.round(selectedGroupBounds.width)}
+                  onChange={(event) =>
+                    onUpdateSelectionBounds({ width: Math.max(1, Number(event.target.value)) })
+                  }
+                />
+              </label>
+              <label>
+                Height
+                <input
+                  type="number"
+                  value={Math.round(selectedGroupBounds.height)}
+                  onChange={(event) =>
+                    onUpdateSelectionBounds({ height: Math.max(1, Number(event.target.value)) })
+                  }
+                />
+              </label>
+            </div>
+            <label>
+              Layer opacity
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={
+                  selectedLayers.every(
+                    (layer) => Math.abs(layer.opacity - selectedLayers[0].opacity) < 0.01,
+                  )
+                    ? selectedLayers[0].opacity
+                    : 1
+                }
+                onChange={(event) =>
+                  onUpdateSelectedLayers({ opacity: Number(event.target.value) })
+                }
+              />
+            </label>
+            {alignmentControls()}
+          </>
         ) : (
           <div className="empty-state">
             <Box size={28} />
-            <span>
-              {selectedLayerCount > 1
-                ? `${selectedLayerCount} layers selected. Use the canvas handles to move or resize them.`
-                : "Select a layer to edit it."}
-            </span>
+            <span>Select a layer to edit it.</span>
           </div>
         )}
       </section>

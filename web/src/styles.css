@@ -515,6 +515,11 @@ select:focus {
   gap: 6px;
 }
 
+.align-target-row {
+  display: grid;
+  gap: 8px;
+}
+
 .inspector-panel {
   align-content: start;
 }
