@@ -1,4 +1,16 @@
-import type { DataGroup, GuideSnapTarget, ProjectLayer, QrMagicProject, SerialSettings } from "../types";
+import type {
+  DataGroup,
+  FixedSettings,
+  GuideSnapTarget,
+  ProjectLayer,
+  QrLayer,
+  QrMagicProject,
+  SerialSettings,
+  ShapeFillMode,
+  ShapeGeometry,
+  ShapeLayer,
+} from "../types";
+import { normalizedShapeGeometry, presetShapeGeometry } from "./shapeGeometry";
 
 export const DEFAULT_DATA_GROUP_ID = "group_primary";
 
@@ -9,6 +21,85 @@ const defaultSerialSettings: SerialSettings = {
   quantity: 10,
   step: 1,
   padding: 4,
+};
+
+const defaultFixedSettings: FixedSettings = {
+  value: "QR-FIXED",
+  quantity: 10,
+};
+
+export const defaultLayerShadow = {
+  shadowEnabled: false,
+  shadowColor: "#111827",
+  shadowOpacity: 0.28,
+  shadowBlur: 16,
+  shadowOffsetX: 0,
+  shadowOffsetY: 8,
+};
+
+export const defaultShapeGeometry: ShapeGeometry = {
+  shape: "rectangle",
+  cornerRadius: 0,
+  vertices: 5,
+  vertexInset: 1,
+  vertexRadius: 0,
+  sideDeflection: 0,
+};
+
+export const defaultShapeFill = {
+  fillMode: "solid" as const,
+  fillGradientFrom: "#14b8a6",
+  fillGradientTo: "#0f766e",
+  fillGradientAngle: 45,
+};
+
+const SHAPE_FILL_MODES: ShapeFillMode[] = ["solid", "linear-gradient", "radial-gradient"];
+
+function normalizedShapeFillMode(fillMode: ShapeFillMode | undefined): ShapeFillMode {
+  return fillMode && SHAPE_FILL_MODES.includes(fillMode) ? fillMode : defaultShapeFill.fillMode;
+}
+
+const DEFAULT_COLOR_PALETTE = [
+  "#111827",
+  "#ffffff",
+  "#f59e0b",
+  "#f97316",
+  "#14b8a6",
+  "#0f766e",
+  "#2563eb",
+  "#dc2626",
+];
+
+function normalizeColorList(colors: string[] | undefined, fallback: string[] = []) {
+  const normalized = (colors ?? fallback)
+    .map((color) => color.trim().toLowerCase())
+    .filter((color) => /^#[0-9a-f]{6}$/.test(color));
+  return [...new Set(normalized)];
+}
+
+export const defaultQrStyle: Pick<
+  QrLayer,
+  | "errorCorrectionLevel"
+  | "margin"
+  | "dotStyle"
+  | "cornerSquareStyle"
+  | "cornerDotStyle"
+  | "logoEnabled"
+  | "logoSrc"
+  | "logoSize"
+  | "logoMargin"
+  | "logoHideBackgroundDots"
+> = {
+  errorCorrectionLevel: "M",
+  margin: 2,
+  dotStyle: "square",
+  cornerSquareStyle: "square",
+  cornerDotStyle: "square",
+  logoEnabled: false,
+  logoSrc: "",
+  logoSize: 0.38,
+  logoMargin: 8,
+  logoHideBackgroundDots: true,
 };
 
 export function createProjectId(prefix: string) {
@@ -35,8 +126,26 @@ export function createDataGroup(name = "Primary serial", id = createProjectId("g
   };
 }
 
+export function createFixedDataGroup(
+  name = "Fixed value",
+  id = createProjectId("group"),
+): DataGroup {
+  return {
+    id,
+    name,
+    mode: "fixed",
+    fixed: {
+      ...defaultFixedSettings,
+    },
+  };
+}
+
 export const initialProject: QrMagicProject = {
   version: 1,
+  colors: {
+    recent: ["#f59e0b", "#f97316", "#111827", "#ffffff"],
+    palette: DEFAULT_COLOR_PALETTE,
+  },
   document: {
     name: "Festival Parking Decal",
     unit: "in",
@@ -44,6 +153,7 @@ export const initialProject: QrMagicProject = {
     height: 3,
     dpi: 300,
     backgroundColor: "#f8fafc",
+    backgroundOpacity: 1,
     transparentBackground: false,
     guides: {
       enabled: true,
@@ -52,6 +162,10 @@ export const initialProject: QrMagicProject = {
       showSafeArea: true,
       bleedRatio: 0.03125,
       safeAreaRatio: 0.08,
+    },
+    shape: {
+      ...defaultShapeGeometry,
+      cornerRadius: 18,
     },
   },
   layers: [
@@ -68,13 +182,21 @@ export const initialProject: QrMagicProject = {
       height: 828,
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       fill: "#f59e0b",
+      ...defaultShapeFill,
+      fillGradientFrom: "#f59e0b",
+      fillGradientTo: "#f97316",
       fillOpacity: 1,
       stroke: "transparent",
       strokeOpacity: 1,
       strokeWidth: 0,
       dash: [],
       cornerRadius: 18,
+      vertices: 4,
+      vertexInset: 1,
+      vertexRadius: 0,
+      sideDeflection: 0,
     },
     {
       id: "layer_title",
@@ -88,6 +210,7 @@ export const initialProject: QrMagicProject = {
       height: 70,
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       textTemplate: "FESTIVAL PARKING",
       fontFamily: "Inter, Arial, sans-serif",
       fontSize: 54,
@@ -108,6 +231,7 @@ export const initialProject: QrMagicProject = {
       height: 38,
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       textTemplate: "LOT A - WEEKEND ACCESS",
       fontFamily: "Inter, Arial, sans-serif",
       fontSize: 28,
@@ -129,9 +253,11 @@ export const initialProject: QrMagicProject = {
       height: 260,
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       payloadTemplate: "{{serial}}",
       foreground: "#111827",
       background: "#ffffff",
+      ...defaultQrStyle,
     },
     {
       id: "layer_serial",
@@ -146,6 +272,7 @@ export const initialProject: QrMagicProject = {
       height: 58,
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       textTemplate: "{{serial}}",
       fontFamily: "Inter, Arial, sans-serif",
       fontSize: 42,
@@ -180,32 +307,137 @@ type LegacyProject = QrMagicProject & {
   };
 };
 
+function normalizeDataGroup(group: DataGroup | (Partial<DataGroup> & { serial?: SerialSettings })): DataGroup {
+  if (group.mode === "fixed") {
+    return {
+      id: group.id ?? createProjectId("group"),
+      name: group.name ?? "Fixed value",
+      mode: "fixed",
+      fixed: {
+        ...defaultFixedSettings,
+        ...(group.fixed ?? {}),
+        quantity: Math.max(1, Number(group.fixed?.quantity ?? defaultFixedSettings.quantity)),
+      },
+    };
+  }
+
+  return {
+    id: group.id ?? createProjectId("group"),
+    name: group.name ?? "Primary serial",
+    mode: "serial",
+    serial: {
+      ...defaultSerialSettings,
+      ...(group.serial ?? {}),
+      quantity: Math.max(1, Number(group.serial?.quantity ?? defaultSerialSettings.quantity)),
+      padding: Math.max(0, Number(group.serial?.padding ?? defaultSerialSettings.padding)),
+    },
+  };
+}
+
+function normalizeShapeLayer(layer: ShapeLayer): ShapeLayer {
+  const legacyShape = layer.shape as ShapeLayer["shape"] | "star";
+  return {
+    ...layer,
+    ...defaultLayerShadow,
+    ...defaultShapeFill,
+    ...layer,
+    shadowEnabled: Boolean(layer.shadowEnabled ?? defaultLayerShadow.shadowEnabled),
+    shadowColor: layer.shadowColor ?? defaultLayerShadow.shadowColor,
+    shadowOpacity: Math.max(0, Math.min(1, Number(layer.shadowOpacity ?? defaultLayerShadow.shadowOpacity))),
+    shadowBlur: Math.max(0, Number(layer.shadowBlur ?? defaultLayerShadow.shadowBlur)),
+    shadowOffsetX: Number(layer.shadowOffsetX ?? defaultLayerShadow.shadowOffsetX),
+    shadowOffsetY: Number(layer.shadowOffsetY ?? defaultLayerShadow.shadowOffsetY),
+    fillMode: normalizedShapeFillMode(layer.fillMode),
+    fillGradientFrom: layer.fillGradientFrom ?? defaultShapeFill.fillGradientFrom,
+    fillGradientTo: layer.fillGradientTo ?? defaultShapeFill.fillGradientTo,
+    fillGradientAngle: Number(layer.fillGradientAngle ?? defaultShapeFill.fillGradientAngle),
+    ...normalizedShapeGeometry({
+      ...presetShapeGeometry(legacyShape === "star" ? "polygon" : legacyShape),
+      ...layer,
+    }),
+  };
+}
+
+function normalizeLayerBase<TLayer extends ProjectLayer>(layer: TLayer): TLayer {
+  return {
+    ...defaultLayerShadow,
+    ...layer,
+    shadowEnabled: Boolean(layer.shadowEnabled ?? defaultLayerShadow.shadowEnabled),
+    shadowColor: layer.shadowColor ?? defaultLayerShadow.shadowColor,
+    shadowOpacity: Math.max(0, Math.min(1, Number(layer.shadowOpacity ?? defaultLayerShadow.shadowOpacity))),
+    shadowBlur: Math.max(0, Number(layer.shadowBlur ?? defaultLayerShadow.shadowBlur)),
+    shadowOffsetX: Number(layer.shadowOffsetX ?? defaultLayerShadow.shadowOffsetX),
+    shadowOffsetY: Number(layer.shadowOffsetY ?? defaultLayerShadow.shadowOffsetY),
+  };
+}
+
+function normalizeQrLayer(layer: QrLayer): QrLayer {
+  return {
+    ...defaultQrStyle,
+    ...normalizeLayerBase(layer),
+    margin: Math.max(0, Number(layer.margin ?? defaultQrStyle.margin)),
+    logoSize: Math.max(0.05, Math.min(0.8, Number(layer.logoSize ?? defaultQrStyle.logoSize))),
+    logoMargin: Math.max(0, Number(layer.logoMargin ?? defaultQrStyle.logoMargin)),
+  };
+}
+
 export function normalizeProject(project: QrMagicProject | LegacyProject): QrMagicProject {
   const legacySerial = "serial" in project.data ? project.data.serial : undefined;
   const groups =
     project.data.groups?.length
-      ? project.data.groups
+      ? project.data.groups.map((group) => normalizeDataGroup(group))
       : [
-          {
+          normalizeDataGroup({
             id: DEFAULT_DATA_GROUP_ID,
             name: "Primary serial",
             mode: "serial" as const,
             serial: legacySerial ?? defaultSerialSettings,
-          },
+          }),
         ];
   const defaultGroupId = groups[0]?.id ?? DEFAULT_DATA_GROUP_ID;
   const layers = project.layers.map((layer): ProjectLayer => {
+    if (layer.type === "shape") {
+      return normalizeShapeLayer(layer);
+    }
     if (layer.type === "qr" && !layer.dataGroupId) {
-      return { ...layer, dataGroupId: defaultGroupId };
+      return normalizeQrLayer({ ...layer, dataGroupId: defaultGroupId });
+    }
+    if (layer.type === "qr") {
+      return normalizeQrLayer(layer);
     }
     if (layer.type === "text" && layer.textTemplate.includes("{{serial}}") && !layer.dataGroupId) {
-      return { ...layer, dataGroupId: defaultGroupId };
+      return normalizeLayerBase({ ...layer, dataGroupId: defaultGroupId });
     }
-    return layer;
+    return normalizeLayerBase(layer);
   });
 
   return {
     ...project,
+    colors: {
+      recent: normalizeColorList(project.colors?.recent),
+      palette: normalizeColorList(project.colors?.palette, DEFAULT_COLOR_PALETTE),
+    },
+    document: {
+      ...project.document,
+      backgroundOpacity: Math.max(
+        0,
+        Math.min(
+          1,
+          project.document.transparentBackground
+            ? 0
+            : Number(project.document.backgroundOpacity ?? 1),
+        ),
+      ),
+      transparentBackground: Boolean(
+        project.document.transparentBackground || project.document.backgroundOpacity === 0,
+      ),
+      shape: {
+        ...normalizedShapeGeometry({
+          ...defaultShapeGeometry,
+          ...(project.document.shape ?? {}),
+        }),
+      },
+    },
     layers,
     data: {
       mode: "serial",

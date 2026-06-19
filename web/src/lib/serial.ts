@@ -15,15 +15,33 @@ export function createSerialRecords(settings: SerialSettings): RenderRecord[] {
 }
 
 export function createDataRecords(groups: DataGroup[]): RenderRecord[] {
-  const quantity = Math.max(1, ...groups.map((group) => group.serial.quantity));
+  const serialGroups = groups.filter((group) => group.mode === "serial");
+  const quantitySourceGroups = serialGroups.length ? serialGroups : groups;
+  const quantity = Math.max(
+    1,
+    ...quantitySourceGroups.map((group) =>
+      group.mode === "serial" ? group.serial.quantity : group.fixed.quantity,
+    ),
+  );
   return Array.from({ length: quantity }, (_, index) => {
     const groupValues = Object.fromEntries(
-      groups.map((group) => [
-        group.id,
-        {
-          serial: index < group.serial.quantity ? formatSerial(group.serial, index) : "",
-        },
-      ]),
+      groups.map((group) => {
+        const groupQuantity = group.mode === "serial" ? group.serial.quantity : group.fixed.quantity;
+        const value =
+          group.mode === "serial"
+            ? index < groupQuantity
+              ? formatSerial(group.serial, index)
+              : ""
+            : serialGroups.length || index < groupQuantity
+              ? group.fixed.value
+              : "";
+        return [
+          group.id,
+          {
+            serial: value,
+          },
+        ];
+      }),
     );
     const primarySerial = groupValues[groups[0]?.id]?.serial ?? "";
     return {

@@ -7,10 +7,13 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
     "preview": "vite preview"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   },
   "dependencies": {
     "jszip": "^3.10.1",
@@ -18,17 +21,18 @@
     "lucide-react": "^0.468.0",
     "papaparse": "^5.5.3",
     "pdf-lib": "^1.17.1",
-    "qrcode": "^1.5.4",
+    "qr-code-styling": "^1.9.2",
     "react": "^19.0.0",
+    "react-colorful": "^5.7.0",
     "react-dom": "^19.0.0",
     "react-konva": "^19.0.3"
   },
   "devDependencies": {
-    "@types/qrcode": "^1.5.5",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "^5.9.0",
-    "vite": "^7.0.0"
+    "vite": "^7.0.0",
+    "vitest": "^4.1.9"
   }
 }

@@ -51,9 +51,12 @@ Current prototype capabilities include:
 * Visual canvas editor with select, pan, zoom, lasso, and multi-select.
 * DPI-aware document setup with page color, transparency, trim, bleed, and safe-area guides.
 * Layer management for shape/color, image, QR, and text layers.
-* Layer visibility, deletion, drag ordering, opacity, color, and sizing controls.
-* Multiple serial data groups, with new QR layers paired to their own serial text layer.
+* Shape layers for rectangles, circles/ovals, pills, polygon presets, and custom polygon/star shapes.
+* Layer visibility, deletion, drag ordering, opacity, shadows, solid fills, gradients, palette swatches, and sizing controls.
+* Multiple serial or fixed data groups, with fixed-only jobs able to repeat one value across a set quantity.
+* Styled QR codes with dot/corner styles, quiet-zone control, error correction, and embedded logos.
 * Alignment tools for single layers, selected groups, and document guide targets.
+* Document shape controls shared by trim, bleed, and safe-area guide rendering.
 * Save/open `.qrmagic.json` project files.
 * Flattened PNG export for a single record and zipped PNG batch export.
 
