@@ -6,6 +6,8 @@ export type GuideSnapTarget = "page" | "trim" | "bleed" | "safeArea";
 
 export type EditorTool = "select" | "pan";
 
+export type ShapeFillMode = "solid" | "linear-gradient" | "radial-gradient";
+
 export type ShapeKind =
   | "rectangle"
   | "ellipse"
@@ -41,6 +43,12 @@ export type LayerBase = {
   height: number;
   rotation: number;
   opacity: number;
+  shadowEnabled: boolean;
+  shadowColor: string;
+  shadowOpacity: number;
+  shadowBlur: number;
+  shadowOffsetX: number;
+  shadowOffsetY: number;
 };
 
 export type QrLayer = LayerBase & {
@@ -97,7 +105,11 @@ export type ImageLayer = LayerBase & {
 export type ShapeLayer = LayerBase & {
   type: "shape";
   shape: ShapeKind;
+  fillMode: ShapeFillMode;
   fill: string;
+  fillGradientFrom: string;
+  fillGradientTo: string;
+  fillGradientAngle: number;
   fillOpacity: number;
   stroke: string;
   strokeOpacity: number;

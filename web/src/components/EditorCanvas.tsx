@@ -12,7 +12,15 @@ import {
   Transformer,
 } from "react-konva";
 import Konva from "konva";
-import type { EditorTool, ProjectLayer, QrLayer, QrMagicProject, RenderRecord, ShapeGeometry } from "../types";
+import type {
+  EditorTool,
+  ProjectLayer,
+  QrLayer,
+  QrMagicProject,
+  RenderRecord,
+  ShapeGeometry,
+  ShapeLayer,
+} from "../types";
 import { documentPixelSize, guideSnapRect } from "../lib/project";
 import { renderStyledQrDataUrl } from "../lib/qrStyling";
 import { renderTemplate } from "../lib/serial";
@@ -47,6 +55,57 @@ function colorWithOpacity(color: string, opacity: number) {
   const green = parseInt(normalized.slice(2, 4), 16);
   const blue = parseInt(normalized.slice(4, 6), 16);
   return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, opacity))})`;
+}
+
+function layerShadowProps(layer: ProjectLayer) {
+  return {
+    shadowEnabled: layer.shadowEnabled,
+    shadowColor: colorWithOpacity(layer.shadowColor, layer.shadowOpacity),
+    shadowBlur: layer.shadowBlur,
+    shadowOffsetX: layer.shadowOffsetX,
+    shadowOffsetY: layer.shadowOffsetY,
+  };
+}
+
+function shapeFillProps(layer: ShapeLayer) {
+  if (layer.fillMode === "linear-gradient") {
+    const angle = (layer.fillGradientAngle * Math.PI) / 180;
+    const centerX = layer.width / 2;
+    const centerY = layer.height / 2;
+    const radius = Math.sqrt(layer.width ** 2 + layer.height ** 2) / 2;
+    const dx = Math.cos(angle) * radius;
+    const dy = Math.sin(angle) * radius;
+
+    return {
+      fill: undefined,
+      fillLinearGradientStartPoint: { x: centerX - dx, y: centerY - dy },
+      fillLinearGradientEndPoint: { x: centerX + dx, y: centerY + dy },
+      fillLinearGradientColorStops: [
+        0,
+        colorWithOpacity(layer.fillGradientFrom, layer.fillOpacity),
+        1,
+        colorWithOpacity(layer.fillGradientTo, layer.fillOpacity),
+      ],
+    };
+  }
+
+  if (layer.fillMode === "radial-gradient") {
+    return {
+      fill: undefined,
+      fillRadialGradientStartPoint: { x: layer.width / 2, y: layer.height / 2 },
+      fillRadialGradientStartRadius: 0,
+      fillRadialGradientEndPoint: { x: layer.width / 2, y: layer.height / 2 },
+      fillRadialGradientEndRadius: Math.max(layer.width, layer.height) / 2,
+      fillRadialGradientColorStops: [
+        0,
+        colorWithOpacity(layer.fillGradientFrom, layer.fillOpacity),
+        1,
+        colorWithOpacity(layer.fillGradientTo, layer.fillOpacity),
+      ],
+    };
+  }
+
+  return { fill: colorWithOpacity(layer.fill, layer.fillOpacity) };
 }
 
 function useQrDataUrl(layer: QrLayer, record: RenderRecord) {
@@ -101,11 +160,24 @@ type ShapeVisualProps = ShapeGeometry & {
   width: number;
   height: number;
   fill?: string;
+  fillLinearGradientStartPoint?: { x: number; y: number };
+  fillLinearGradientEndPoint?: { x: number; y: number };
+  fillLinearGradientColorStops?: Array<number | string>;
+  fillRadialGradientStartPoint?: { x: number; y: number };
+  fillRadialGradientStartRadius?: number;
+  fillRadialGradientEndPoint?: { x: number; y: number };
+  fillRadialGradientEndRadius?: number;
+  fillRadialGradientColorStops?: Array<number | string>;
   stroke?: string;
   strokeWidth?: number;
   dash?: number[];
   opacity?: number;
   rotation?: number;
+  shadowEnabled?: boolean;
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
   listening?: boolean;
   draggable?: boolean;
   onMouseDown?: (event: Konva.KonvaEventObject<MouseEvent>) => void;
@@ -215,6 +287,7 @@ function ImageNode({
           height={layer.height}
           rotation={layer.rotation}
           opacity={layer.opacity}
+          {...layerShadowProps(layer)}
           draggable={editable && selected && !layer.locked}
           onMouseDown={(event) => editable && onPointerDown(layer, event.currentTarget)}
           onMouseMove={(event) => editable && onPointerMove(layer, event.currentTarget)}
@@ -286,9 +359,7 @@ function QrNode({
           height={layer.height}
           fill={layer.background}
           cornerRadius={6}
-          shadowColor="rgba(15, 23, 42, 0.16)"
-          shadowBlur={selected ? 16 : 8}
-          shadowOffsetY={selected ? 8 : 4}
+          {...layerShadowProps(layer)}
         />
         {image ? (
           <KonvaImage image={image} width={layer.width} height={layer.height} />
@@ -399,7 +470,7 @@ function ShapeNode({
         y={layer.y}
         width={layer.width}
         height={layer.height}
-        fill={colorWithOpacity(layer.fill, layer.fillOpacity)}
+        {...shapeFillProps(layer)}
         stroke={colorWithOpacity(layer.stroke, layer.strokeOpacity)}
         strokeWidth={layer.strokeWidth}
         dash={layer.dash}
@@ -410,6 +481,7 @@ function ShapeNode({
         sideDeflection={layer.sideDeflection}
         rotation={layer.rotation}
         opacity={layer.opacity}
+        {...layerShadowProps(layer)}
         draggable={editable && selected && !layer.locked}
         onMouseDown={(event) => editable && onPointerDown(layer, event.currentTarget)}
         onMouseMove={(event) => editable && onPointerMove(layer, event.currentTarget)}

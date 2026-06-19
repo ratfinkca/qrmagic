@@ -6,6 +6,7 @@ import type {
   QrLayer,
   QrMagicProject,
   SerialSettings,
+  ShapeFillMode,
   ShapeGeometry,
   ShapeLayer,
 } from "../types";
@@ -27,6 +28,15 @@ const defaultFixedSettings: FixedSettings = {
   quantity: 10,
 };
 
+export const defaultLayerShadow = {
+  shadowEnabled: false,
+  shadowColor: "#111827",
+  shadowOpacity: 0.28,
+  shadowBlur: 16,
+  shadowOffsetX: 0,
+  shadowOffsetY: 8,
+};
+
 export const defaultShapeGeometry: ShapeGeometry = {
   shape: "rectangle",
   cornerRadius: 0,
@@ -35,6 +45,19 @@ export const defaultShapeGeometry: ShapeGeometry = {
   vertexRadius: 0,
   sideDeflection: 0,
 };
+
+export const defaultShapeFill = {
+  fillMode: "solid" as const,
+  fillGradientFrom: "#14b8a6",
+  fillGradientTo: "#0f766e",
+  fillGradientAngle: 45,
+};
+
+const SHAPE_FILL_MODES: ShapeFillMode[] = ["solid", "linear-gradient", "radial-gradient"];
+
+function normalizedShapeFillMode(fillMode: ShapeFillMode | undefined): ShapeFillMode {
+  return fillMode && SHAPE_FILL_MODES.includes(fillMode) ? fillMode : defaultShapeFill.fillMode;
+}
 
 export const defaultQrStyle: Pick<
   QrLayer,
@@ -136,7 +159,11 @@ export const initialProject: QrMagicProject = {
       height: 828,
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       fill: "#f59e0b",
+      ...defaultShapeFill,
+      fillGradientFrom: "#f59e0b",
+      fillGradientTo: "#f97316",
       fillOpacity: 1,
       stroke: "transparent",
       strokeOpacity: 1,
@@ -160,6 +187,7 @@ export const initialProject: QrMagicProject = {
       height: 70,
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       textTemplate: "FESTIVAL PARKING",
       fontFamily: "Inter, Arial, sans-serif",
       fontSize: 54,
@@ -180,6 +208,7 @@ export const initialProject: QrMagicProject = {
       height: 38,
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       textTemplate: "LOT A - WEEKEND ACCESS",
       fontFamily: "Inter, Arial, sans-serif",
       fontSize: 28,
@@ -201,6 +230,7 @@ export const initialProject: QrMagicProject = {
       height: 260,
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       payloadTemplate: "{{serial}}",
       foreground: "#111827",
       background: "#ffffff",
@@ -219,6 +249,7 @@ export const initialProject: QrMagicProject = {
       height: 58,
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       textTemplate: "{{serial}}",
       fontFamily: "Inter, Arial, sans-serif",
       fontSize: 42,
@@ -284,6 +315,19 @@ function normalizeShapeLayer(layer: ShapeLayer): ShapeLayer {
   const legacyShape = layer.shape as ShapeLayer["shape"] | "star";
   return {
     ...layer,
+    ...defaultLayerShadow,
+    ...defaultShapeFill,
+    ...layer,
+    shadowEnabled: Boolean(layer.shadowEnabled ?? defaultLayerShadow.shadowEnabled),
+    shadowColor: layer.shadowColor ?? defaultLayerShadow.shadowColor,
+    shadowOpacity: Math.max(0, Math.min(1, Number(layer.shadowOpacity ?? defaultLayerShadow.shadowOpacity))),
+    shadowBlur: Math.max(0, Number(layer.shadowBlur ?? defaultLayerShadow.shadowBlur)),
+    shadowOffsetX: Number(layer.shadowOffsetX ?? defaultLayerShadow.shadowOffsetX),
+    shadowOffsetY: Number(layer.shadowOffsetY ?? defaultLayerShadow.shadowOffsetY),
+    fillMode: normalizedShapeFillMode(layer.fillMode),
+    fillGradientFrom: layer.fillGradientFrom ?? defaultShapeFill.fillGradientFrom,
+    fillGradientTo: layer.fillGradientTo ?? defaultShapeFill.fillGradientTo,
+    fillGradientAngle: Number(layer.fillGradientAngle ?? defaultShapeFill.fillGradientAngle),
     ...normalizedShapeGeometry({
       ...presetShapeGeometry(legacyShape === "star" ? "polygon" : legacyShape),
       ...layer,
@@ -291,10 +335,23 @@ function normalizeShapeLayer(layer: ShapeLayer): ShapeLayer {
   };
 }
 
+function normalizeLayerBase<TLayer extends ProjectLayer>(layer: TLayer): TLayer {
+  return {
+    ...defaultLayerShadow,
+    ...layer,
+    shadowEnabled: Boolean(layer.shadowEnabled ?? defaultLayerShadow.shadowEnabled),
+    shadowColor: layer.shadowColor ?? defaultLayerShadow.shadowColor,
+    shadowOpacity: Math.max(0, Math.min(1, Number(layer.shadowOpacity ?? defaultLayerShadow.shadowOpacity))),
+    shadowBlur: Math.max(0, Number(layer.shadowBlur ?? defaultLayerShadow.shadowBlur)),
+    shadowOffsetX: Number(layer.shadowOffsetX ?? defaultLayerShadow.shadowOffsetX),
+    shadowOffsetY: Number(layer.shadowOffsetY ?? defaultLayerShadow.shadowOffsetY),
+  };
+}
+
 function normalizeQrLayer(layer: QrLayer): QrLayer {
   return {
     ...defaultQrStyle,
-    ...layer,
+    ...normalizeLayerBase(layer),
     margin: Math.max(0, Number(layer.margin ?? defaultQrStyle.margin)),
     logoSize: Math.max(0.05, Math.min(0.8, Number(layer.logoSize ?? defaultQrStyle.logoSize))),
     logoMargin: Math.max(0, Number(layer.logoMargin ?? defaultQrStyle.logoMargin)),
@@ -326,9 +383,9 @@ export function normalizeProject(project: QrMagicProject | LegacyProject): QrMag
       return normalizeQrLayer(layer);
     }
     if (layer.type === "text" && layer.textTemplate.includes("{{serial}}") && !layer.dataGroupId) {
-      return { ...layer, dataGroupId: defaultGroupId };
+      return normalizeLayerBase({ ...layer, dataGroupId: defaultGroupId });
     }
-    return layer;
+    return normalizeLayerBase(layer);
   });
 
   return {

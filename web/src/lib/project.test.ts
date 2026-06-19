@@ -94,6 +94,11 @@ describe("normalizeProject", () => {
     expect(normalized.document.shape.shape).toBe("rectangle");
     expect(normalized.layers[0]).toMatchObject({
       type: "shape",
+      fillMode: "solid",
+      fillGradientFrom: "#14b8a6",
+      fillGradientTo: "#0f766e",
+      shadowEnabled: false,
+      shadowColor: "#111827",
       vertices: 4,
       vertexInset: 1,
       vertexRadius: 0,
@@ -101,6 +106,8 @@ describe("normalizeProject", () => {
     });
     expect(normalized.layers[1]).toMatchObject({
       type: "qr",
+      shadowEnabled: false,
+      shadowColor: "#111827",
       errorCorrectionLevel: "M",
       dotStyle: "square",
       logoSize: 0.38,

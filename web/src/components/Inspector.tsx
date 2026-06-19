@@ -14,7 +14,13 @@ import {
 } from "lucide-react";
 import { guideSnapRect } from "../lib/project";
 import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
-import type { DataGroup, GuideSnapTarget, ProjectLayer, QrMagicProject } from "../types";
+import type {
+  DataGroup,
+  GuideSnapTarget,
+  ProjectLayer,
+  QrMagicProject,
+  ShapeFillMode,
+} from "../types";
 
 type Alignment = "left" | "center-x" | "right" | "top" | "center-y" | "bottom";
 type AlignTarget = GuideSnapTarget | "selection";
@@ -407,6 +413,92 @@ export function Inspector({
                 }
               />
             </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={selectedLayer.shadowEnabled}
+                onChange={(event) =>
+                  onUpdateLayer(selectedLayer.id, {
+                    shadowEnabled: event.target.checked,
+                  } as Partial<ProjectLayer>)
+                }
+              />
+              Shadow
+            </label>
+            {selectedLayer.shadowEnabled ? (
+              <>
+                <div className="field-grid">
+                  <label>
+                    Shadow color
+                    <input
+                      type="color"
+                      value={selectedLayer.shadowColor}
+                      {...deferredInputHandlers()}
+                      onChange={(event) =>
+                        transientLayerUpdate(selectedLayer.id, {
+                          shadowColor: event.target.value,
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Shadow opacity
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={selectedLayer.shadowOpacity}
+                      {...deferredInputHandlers()}
+                      onChange={(event) =>
+                        transientLayerUpdate(selectedLayer.id, {
+                          shadowOpacity: Number(event.target.value),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="field-grid">
+                  <label>
+                    Blur
+                    <input
+                      type="number"
+                      min="0"
+                      value={selectedLayer.shadowBlur}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          shadowBlur: Math.max(0, Number(event.target.value)),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Offset X
+                    <input
+                      type="number"
+                      value={selectedLayer.shadowOffsetX}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          shadowOffsetX: Number(event.target.value),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+                <label>
+                  Offset Y
+                  <input
+                    type="number"
+                    value={selectedLayer.shadowOffsetY}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        shadowOffsetY: Number(event.target.value),
+                      } as Partial<ProjectLayer>)
+                    }
+                  />
+                </label>
+              </>
+            ) : null}
             {alignmentControls()}
             {selectedLayer.type === "shape" || selectedLayer.type === "image" ? (
               <label>
@@ -746,20 +838,74 @@ export function Inspector({
                 </label>
                 <div className="field-grid">
                   <label>
-                    Fill
+                    Fill mode
+                    <select
+                      value={selectedLayer.fillMode}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          fillMode: event.target.value as ShapeFillMode,
+                        } as Partial<ProjectLayer>)
+                      }
+                    >
+                      <option value="solid">Solid</option>
+                      <option value="linear-gradient">Linear gradient</option>
+                      <option value="radial-gradient">Radial gradient</option>
+                    </select>
+                  </label>
+                  <label>
+                    {selectedLayer.fillMode === "solid" ? "Fill" : "Gradient from"}
                     <input
                       type="color"
                       value={
-                        selectedLayer.fill === "transparent" ? "#ffffff" : selectedLayer.fill
+                        selectedLayer.fillMode === "solid"
+                          ? selectedLayer.fill === "transparent"
+                            ? "#ffffff"
+                            : selectedLayer.fill
+                          : selectedLayer.fillGradientFrom
                       }
                       {...deferredInputHandlers()}
                       onChange={(event) =>
                         transientLayerUpdate(selectedLayer.id, {
-                          fill: event.target.value,
+                          ...(selectedLayer.fillMode === "solid"
+                            ? { fill: event.target.value }
+                            : { fillGradientFrom: event.target.value }),
                         } as Partial<ProjectLayer>)
                       }
                     />
                   </label>
+                </div>
+                {selectedLayer.fillMode !== "solid" ? (
+                  <div className="field-grid">
+                    <label>
+                      Gradient to
+                      <input
+                        type="color"
+                        value={selectedLayer.fillGradientTo}
+                        {...deferredInputHandlers()}
+                        onChange={(event) =>
+                          transientLayerUpdate(selectedLayer.id, {
+                            fillGradientTo: event.target.value,
+                          } as Partial<ProjectLayer>)
+                        }
+                      />
+                    </label>
+                    {selectedLayer.fillMode === "linear-gradient" ? (
+                      <label>
+                        Angle
+                        <input
+                          type="number"
+                          value={selectedLayer.fillGradientAngle}
+                          onChange={(event) =>
+                            onUpdateLayer(selectedLayer.id, {
+                              fillGradientAngle: Number(event.target.value),
+                            } as Partial<ProjectLayer>)
+                          }
+                        />
+                      </label>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="field-grid">
                   <label>
                     Stroke
                     <input

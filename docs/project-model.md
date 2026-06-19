@@ -124,11 +124,19 @@ Common fields:
   "width": 1200,
   "height": 900,
   "rotation": 0,
-  "opacity": 1
+  "opacity": 1,
+  "shadowEnabled": false,
+  "shadowColor": "#111827",
+  "shadowOpacity": 0.28,
+  "shadowBlur": 16,
+  "shadowOffsetX": 0,
+  "shadowOffsetY": 8
 }
 ```
 
 Coordinates should be stored in document units or normalized pixels. The implementation should choose one approach and use it consistently. For predictable rendering, normalized pixels may be simpler internally; the UI can display inches or millimeters.
+
+Layer shadows are common to image, QR, text, and shape layers. Shape layers also support `fillMode` values of `solid`, `linear-gradient`, and `radial-gradient`, with gradient start/end colors and an angle for linear gradients.
 
 ## Image Layer
 
