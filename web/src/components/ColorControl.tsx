@@ -121,6 +121,7 @@ export function ColorControl({
 
   return (
     <div className="color-control" ref={controlRef}>
+      <span className="color-control-label">{label}</span>
       <button
         type="button"
         className="color-trigger"
@@ -129,7 +130,7 @@ export function ColorControl({
         onClick={togglePopover}
         disabled={disabled}
       >
-        <span className="color-trigger-label">{label}</span>
+        <span className="color-trigger-value">{color}</span>
         <span className="color-preview" style={{ background: color }} />
       </button>
       {open ? (

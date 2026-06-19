@@ -68,7 +68,8 @@ The document defines the design surface.
       "vertexRadius": 0,
       "sideDeflection": 0
     },
-    "backgroundColor": "#ffffff"
+    "backgroundColor": "#ffffff",
+    "backgroundOpacity": 1
   }
 }
 ```

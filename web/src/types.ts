@@ -167,6 +167,7 @@ export type QrMagicProject = {
     height: number;
     dpi: number;
     backgroundColor: string;
+    backgroundOpacity: number;
     transparentBackground: boolean;
     guides: {
       enabled: boolean;

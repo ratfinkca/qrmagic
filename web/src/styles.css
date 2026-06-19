@@ -261,7 +261,15 @@ select:focus {
 
 .color-control {
   position: relative;
+  display: grid;
+  gap: 6px;
   min-width: 0;
+}
+
+.color-control-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .color-trigger {
@@ -288,12 +296,13 @@ select:focus {
   border-color: #14b8a6;
 }
 
-.color-trigger-label {
+.color-trigger-value {
   overflow: hidden;
-  color: #64748b;
-  font-size: 12px;
+  color: #0f172a;
+  font-size: 13px;
   font-weight: 800;
   text-overflow: ellipsis;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 

@@ -1049,11 +1049,10 @@ export function EditorCanvas({
                   name="document-background"
                   width={docSize.width}
                   height={docSize.height}
-                  fill={
-                    project.document.transparentBackground
-                      ? "transparent"
-                      : project.document.backgroundColor
-                  }
+                  fill={colorWithOpacity(
+                    project.document.backgroundColor,
+                    project.document.backgroundOpacity,
+                  )}
                   shadowColor="rgba(15, 23, 42, 0.18)"
                   shadowBlur={28}
                   shadowOffsetY={16}

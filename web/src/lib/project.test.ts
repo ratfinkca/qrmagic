@@ -93,6 +93,7 @@ describe("normalizeProject", () => {
 
     expect(normalized.colors.palette).toContain("#14b8a6");
     expect(normalized.colors.recent).toEqual([]);
+    expect(normalized.document.backgroundOpacity).toBe(1);
     expect(normalized.document.shape.shape).toBe("rectangle");
     expect(normalized.layers[0]).toMatchObject({
       type: "shape",

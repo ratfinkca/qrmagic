@@ -126,6 +126,17 @@ export function Sidebar({
     onCommitProjectChange();
   }
 
+  function updateDocumentOpacity(opacity: number) {
+    onBeginProjectChange();
+    onUpdateDocument(
+      {
+        backgroundOpacity: opacity,
+        transparentBackground: opacity <= 0,
+      },
+      { recordHistory: false },
+    );
+  }
+
   return (
     <aside className="sidebar">
       <section className="panel">
@@ -189,12 +200,10 @@ export function Sidebar({
               </label>
             </div>
             <div className="document-color-field">
-              <span className="field-label">Page color</span>
-              <div className="color-row">
+              <div className="field-grid">
                 <ColorControl
                   label="Page color"
                   value={project.document.backgroundColor}
-                  disabled={project.document.transparentBackground}
                   recentColors={project.colors.recent}
                   paletteColors={project.colors.palette}
                   onChange={updateDocumentColor}
@@ -202,15 +211,23 @@ export function Sidebar({
                   onSaveColor={onSaveColor}
                   onRemoveColor={onRemoveColor}
                 />
-                <label className="checkbox-row">
+                <label>
+                  Opacity
                   <input
-                    type="checkbox"
-                    checked={project.document.transparentBackground}
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={project.document.backgroundOpacity}
+                    onPointerDown={onBeginProjectChange}
+                    onKeyDown={onBeginProjectChange}
+                    onPointerUp={onCommitProjectChange}
+                    onKeyUp={onCommitProjectChange}
+                    onBlur={onCommitProjectChange}
                     onChange={(event) =>
-                      onUpdateDocument({ transparentBackground: event.target.checked })
+                      updateDocumentOpacity(Number(event.target.value))
                     }
                   />
-                  Transparent
                 </label>
               </div>
             </div>

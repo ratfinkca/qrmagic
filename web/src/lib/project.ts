@@ -153,6 +153,7 @@ export const initialProject: QrMagicProject = {
     height: 3,
     dpi: 300,
     backgroundColor: "#f8fafc",
+    backgroundOpacity: 1,
     transparentBackground: false,
     guides: {
       enabled: true,
@@ -418,6 +419,18 @@ export function normalizeProject(project: QrMagicProject | LegacyProject): QrMag
     },
     document: {
       ...project.document,
+      backgroundOpacity: Math.max(
+        0,
+        Math.min(
+          1,
+          project.document.transparentBackground
+            ? 0
+            : Number(project.document.backgroundOpacity ?? 1),
+        ),
+      ),
+      transparentBackground: Boolean(
+        project.document.transparentBackground || project.document.backgroundOpacity === 0,
+      ),
       shape: {
         ...normalizedShapeGeometry({
           ...defaultShapeGeometry,
