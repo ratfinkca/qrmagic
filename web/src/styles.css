@@ -139,6 +139,7 @@ button {
 }
 
 .workspace {
+  position: relative;
   display: grid;
   grid-template-columns: 300px minmax(680px, 1fr) 300px;
   height: calc(100vh - 58px);
@@ -148,6 +149,30 @@ button {
 
 .workspace.panels-hidden {
   grid-template-columns: 1fr;
+}
+
+.workspace.export-locked > .sidebar,
+.workspace.export-locked > .canvas-shell,
+.workspace.export-locked > .inspector {
+  pointer-events: none;
+}
+
+.export-lock-overlay {
+  position: absolute;
+  right: 318px;
+  bottom: 24px;
+  z-index: 20;
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #99f6e4;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #0f766e;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .sidebar,
@@ -489,6 +514,11 @@ select:focus {
 
 .primary-action:hover {
   background: #115e59;
+}
+
+.primary-action:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .secondary-action {
