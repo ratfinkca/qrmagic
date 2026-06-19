@@ -70,6 +70,7 @@ function getExportSetFormat(project: QrMagicProject): ExportSetFormat {
   return EXPORT_SET_FORMATS.includes(format as ExportSetFormat)
     ? (format as ExportSetFormat)
     : "png";
+}
 const MAX_RECENT_COLORS = 14;
 
 function normalizeHexColor(color: string) {
@@ -558,27 +559,6 @@ export function App() {
         palette: current.colors.palette.filter((existingColor) => existingColor !== normalized),
       },
     }));
-  }
-
-  function exportPng() {
-    const stage = stageRef.current;
-    if (!stage) return;
-    const uri = exportStageDataUrl(stage);
-    const link = document.createElement("a");
-    link.download = `${currentRecord.serial}.png`;
-    link.href = uri;
-    link.click();
-  }
-
-  function dataUrlToBlob(dataUrl: string) {
-    const [meta, data] = dataUrl.split(",");
-    const mime = meta.match(/data:(.*);base64/)?.[1] ?? "image/png";
-    const binary = atob(data);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
-    }
-    return new Blob([bytes], { type: mime });
   }
 
   function downloadBlob(blob: Blob, filename: string) {
@@ -1110,7 +1090,6 @@ export function App() {
             onUseColor={rememberColor}
             onSaveColor={savePaletteColor}
             onRemoveColor={removePaletteColor}
-            onExportPng={exportPng}
             onExportBatch={exportBatchPngs}
             onUpdateExport={updateExport}
             exportStatus={exportStatus}
