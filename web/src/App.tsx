@@ -465,6 +465,10 @@ export function App() {
     const selectedBounds = selectionBounds(layers);
     const targetRect = target === "selection" ? selectedBounds : guideSnapRect(project, target);
     const layerIds = new Set(layers.map((layer) => layer.id));
+    const isVerticalSelectionAlignment =
+      target === "selection" &&
+      layers.length > 1 &&
+      (alignment === "top" || alignment === "center-y" || alignment === "bottom");
 
     if (target !== "selection" && layers.length > 1) {
       const targetCenterX = targetRect.x + targetRect.width / 2;
@@ -490,6 +494,39 @@ export function App() {
         layers: current.layers.map((layer) =>
           layerIds.has(layer.id)
             ? ({ ...layer, x: layer.x + deltaX, y: layer.y + deltaY } as ProjectLayer)
+            : layer,
+        ),
+      }));
+      return;
+    }
+
+    if (isVerticalSelectionAlignment) {
+      const sortedLayers = [...layers].sort((firstLayer, secondLayer) => {
+        if (firstLayer.y !== secondLayer.y) return firstLayer.y - secondLayer.y;
+        return firstLayer.x - secondLayer.x;
+      });
+      const totalHeight = sortedLayers.reduce((sum, layer) => sum + layer.height, 0);
+      let nextY = targetRect.y;
+
+      if (alignment === "center-y") {
+        nextY = targetRect.y + (targetRect.height - totalHeight) / 2;
+      }
+
+      if (alignment === "bottom") {
+        nextY = targetRect.y + targetRect.height - totalHeight;
+      }
+
+      const yByLayerId = new Map<string, number>();
+      sortedLayers.forEach((layer) => {
+        yByLayerId.set(layer.id, nextY);
+        nextY += layer.height;
+      });
+
+      setProject((current) => ({
+        ...current,
+        layers: current.layers.map((layer) =>
+          layerIds.has(layer.id)
+            ? ({ ...layer, y: yByLayerId.get(layer.id) ?? layer.y } as ProjectLayer)
             : layer,
         ),
       }));
