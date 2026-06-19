@@ -1,4 +1,3 @@
-import QRCode from "qrcode";
 import {
   PDFDict,
   PDFDocument,
@@ -9,6 +8,7 @@ import {
 } from "pdf-lib";
 import type { ProjectLayer, QrMagicProject, RenderRecord } from "../types";
 import { documentPixelSize, guideSnapRect } from "./project";
+import { renderStyledQrDataUrl } from "./qrStyling";
 import { renderTemplate } from "./serial";
 
 type RenderOptions = {
@@ -154,18 +154,7 @@ async function drawQrLayer(
 ) {
   if (layer.type !== "qr") return;
 
-  const dataUrl = await QRCode.toDataURL(
-    renderTemplate(layer.payloadTemplate, record, layer.dataGroupId),
-    {
-      margin: 2,
-      color: {
-        dark: layer.foreground,
-        light: layer.background,
-      },
-      errorCorrectionLevel: "M",
-      width: Math.max(layer.width, layer.height),
-    },
-  );
+  const dataUrl = await renderStyledQrDataUrl(layer, record);
   const qrImage = await loadImage(dataUrl);
 
   drawLayerFrame(context, layer, () => {
