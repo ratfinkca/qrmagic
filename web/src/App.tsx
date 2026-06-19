@@ -311,6 +311,8 @@ export function App() {
     const wasVisible = guidesLayer?.visible() ?? false;
     const transformerNodes = stage.find("Transformer");
     const transformerVisibility = transformerNodes.map((node) => node.visible());
+    const selectionOverlayNodes = stage.find(".selection-overlay");
+    const selectionOverlayVisibility = selectionOverlayNodes.map((node) => node.visible());
     const originalStageSize = stage.size();
     const originalScale = stage.scale();
 
@@ -318,6 +320,7 @@ export function App() {
       guidesLayer?.visible(false);
     }
     transformerNodes.forEach((node) => node.visible(false));
+    selectionOverlayNodes.forEach((node) => node.visible(false));
     stage.size(docSize);
     stage.scale({ x: 1, y: 1 });
     stage.batchDraw();
@@ -326,6 +329,7 @@ export function App() {
     stage.scale(originalScale);
     guidesLayer?.visible(wasVisible);
     transformerNodes.forEach((node, index) => node.visible(transformerVisibility[index]));
+    selectionOverlayNodes.forEach((node, index) => node.visible(selectionOverlayVisibility[index]));
     stage.batchDraw();
     return uri;
   }

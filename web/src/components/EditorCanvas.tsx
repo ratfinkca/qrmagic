@@ -390,6 +390,7 @@ export function EditorCanvas({
     startY: number;
     positions: Record<string, { x: number; y: number }>;
   } | null>(null);
+  const ignoreNextLayerClickRef = useRef(false);
   const docSize = useMemo(() => documentPixelSize(project), [project]);
   const fitScale = Math.min(1, 860 / docSize.width, 610 / docSize.height);
   const scale = fitScale * zoom;
@@ -410,6 +411,14 @@ export function EditorCanvas({
     [project.layers, selectedLayerIds],
   );
   const selectedLayerSet = useMemo(() => new Set(selectedLayerIds), [selectedLayerIds]);
+  const lassoTargetIds = useMemo(() => {
+    if (!selectionRect.visible) return [];
+    return project.layers
+      .filter((layer) => layer.visible && !layer.locked)
+      .filter((layer) => layerIsInsideRect(layer, selectionRect))
+      .map((layer) => layer.id);
+  }, [project.layers, selectionRect]);
+  const lassoTargetSet = useMemo(() => new Set(lassoTargetIds), [lassoTargetIds]);
 
   useEffect(() => {
     registerStage(stageRef.current);
@@ -490,6 +499,11 @@ export function EditorCanvas({
   }
 
   function selectLayer(layerId: string, additive: boolean) {
+    if (ignoreNextLayerClickRef.current) {
+      ignoreNextLayerClickRef.current = false;
+      return;
+    }
+
     if (!additive) {
       onSelectLayers([layerId]);
       return;
@@ -526,6 +540,18 @@ export function EditorCanvas({
       Math.abs(pointer.x - (layer.x + layer.width)) <= tolerance ||
       Math.abs(pointer.y - layer.y) <= tolerance ||
       Math.abs(pointer.y - (layer.y + layer.height)) <= tolerance
+    );
+  }
+
+  function layerIsInsideRect(
+    layer: ProjectLayer,
+    rect: { x: number; y: number; width: number; height: number },
+  ) {
+    return (
+      layer.x >= rect.x &&
+      layer.y >= rect.y &&
+      layer.x + layer.width <= rect.x + rect.width &&
+      layer.y + layer.height <= rect.y + rect.height
     );
   }
 
@@ -606,24 +632,17 @@ export function EditorCanvas({
       };
       const selectedIds = project.layers
         .filter((layer) => layer.visible && !layer.locked)
-        .filter((layer) => {
-          const center = {
-            x: layer.x + layer.width / 2,
-            y: layer.y + layer.height / 2,
-          };
-          return (
-            center.x >= box.x &&
-            center.x <= box.x + box.width &&
-            center.y >= box.y &&
-            center.y <= box.y + box.height
-          );
-        })
+        .filter((layer) => layerIsInsideRect(layer, box))
         .map((layer) => layer.id);
       onSelectLayers(
         lassoRef.current.additive
           ? Array.from(new Set([...selectedLayerIds, ...selectedIds]))
           : selectedIds,
       );
+      ignoreNextLayerClickRef.current = true;
+      window.setTimeout(() => {
+        ignoreNextLayerClickRef.current = false;
+      }, 0);
     }
 
     lassoRef.current.active = false;
@@ -823,6 +842,50 @@ export function EditorCanvas({
                 }
                 return null;
               })}
+              {layerEditingEnabled ? (
+                <>
+                  {project.layers.map((layer) => {
+                    if (!layer.visible || !selectedLayerSet.has(layer.id)) return null;
+                    return (
+                      <Rect
+                        key={`selected-outline-${layer.id}`}
+                        name="selection-overlay"
+                        x={layer.x}
+                        y={layer.y}
+                        width={layer.width}
+                        height={layer.height}
+                        rotation={layer.rotation}
+                        stroke="#0891b2"
+                        strokeWidth={1.5}
+                        dash={[5, 5]}
+                        opacity={0.82}
+                        listening={false}
+                      />
+                    );
+                  })}
+                  {selectionRect.visible
+                    ? project.layers.map((layer) => {
+                        if (!layer.visible || !lassoTargetSet.has(layer.id)) return null;
+                        return (
+                          <Rect
+                            key={`lasso-target-${layer.id}`}
+                            name="selection-overlay"
+                            x={layer.x}
+                            y={layer.y}
+                            width={layer.width}
+                            height={layer.height}
+                            rotation={layer.rotation}
+                            fill="rgba(20, 184, 166, 0.1)"
+                            stroke="#0f766e"
+                            strokeWidth={2}
+                            dash={[8, 5]}
+                            listening={false}
+                          />
+                        );
+                      })
+                    : null}
+                </>
+              ) : null}
               {layerEditingEnabled ? (
                 <Transformer
                   ref={transformerRef}
