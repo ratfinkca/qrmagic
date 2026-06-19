@@ -28,6 +28,17 @@ describe("shapeGeometry", () => {
     expect(polygonPoints(100, 100, presetShapeGeometry("octagon"))).toHaveLength(8);
   });
 
+  it("fits polygon points to the full target bounds", () => {
+    const points = polygonPoints(400, 300, presetShapeGeometry("triangle"));
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+
+    expect(Math.min(...xs)).toBeCloseTo(0);
+    expect(Math.max(...xs)).toBeCloseTo(400);
+    expect(Math.min(...ys)).toBeCloseTo(0);
+    expect(Math.max(...ys)).toBeCloseTo(300);
+  });
+
   it("uses vertexInset 1 for regular polygons", () => {
     const geometry = { ...presetShapeGeometry("polygon"), vertices: 5, vertexInset: 1 };
 

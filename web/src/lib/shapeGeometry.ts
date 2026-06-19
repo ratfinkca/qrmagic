@@ -104,6 +104,21 @@ function rotateOffsetForShape(shape: ShapeKind) {
   return -Math.PI / 2;
 }
 
+function fitPointsToBounds(points: Point[], width: number, height: number) {
+  if (!points.length) return points;
+  const minX = Math.min(...points.map((point) => point.x));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxY = Math.max(...points.map((point) => point.y));
+  const sourceWidth = maxX - minX || 1;
+  const sourceHeight = maxY - minY || 1;
+
+  return points.map((point) => ({
+    x: ((point.x - minX) / sourceWidth) * width,
+    y: ((point.y - minY) / sourceHeight) * height,
+  }));
+}
+
 export function polygonPoints(width: number, height: number, geometry: ShapeGeometry): Point[] {
   const shape = normalizedShapeGeometry(geometry);
   const vertices = shape.shape === "diamond" ? 4 : shape.vertices;
@@ -115,7 +130,7 @@ export function polygonPoints(width: number, height: number, geometry: ShapeGeom
   const radiusY = height / 2;
   const offset = rotateOffsetForShape(shape.shape);
 
-  return Array.from({ length: count }, (_, index) => {
+  const points = Array.from({ length: count }, (_, index) => {
     const outerIndex = hasInset ? index / 2 : index;
     const inset = hasInset && index % 2 === 1 ? shape.vertexInset : 1;
     const angle = offset + (outerIndex * Math.PI * 2) / vertices;
@@ -124,6 +139,7 @@ export function polygonPoints(width: number, height: number, geometry: ShapeGeom
       y: centerY + Math.sin(angle) * radiusY * inset,
     };
   });
+  return fitPointsToBounds(points, width, height);
 }
 
 function distance(first: Point, second: Point) {
