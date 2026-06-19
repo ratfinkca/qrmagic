@@ -55,6 +55,12 @@ type ProjectUpdateOptions = {
 };
 
 const MAX_HISTORY_STEPS = 80;
+const MAX_RECENT_COLORS = 14;
+
+function normalizeHexColor(color: string) {
+  const normalized = color.trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : null;
+}
 
 export function App() {
   const [project, setProject] = useState<QrMagicProject>(initialProject);
@@ -461,14 +467,17 @@ export function App() {
     }));
   }
 
-  function updateDocument(patch: Partial<QrMagicProject["document"]>) {
+  function updateDocument(
+    patch: Partial<QrMagicProject["document"]>,
+    options?: ProjectUpdateOptions,
+  ) {
     updateProject((current) => ({
       ...current,
       document: {
         ...current.document,
         ...patch,
       },
-    }));
+    }), options);
   }
 
   function updateExport(patch: Partial<QrMagicProject["export"]>) {
@@ -477,6 +486,51 @@ export function App() {
       export: {
         ...current.export,
         ...patch,
+      },
+    }));
+  }
+
+  function rememberColor(color: string) {
+    const normalized = normalizeHexColor(color);
+    if (!normalized) return;
+
+    updateProject((current) => ({
+      ...current,
+      colors: {
+        ...current.colors,
+        recent: [
+          normalized,
+          ...current.colors.recent.filter((existingColor) => existingColor !== normalized),
+        ].slice(0, MAX_RECENT_COLORS),
+      },
+    }), { recordHistory: false });
+  }
+
+  function savePaletteColor(color: string) {
+    const normalized = normalizeHexColor(color);
+    if (!normalized) return;
+
+    updateProject((current) => {
+      if (current.colors.palette.includes(normalized)) return current;
+      return {
+        ...current,
+        colors: {
+          ...current.colors,
+          palette: [...current.colors.palette, normalized],
+        },
+      };
+    });
+  }
+
+  function removePaletteColor(color: string) {
+    const normalized = normalizeHexColor(color);
+    if (!normalized) return;
+
+    updateProject((current) => ({
+      ...current,
+      colors: {
+        ...current.colors,
+        palette: current.colors.palette.filter((existingColor) => existingColor !== normalized),
       },
     }));
   }
@@ -951,6 +1005,11 @@ export function App() {
             onUpdateDataGroupFixed={updateDataGroupFixed}
             onUpdateDataGroupMode={updateDataGroupMode}
             onUpdateDocument={updateDocument}
+            onBeginProjectChange={beginProjectChangeTransaction}
+            onCommitProjectChange={commitProjectChangeTransaction}
+            onUseColor={rememberColor}
+            onSaveColor={savePaletteColor}
+            onRemoveColor={removePaletteColor}
             onAddShapeLayer={addShapeLayer}
             onAddTextLayer={addTextLayer}
             onAddQrLayer={addQrLayer}
@@ -984,6 +1043,9 @@ export function App() {
             project={project}
             dataGroups={project.data.groups}
             onUpdateLayer={updateLayer}
+            onUseColor={rememberColor}
+            onSaveColor={savePaletteColor}
+            onRemoveColor={removePaletteColor}
             onExportPng={exportPng}
             onExportBatch={exportBatchPngs}
             onUpdateExport={updateExport}

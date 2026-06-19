@@ -23,6 +23,7 @@
     "pdf-lib": "^1.17.1",
     "qr-code-styling": "^1.9.2",
     "react": "^19.0.0",
+    "react-colorful": "^5.7.0",
     "react-dom": "^19.0.0",
     "react-konva": "^19.0.3"
   },

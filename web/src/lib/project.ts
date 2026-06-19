@@ -59,6 +59,24 @@ function normalizedShapeFillMode(fillMode: ShapeFillMode | undefined): ShapeFill
   return fillMode && SHAPE_FILL_MODES.includes(fillMode) ? fillMode : defaultShapeFill.fillMode;
 }
 
+const DEFAULT_COLOR_PALETTE = [
+  "#111827",
+  "#ffffff",
+  "#f59e0b",
+  "#f97316",
+  "#14b8a6",
+  "#0f766e",
+  "#2563eb",
+  "#dc2626",
+];
+
+function normalizeColorList(colors: string[] | undefined, fallback: string[] = []) {
+  const normalized = (colors ?? fallback)
+    .map((color) => color.trim().toLowerCase())
+    .filter((color) => /^#[0-9a-f]{6}$/.test(color));
+  return [...new Set(normalized)];
+}
+
 export const defaultQrStyle: Pick<
   QrLayer,
   | "errorCorrectionLevel"
@@ -124,6 +142,10 @@ export function createFixedDataGroup(
 
 export const initialProject: QrMagicProject = {
   version: 1,
+  colors: {
+    recent: ["#f59e0b", "#f97316", "#111827", "#ffffff"],
+    palette: DEFAULT_COLOR_PALETTE,
+  },
   document: {
     name: "Festival Parking Decal",
     unit: "in",
@@ -390,6 +412,10 @@ export function normalizeProject(project: QrMagicProject | LegacyProject): QrMag
 
   return {
     ...project,
+    colors: {
+      recent: normalizeColorList(project.colors?.recent),
+      palette: normalizeColorList(project.colors?.palette, DEFAULT_COLOR_PALETTE),
+    },
     document: {
       ...project.document,
       shape: {

@@ -22,6 +22,10 @@ High-level shape:
 {
   "version": 1,
   "document": {},
+  "colors": {
+    "recent": [],
+    "palette": []
+  },
   "assets": [],
   "layers": [],
   "data": {},
@@ -29,6 +33,8 @@ High-level shape:
   "metadata": {}
 }
 ```
+
+The `colors` section stores project-level color picker state. `recent` is automatically updated from committed picker choices, while `palette` stores user-saved swatches that travel with the project file.
 
 ## Document
 

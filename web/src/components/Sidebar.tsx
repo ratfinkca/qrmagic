@@ -14,6 +14,7 @@ import {
   Trash2,
   Type,
 } from "lucide-react";
+import { ColorControl } from "./ColorControl";
 import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
 import type { DataGroup, ProjectLayer, QrMagicProject } from "../types";
 
@@ -28,7 +29,15 @@ type SidebarProps = {
   ) => void;
   onUpdateDataGroupFixed: (groupId: string, patch: { value?: string; quantity?: number }) => void;
   onUpdateDataGroupMode: (groupId: string, mode: DataGroup["mode"]) => void;
-  onUpdateDocument: (patch: Partial<QrMagicProject["document"]>) => void;
+  onUpdateDocument: (
+    patch: Partial<QrMagicProject["document"]>,
+    options?: { recordHistory?: boolean },
+  ) => void;
+  onBeginProjectChange: () => void;
+  onCommitProjectChange: () => void;
+  onUseColor: (color: string) => void;
+  onSaveColor: (color: string) => void;
+  onRemoveColor: (color: string) => void;
   onAddShapeLayer: () => void;
   onAddTextLayer: () => void;
   onAddQrLayer: () => void;
@@ -49,6 +58,11 @@ export function Sidebar({
   onUpdateDataGroupFixed,
   onUpdateDataGroupMode,
   onUpdateDocument,
+  onBeginProjectChange,
+  onCommitProjectChange,
+  onUseColor,
+  onSaveColor,
+  onRemoveColor,
   onAddShapeLayer,
   onAddTextLayer,
   onAddQrLayer,
@@ -100,6 +114,16 @@ export function Sidebar({
     onReorderLayers([...nextTopFirst].reverse());
     setDraggingLayerId(null);
     setDragOverLayerId(null);
+  }
+
+  function updateDocumentColor(color: string) {
+    onBeginProjectChange();
+    onUpdateDocument({ backgroundColor: color }, { recordHistory: false });
+  }
+
+  function commitDocumentColor(color: string) {
+    onUseColor(color);
+    onCommitProjectChange();
   }
 
   return (
@@ -164,14 +188,19 @@ export function Sidebar({
                 />
               </label>
             </div>
-            <label>
-              Page color
+            <div className="document-color-field">
+              <span className="field-label">Page color</span>
               <div className="color-row">
-                <input
-                  type="color"
+                <ColorControl
+                  label="Page color"
                   value={project.document.backgroundColor}
                   disabled={project.document.transparentBackground}
-                  onChange={(event) => onUpdateDocument({ backgroundColor: event.target.value })}
+                  recentColors={project.colors.recent}
+                  paletteColors={project.colors.palette}
+                  onChange={updateDocumentColor}
+                  onChangeEnd={commitDocumentColor}
+                  onSaveColor={onSaveColor}
+                  onRemoveColor={onRemoveColor}
                 />
                 <label className="checkbox-row">
                   <input
@@ -184,7 +213,7 @@ export function Sidebar({
                   Transparent
                 </label>
               </div>
-            </label>
+            </div>
             <div className="guide-controls">
               <button className="subpanel-heading" onClick={() => togglePanel("guides")}>
                 <span>Guides</span>

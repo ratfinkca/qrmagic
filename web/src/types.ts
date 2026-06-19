@@ -156,6 +156,10 @@ export type DataGroup = SerialDataGroup | FixedDataGroup;
 
 export type QrMagicProject = {
   version: 1;
+  colors: {
+    recent: string[];
+    palette: string[];
+  };
   document: {
     name: string;
     unit: Unit;

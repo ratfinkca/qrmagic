@@ -12,6 +12,7 @@ import {
   RotateCw,
   SlidersHorizontal,
 } from "lucide-react";
+import { ColorControl } from "./ColorControl";
 import { guideSnapRect } from "../lib/project";
 import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
 import type {
@@ -36,6 +37,9 @@ type InspectorProps = {
     patch: Partial<ProjectLayer>,
     options?: { recordHistory?: boolean },
   ) => void;
+  onUseColor: (color: string) => void;
+  onSaveColor: (color: string) => void;
+  onRemoveColor: (color: string) => void;
   onExportPng: () => void;
   onExportBatch: () => void;
   onUpdateExport: (patch: Partial<QrMagicProject["export"]>) => void;
@@ -60,6 +64,9 @@ export function Inspector({
   project,
   dataGroups,
   onUpdateLayer,
+  onUseColor,
+  onSaveColor,
+  onRemoveColor,
   onExportPng,
   onExportBatch,
   onUpdateExport,
@@ -140,6 +147,29 @@ export function Inspector({
       onKeyUp: commitDeferredChange,
       onBlur: commitDeferredChange,
     };
+  }
+
+  function layerColorControl(
+    label: string,
+    value: string,
+    patchForColor: (color: string) => Partial<ProjectLayer>,
+  ) {
+    if (!selectedLayer) return null;
+
+    return (
+      <ColorControl
+        label={label}
+        value={value === "transparent" ? "#ffffff" : value}
+        recentColors={project.colors.recent}
+        paletteColors={project.colors.palette}
+        onChange={(color) =>
+          transientLayerUpdate(selectedLayer.id, patchForColor(color) as Partial<ProjectLayer>)
+        }
+        onChangeEnd={onUseColor}
+        onSaveColor={onSaveColor}
+        onRemoveColor={onRemoveColor}
+      />
+    );
   }
 
   function updateQrLogo(file: File, layerId: string) {
@@ -428,19 +458,9 @@ export function Inspector({
             {selectedLayer.shadowEnabled ? (
               <>
                 <div className="field-grid">
-                  <label>
-                    Shadow color
-                    <input
-                      type="color"
-                      value={selectedLayer.shadowColor}
-                      {...deferredInputHandlers()}
-                      onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          shadowColor: event.target.value,
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
+                  {layerColorControl("Shadow color", selectedLayer.shadowColor, (color) => ({
+                    shadowColor: color,
+                  }))}
                   <label>
                     Shadow opacity
                     <input
@@ -553,32 +573,12 @@ export function Inspector({
                   />
                 </label>
                 <div className="field-grid">
-                  <label>
-                    Foreground
-                    <input
-                      type="color"
-                      value={selectedLayer.foreground}
-                      {...deferredInputHandlers()}
-                      onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          foreground: event.target.value,
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
-                  <label>
-                    Background
-                    <input
-                      type="color"
-                      value={selectedLayer.background}
-                      {...deferredInputHandlers()}
-                      onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          background: event.target.value,
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
+                  {layerColorControl("Foreground", selectedLayer.foreground, (color) => ({
+                    foreground: color,
+                  }))}
+                  {layerColorControl("Background", selectedLayer.background, (color) => ({
+                    background: color,
+                  }))}
                 </div>
                 <div className="field-grid">
                   <label>
@@ -785,19 +785,7 @@ export function Inspector({
                       }
                     />
                   </label>
-                  <label>
-                    Color
-                    <input
-                      type="color"
-                      value={selectedLayer.fill}
-                      {...deferredInputHandlers()}
-                      onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          fill: event.target.value,
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
+                  {layerColorControl("Color", selectedLayer.fill, (color) => ({ fill: color }))}
                 </div>
                 <label>
                   Color opacity
@@ -852,43 +840,22 @@ export function Inspector({
                       <option value="radial-gradient">Radial gradient</option>
                     </select>
                   </label>
-                  <label>
-                    {selectedLayer.fillMode === "solid" ? "Fill" : "Gradient from"}
-                    <input
-                      type="color"
-                      value={
-                        selectedLayer.fillMode === "solid"
-                          ? selectedLayer.fill === "transparent"
-                            ? "#ffffff"
-                            : selectedLayer.fill
-                          : selectedLayer.fillGradientFrom
-                      }
-                      {...deferredInputHandlers()}
-                      onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          ...(selectedLayer.fillMode === "solid"
-                            ? { fill: event.target.value }
-                            : { fillGradientFrom: event.target.value }),
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
+                  {layerColorControl(
+                    selectedLayer.fillMode === "solid" ? "Fill" : "Gradient from",
+                    selectedLayer.fillMode === "solid"
+                      ? selectedLayer.fill
+                      : selectedLayer.fillGradientFrom,
+                    (color) =>
+                      selectedLayer.fillMode === "solid"
+                        ? { fill: color }
+                        : { fillGradientFrom: color },
+                  )}
                 </div>
                 {selectedLayer.fillMode !== "solid" ? (
                   <div className="field-grid">
-                    <label>
-                      Gradient to
-                      <input
-                        type="color"
-                        value={selectedLayer.fillGradientTo}
-                        {...deferredInputHandlers()}
-                        onChange={(event) =>
-                          transientLayerUpdate(selectedLayer.id, {
-                            fillGradientTo: event.target.value,
-                          } as Partial<ProjectLayer>)
-                        }
-                      />
-                    </label>
+                    {layerColorControl("Gradient to", selectedLayer.fillGradientTo, (color) => ({
+                      fillGradientTo: color,
+                    }))}
                     {selectedLayer.fillMode === "linear-gradient" ? (
                       <label>
                         Angle
@@ -906,21 +873,9 @@ export function Inspector({
                   </div>
                 ) : null}
                 <div className="field-grid">
-                  <label>
-                    Stroke
-                    <input
-                      type="color"
-                      value={
-                        selectedLayer.stroke === "transparent" ? "#111827" : selectedLayer.stroke
-                      }
-                      {...deferredInputHandlers()}
-                      onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          stroke: event.target.value,
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
+                  {layerColorControl("Stroke", selectedLayer.stroke, (color) => ({
+                    stroke: color,
+                  }))}
                 </div>
                 <div className="field-grid">
                   <label>
