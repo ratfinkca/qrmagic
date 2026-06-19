@@ -14,6 +14,7 @@ import {
   Trash2,
   Type,
 } from "lucide-react";
+import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
 import type { DataGroup, ProjectLayer, QrMagicProject } from "../types";
 
 type SidebarProps = {
@@ -257,15 +258,18 @@ export function Sidebar({
                       onChange={(event) =>
                         onUpdateDocument({
                           shape: {
-                            ...project.document.shape,
-                            shape: event.target.value as QrMagicProject["document"]["shape"]["shape"],
+                            ...presetShapeGeometry(
+                              event.target.value as QrMagicProject["document"]["shape"]["shape"],
+                            ),
                           },
                         })
                       }
                     >
-                      <option value="rectangle">Rectangle</option>
-                      <option value="ellipse">Circle / oval</option>
-                      <option value="star">Star</option>
+                      {SHAPE_OPTIONS.map((option) => (
+                        <option value={option.value} key={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   {project.document.shape.shape === "rectangle" ? (
@@ -286,45 +290,84 @@ export function Sidebar({
                       />
                     </label>
                   ) : null}
-                  {project.document.shape.shape === "star" ? (
+                  <details className="shape-customize">
+                    <summary>Customize shape</summary>
                     <div className="field-grid">
                       <label>
-                        Star points
+                        Vertices
                         <input
                           type="number"
                           min="3"
                           max="12"
-                          value={project.document.shape.starPoints}
+                          value={project.document.shape.vertices}
                           onChange={(event) =>
                             onUpdateDocument({
                               shape: {
                                 ...project.document.shape,
-                                starPoints: Math.max(3, Number(event.target.value)),
+                                vertices: Math.max(3, Math.min(12, Number(event.target.value))),
                               },
                             })
                           }
                         />
                       </label>
                       <label>
-                        Arm length
+                        Vertex inset
                         <input
                           type="range"
                           min="0.1"
-                          max="0.9"
+                          max="1"
                           step="0.05"
-                          value={project.document.shape.starInnerRadiusRatio}
+                          value={project.document.shape.vertexInset}
                           onChange={(event) =>
                             onUpdateDocument({
                               shape: {
                                 ...project.document.shape,
-                                starInnerRadiusRatio: Number(event.target.value),
+                                vertexInset: Number(event.target.value),
                               },
                             })
                           }
                         />
                       </label>
                     </div>
-                  ) : null}
+                    <div className="field-grid">
+                      <label>
+                        Vertex radius
+                        <input
+                          type="range"
+                          min="0"
+                          max="0.45"
+                          step="0.01"
+                          value={project.document.shape.vertexRadius}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                vertexRadius: Number(event.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Side deflection
+                        <input
+                          type="range"
+                          min="-1"
+                          max="1"
+                          step="0.05"
+                          value={project.document.shape.sideDeflection}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                sideDeflection: Number(event.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </details>
                   <div className="field-grid">
                     <label>
                       Bleed %

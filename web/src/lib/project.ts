@@ -9,7 +9,7 @@ import type {
   ShapeGeometry,
   ShapeLayer,
 } from "../types";
-import { normalizedShapeGeometry } from "./shapeGeometry";
+import { normalizedShapeGeometry, presetShapeGeometry } from "./shapeGeometry";
 
 export const DEFAULT_DATA_GROUP_ID = "group_primary";
 
@@ -30,8 +30,10 @@ const defaultFixedSettings: FixedSettings = {
 export const defaultShapeGeometry: ShapeGeometry = {
   shape: "rectangle",
   cornerRadius: 0,
-  starPoints: 5,
-  starInnerRadiusRatio: 0.5,
+  vertices: 5,
+  vertexInset: 1,
+  vertexRadius: 0,
+  sideDeflection: 0,
 };
 
 export const defaultQrStyle: Pick<
@@ -141,8 +143,10 @@ export const initialProject: QrMagicProject = {
       strokeWidth: 0,
       dash: [],
       cornerRadius: 18,
-      starPoints: 5,
-      starInnerRadiusRatio: 0.5,
+      vertices: 4,
+      vertexInset: 1,
+      vertexRadius: 0,
+      sideDeflection: 0,
     },
     {
       id: "layer_title",
@@ -277,9 +281,13 @@ function normalizeDataGroup(group: DataGroup | (Partial<DataGroup> & { serial?: 
 }
 
 function normalizeShapeLayer(layer: ShapeLayer): ShapeLayer {
+  const legacyShape = layer.shape as ShapeLayer["shape"] | "star";
   return {
     ...layer,
-    ...normalizedShapeGeometry(layer),
+    ...normalizedShapeGeometry({
+      ...presetShapeGeometry(legacyShape === "star" ? "polygon" : legacyShape),
+      ...layer,
+    }),
   };
 }
 

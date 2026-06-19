@@ -6,13 +6,27 @@ export type GuideSnapTarget = "page" | "trim" | "bleed" | "safeArea";
 
 export type EditorTool = "select" | "pan";
 
-export type ShapeKind = "rectangle" | "ellipse" | "star";
+export type ShapeKind =
+  | "rectangle"
+  | "ellipse"
+  | "polygon"
+  | "triangle"
+  | "diamond"
+  | "pentagon"
+  | "hexagon"
+  | "octagon"
+  | "roundedHexagon"
+  | "pill"
+  | "guitarPick"
+  | "shield";
 
 export type ShapeGeometry = {
   shape: ShapeKind;
   cornerRadius: number;
-  starPoints: number;
-  starInnerRadiusRatio: number;
+  vertices: number;
+  vertexInset: number;
+  vertexRadius: number;
+  sideDeflection: number;
 };
 
 export type LayerBase = {
@@ -90,8 +104,10 @@ export type ShapeLayer = LayerBase & {
   strokeWidth: number;
   dash: number[];
   cornerRadius: number;
-  starPoints: number;
-  starInnerRadiusRatio: number;
+  vertices: number;
+  vertexInset: number;
+  vertexRadius: number;
+  sideDeflection: number;
 };
 
 export type ProjectLayer = QrLayer | TextLayer | ImageLayer | ShapeLayer;

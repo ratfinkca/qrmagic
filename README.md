@@ -51,7 +51,7 @@ Current prototype capabilities include:
 * Visual canvas editor with select, pan, zoom, lasso, and multi-select.
 * DPI-aware document setup with page color, transparency, trim, bleed, and safe-area guides.
 * Layer management for shape/color, image, QR, and text layers.
-* Shape layers for rectangles, circles/ovals, and stars.
+* Shape layers for rectangles, circles/ovals, pills, polygon presets, and custom polygon/star shapes.
 * Layer visibility, deletion, drag ordering, opacity, color, and sizing controls.
 * Multiple serial or fixed data groups, with fixed-only jobs able to repeat one value across a set quantity.
 * Styled QR codes with dot/corner styles, quiet-zone control, error correction, and embedded logos.

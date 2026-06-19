@@ -22,6 +22,7 @@ import { Sidebar } from "./components/Sidebar";
 import {
   createDataGroup,
   createProjectId,
+  defaultShapeGeometry,
   documentPixelSize,
   guideSnapRect,
   initialProject,
@@ -223,7 +224,6 @@ export function App() {
     addLayer({
       id: layerId,
       type: "shape",
-      shape: "rectangle",
       name: "Color Shape",
       visible: true,
       locked: false,
@@ -239,9 +239,9 @@ export function App() {
       strokeOpacity: 1,
       strokeWidth: 0,
       dash: [],
+      ...defaultShapeGeometry,
+      shape: "rectangle",
       cornerRadius: 12,
-      starPoints: 5,
-      starInnerRadiusRatio: 0.5,
     });
   }
 

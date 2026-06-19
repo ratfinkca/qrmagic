@@ -94,8 +94,10 @@ describe("normalizeProject", () => {
     expect(normalized.document.shape.shape).toBe("rectangle");
     expect(normalized.layers[0]).toMatchObject({
       type: "shape",
-      starPoints: 5,
-      starInnerRadiusRatio: 0.5,
+      vertices: 4,
+      vertexInset: 1,
+      vertexRadius: 0,
+      sideDeflection: 0,
     });
     expect(normalized.layers[1]).toMatchObject({
       type: "qr",

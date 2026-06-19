@@ -5,7 +5,7 @@ import {
   Group,
   Image as KonvaImage,
   Layer,
-  Line,
+  Path,
   Rect,
   Stage,
   Text,
@@ -16,7 +16,7 @@ import type { EditorTool, ProjectLayer, QrLayer, QrMagicProject, RenderRecord, S
 import { documentPixelSize, guideSnapRect } from "../lib/project";
 import { renderStyledQrDataUrl } from "../lib/qrStyling";
 import { renderTemplate } from "../lib/serial";
-import { starPolygonPoints } from "../lib/shapeGeometry";
+import { polygonPath } from "../lib/shapeGeometry";
 
 type EditorCanvasProps = {
   project: QrMagicProject;
@@ -121,8 +121,10 @@ type ShapeVisualProps = ShapeGeometry & {
 function ShapeVisual({
   shape,
   cornerRadius,
-  starPoints,
-  starInnerRadiusRatio,
+  vertices,
+  vertexInset,
+  vertexRadius,
+  sideDeflection,
   width,
   height,
   ...props
@@ -139,12 +141,29 @@ function ShapeVisual({
     );
   }
 
-  if (shape === "star") {
+  if (shape === "pill") {
     return (
-      <Line
+      <Rect
         {...props}
-        points={starPolygonPoints(width, height, starPoints, starInnerRadiusRatio)}
-        closed
+        width={width}
+        height={height}
+        cornerRadius={Math.min(width, height) / 2}
+      />
+    );
+  }
+
+  if (shape !== "rectangle") {
+    return (
+      <Path
+        {...props}
+        data={polygonPath(width, height, {
+          shape,
+          cornerRadius,
+          vertices,
+          vertexInset,
+          vertexRadius,
+          sideDeflection,
+        })}
       />
     );
   }
@@ -385,8 +404,10 @@ function ShapeNode({
         strokeWidth={layer.strokeWidth}
         dash={layer.dash}
         cornerRadius={layer.cornerRadius}
-        starPoints={layer.starPoints}
-        starInnerRadiusRatio={layer.starInnerRadiusRatio}
+        vertices={layer.vertices}
+        vertexInset={layer.vertexInset}
+        vertexRadius={layer.vertexRadius}
+        sideDeflection={layer.sideDeflection}
         rotation={layer.rotation}
         opacity={layer.opacity}
         draggable={editable && selected && !layer.locked}
@@ -1124,8 +1145,10 @@ export function EditorCanvas({
                       height={bleedRect.height}
                       shape={project.document.shape.shape}
                       cornerRadius={project.document.shape.cornerRadius}
-                      starPoints={project.document.shape.starPoints}
-                      starInnerRadiusRatio={project.document.shape.starInnerRadiusRatio}
+                      vertices={project.document.shape.vertices}
+                      vertexInset={project.document.shape.vertexInset}
+                      vertexRadius={project.document.shape.vertexRadius}
+                      sideDeflection={project.document.shape.sideDeflection}
                       stroke="#f97316"
                       strokeWidth={2}
                       dash={[10, 8]}
@@ -1141,8 +1164,10 @@ export function EditorCanvas({
                       height={docSize.height - 1}
                       shape={project.document.shape.shape}
                       cornerRadius={project.document.shape.cornerRadius}
-                      starPoints={project.document.shape.starPoints}
-                      starInnerRadiusRatio={project.document.shape.starInnerRadiusRatio}
+                      vertices={project.document.shape.vertices}
+                      vertexInset={project.document.shape.vertexInset}
+                      vertexRadius={project.document.shape.vertexRadius}
+                      sideDeflection={project.document.shape.sideDeflection}
                       stroke="#0f172a"
                       strokeWidth={2}
                       dash={[18, 12]}
@@ -1158,8 +1183,10 @@ export function EditorCanvas({
                       height={safeAreaRect.height}
                       shape={project.document.shape.shape}
                       cornerRadius={project.document.shape.cornerRadius}
-                      starPoints={project.document.shape.starPoints}
-                      starInnerRadiusRatio={project.document.shape.starInnerRadiusRatio}
+                      vertices={project.document.shape.vertices}
+                      vertexInset={project.document.shape.vertexInset}
+                      vertexRadius={project.document.shape.vertexRadius}
+                      sideDeflection={project.document.shape.sideDeflection}
                       stroke="#0f766e"
                       strokeWidth={2}
                       dash={[6, 8]}

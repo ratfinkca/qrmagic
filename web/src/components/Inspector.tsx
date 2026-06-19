@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { guideSnapRect } from "../lib/project";
+import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
 import type { DataGroup, GuideSnapTarget, ProjectLayer, QrMagicProject } from "../types";
 
 type Alignment = "left" | "center-x" | "right" | "top" | "center-y" | "bottom";
@@ -732,13 +733,15 @@ export function Inspector({
                     value={selectedLayer.shape}
                     onChange={(event) =>
                       onUpdateLayer(selectedLayer.id, {
-                        shape: event.target.value as typeof selectedLayer.shape,
+                        ...presetShapeGeometry(event.target.value as typeof selectedLayer.shape),
                       } as Partial<ProjectLayer>)
                     }
                   >
-                    <option value="rectangle">Rectangle</option>
-                    <option value="ellipse">Circle / oval</option>
-                    <option value="star">Star</option>
+                    {SHAPE_OPTIONS.map((option) => (
+                      <option value={option.value} key={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <div className="field-grid">
@@ -835,40 +838,75 @@ export function Inspector({
                   </label>
                   ) : null}
                 </div>
-                {selectedLayer.shape === "star" ? (
+                <details className="shape-customize">
+                  <summary>Customize shape</summary>
                   <div className="field-grid">
                     <label>
-                      Star points
+                      Vertices
                       <input
                         type="number"
                         min="3"
                         max="12"
-                        value={selectedLayer.starPoints}
+                        value={selectedLayer.vertices}
                         onChange={(event) =>
                           onUpdateLayer(selectedLayer.id, {
-                            starPoints: Math.max(3, Number(event.target.value)),
+                            vertices: Math.max(3, Math.min(12, Number(event.target.value))),
                           } as Partial<ProjectLayer>)
                         }
                       />
                     </label>
                     <label>
-                      Arm length
+                      Vertex inset
                       <input
                         type="range"
                         min="0.1"
-                        max="0.9"
+                        max="1"
                         step="0.05"
-                        value={selectedLayer.starInnerRadiusRatio}
+                        value={selectedLayer.vertexInset}
                         {...deferredInputHandlers()}
                         onChange={(event) =>
                           transientLayerUpdate(selectedLayer.id, {
-                            starInnerRadiusRatio: Number(event.target.value),
+                            vertexInset: Number(event.target.value),
                           } as Partial<ProjectLayer>)
                         }
                       />
                     </label>
                   </div>
-                ) : null}
+                  <div className="field-grid">
+                    <label>
+                      Vertex radius
+                      <input
+                        type="range"
+                        min="0"
+                        max="0.45"
+                        step="0.01"
+                        value={selectedLayer.vertexRadius}
+                        {...deferredInputHandlers()}
+                        onChange={(event) =>
+                          transientLayerUpdate(selectedLayer.id, {
+                            vertexRadius: Number(event.target.value),
+                          } as Partial<ProjectLayer>)
+                        }
+                      />
+                    </label>
+                    <label>
+                      Side deflection
+                      <input
+                        type="range"
+                        min="-1"
+                        max="1"
+                        step="0.05"
+                        value={selectedLayer.sideDeflection}
+                        {...deferredInputHandlers()}
+                        onChange={(event) =>
+                          transientLayerUpdate(selectedLayer.id, {
+                            sideDeflection: Number(event.target.value),
+                          } as Partial<ProjectLayer>)
+                        }
+                      />
+                    </label>
+                  </div>
+                </details>
                 <label>
                   Dash pattern
                   <input

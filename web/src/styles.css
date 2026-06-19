@@ -305,6 +305,26 @@ select:focus {
   gap: 10px;
 }
 
+.shape-customize {
+  display: grid;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid #dbe3ee;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
+.shape-customize summary {
+  color: #0f172a;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.shape-customize[open] summary {
+  margin-bottom: 8px;
+}
+
 .layer-list {
   display: grid;
   gap: 8px;

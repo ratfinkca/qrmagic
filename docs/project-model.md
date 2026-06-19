@@ -57,15 +57,17 @@ The document defines the design surface.
     "shape": {
       "shape": "rectangle",
       "cornerRadius": 18,
-      "starPoints": 5,
-      "starInnerRadiusRatio": 0.5
+      "vertices": 5,
+      "vertexInset": 1,
+      "vertexRadius": 0,
+      "sideDeflection": 0
     },
     "backgroundColor": "#ffffff"
   }
 }
 ```
 
-The current web prototype uses the document `shape` for trim, bleed, and safe-area guide rendering. Shape layers have their own independent shape settings.
+The current web prototype uses the document `shape` for trim, bleed, and safe-area guide rendering. Shape layers have their own independent shape settings. Named presets such as triangle, diamond, rounded hexagon, guitar pick, and shield are stored as preset names plus polygon customization fields where applicable.
 
 Initial supported units should probably be:
 
