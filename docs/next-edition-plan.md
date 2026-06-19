@@ -104,6 +104,28 @@ This avoids account, hosting, privacy, and upload concerns while still making th
 - Warn when QR size or quiet zone may reduce scan reliability.
 - Optionally decode generated QR samples as a scan check.
 
+## Current Web Prototype Checkpoint
+
+As of the `codex/convert_2_web_00` branch, the web prototype has moved beyond the initial single-export proof of concept. It now includes:
+
+- Vite, React, TypeScript, and Konva editor scaffold.
+- Visual document canvas with select, pan, zoom, lasso selection, and multi-select transforms.
+- Collapsible left panels for document setup, guide settings, data groups, and layers.
+- Document settings for size, unit, DPI, page color, transparent backgrounds, trim, bleed, and safe-area guides.
+- Shape/color, image, QR, and text layers with ordering, visibility, deletion, opacity, sizing, and inspector controls.
+- Multiple serial data groups, with new QR layers automatically paired with a matching serial text layer.
+- Single-layer and group alignment tools, including alignment to document guide targets and non-overlapping selection packing.
+- Save/open support for `.qrmagic.json` project files.
+- Flattened PNG export for one record and zipped PNG batch export.
+
+Near-term priorities for the next development session:
+
+- CSV import, column mapping, and generated-record validation.
+- Manifest export for batch jobs.
+- Export architecture cleanup before adding layered/vector/PDF-oriented formats.
+- Code splitting for export-heavy libraries so the main web bundle stays smaller.
+- More formal tests around project serialization, serial generation, selection alignment, and export naming.
+
 ## Suggested Phases
 
 ### Phase 1: Foundation
