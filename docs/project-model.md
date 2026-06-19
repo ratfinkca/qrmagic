@@ -54,10 +54,18 @@ The document defines the design surface.
       "bottom": 0.125,
       "left": 0.125
     },
+    "shape": {
+      "shape": "rectangle",
+      "cornerRadius": 18,
+      "starPoints": 5,
+      "starInnerRadiusRatio": 0.5
+    },
     "backgroundColor": "#ffffff"
   }
 }
 ```
+
+The current web prototype uses the document `shape` for trim, bleed, and safe-area guide rendering. Shape layers have their own independent shape settings.
 
 Initial supported units should probably be:
 
@@ -166,7 +174,17 @@ Possible `fit` values:
     "errorCorrection": "M",
     "quietZone": 4,
     "foreground": "#000000",
-    "background": "#ffffff"
+    "background": "#ffffff",
+    "dotStyle": "rounded",
+    "cornerSquareStyle": "extra-rounded",
+    "cornerDotStyle": "dot",
+    "logo": {
+      "enabled": true,
+      "source": "data:image/png;base64...",
+      "size": 0.28,
+      "margin": 8,
+      "hideBackgroundDots": true
+    }
   }
 }
 ```
@@ -237,6 +255,13 @@ Manual serial mode:
   }
 }
 ```
+
+The current web prototype supports multiple data groups. A group can be:
+
+- `serial`: generates a sequence from prefix, suffix, start, quantity, step, and padding.
+- `fixed`: repeats one value.
+
+When any serial group exists, serial groups control the exported record count and fixed groups repeat on each serial record. When all groups are fixed, fixed group quantity controls the set size.
 
 CSV mode:
 
