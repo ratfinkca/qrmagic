@@ -20,8 +20,13 @@ type SidebarProps = {
   project: QrMagicProject;
   selectedLayerIds: string[];
   onSelectLayers: (layerIds: string[]) => void;
-  onUpdateDataGroup: (groupId: string, patch: Partial<DataGroup>) => void;
-  onUpdateDataGroupSerial: (groupId: string, patch: Partial<DataGroup["serial"]>) => void;
+  onUpdateDataGroup: (groupId: string, patch: { name?: string }) => void;
+  onUpdateDataGroupSerial: (
+    groupId: string,
+    patch: { prefix?: string; suffix?: string; start?: number; quantity?: number; step?: number; padding?: number },
+  ) => void;
+  onUpdateDataGroupFixed: (groupId: string, patch: { value?: string; quantity?: number }) => void;
+  onUpdateDataGroupMode: (groupId: string, mode: DataGroup["mode"]) => void;
   onUpdateDocument: (patch: Partial<QrMagicProject["document"]>) => void;
   onAddShapeLayer: () => void;
   onAddTextLayer: () => void;
@@ -40,6 +45,8 @@ export function Sidebar({
   onSelectLayers,
   onUpdateDataGroup,
   onUpdateDataGroupSerial,
+  onUpdateDataGroupFixed,
+  onUpdateDataGroupMode,
   onUpdateDocument,
   onAddShapeLayer,
   onAddTextLayer,
@@ -57,6 +64,7 @@ export function Sidebar({
   });
   const layersTopFirst = [...project.layers].reverse();
   const selectedLayerSet = new Set(selectedLayerIds);
+  const hasSerialGroup = project.data.groups.some((group) => group.mode === "serial");
   const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null);
   const [dragOverLayerId, setDragOverLayerId] = useState<string | null>(null);
 
@@ -309,6 +317,20 @@ export function Sidebar({
                       }
                     />
                   </label>
+                  <label>
+                    Mode
+                    <select
+                      value={group.mode}
+                      onChange={(event) =>
+                        onUpdateDataGroupMode(group.id, event.target.value as DataGroup["mode"])
+                      }
+                    >
+                      <option value="serial">Serial</option>
+                      <option value="fixed">Fixed</option>
+                    </select>
+                  </label>
+                  {group.mode === "serial" ? (
+                    <>
                   <div className="field-grid">
                     <label>
                       Prefix
@@ -329,6 +351,81 @@ export function Sidebar({
                       />
                     </label>
                   </div>
+                  <label>
+                    Guide shape
+                    <select
+                      value={project.document.shape.shape}
+                      onChange={(event) =>
+                        onUpdateDocument({
+                          shape: {
+                            ...project.document.shape,
+                            shape: event.target.value as QrMagicProject["document"]["shape"]["shape"],
+                          },
+                        })
+                      }
+                    >
+                      <option value="rectangle">Rectangle</option>
+                      <option value="ellipse">Circle / oval</option>
+                      <option value="star">Star</option>
+                    </select>
+                  </label>
+                  {project.document.shape.shape === "rectangle" ? (
+                    <label>
+                      Guide corner radius
+                      <input
+                        type="number"
+                        min="0"
+                        value={project.document.shape.cornerRadius}
+                        onChange={(event) =>
+                          onUpdateDocument({
+                            shape: {
+                              ...project.document.shape,
+                              cornerRadius: Math.max(0, Number(event.target.value)),
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                  ) : null}
+                  {project.document.shape.shape === "star" ? (
+                    <div className="field-grid">
+                      <label>
+                        Star points
+                        <input
+                          type="number"
+                          min="3"
+                          max="12"
+                          value={project.document.shape.starPoints}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                starPoints: Math.max(3, Number(event.target.value)),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Arm length
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="0.9"
+                          step="0.05"
+                          value={project.document.shape.starInnerRadiusRatio}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                starInnerRadiusRatio: Number(event.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  ) : null}
                   <div className="field-grid">
                     <label>
                       Start
@@ -379,6 +476,39 @@ export function Sidebar({
                       />
                     </label>
                   </div>
+                    </>
+                  ) : (
+                    <>
+                      <label>
+                        Fixed value
+                        <input
+                          value={group.fixed.value}
+                          onChange={(event) =>
+                            onUpdateDataGroupFixed(group.id, { value: event.target.value })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Quantity
+                        <input
+                          type="number"
+                          min="1"
+                          value={group.fixed.quantity}
+                          disabled={hasSerialGroup}
+                          title={
+                            hasSerialGroup
+                              ? "Serial data groups control quantity when present."
+                              : "Fixed-only jobs repeat this value for the set quantity."
+                          }
+                          onChange={(event) =>
+                            onUpdateDataGroupFixed(group.id, {
+                              quantity: Math.max(1, Number(event.target.value)),
+                            })
+                          }
+                        />
+                      </label>
+                    </>
+                  )}
                 </div>
               ))}
             </div>

@@ -240,6 +240,8 @@ export function App() {
       strokeWidth: 0,
       dash: [],
       cornerRadius: 12,
+      starPoints: 5,
+      starInnerRadiusRatio: 0.5,
     });
   }
 
@@ -299,6 +301,16 @@ export function App() {
         payloadTemplate: "{{serial}}",
         foreground: "#111827",
         background: "#ffffff",
+        errorCorrectionLevel: "M",
+        margin: 2,
+        dotStyle: "square",
+        cornerSquareStyle: "square",
+        cornerDotStyle: "square",
+        logoEnabled: false,
+        logoSrc: "",
+        logoSize: 0.28,
+        logoMargin: 8,
+        logoHideBackgroundDots: true,
       };
       const serialLayer: ProjectLayer = {
         id: serialLayerId,
@@ -363,7 +375,7 @@ export function App() {
     }));
   }
 
-  function updateDataGroup(groupId: string, patch: Partial<DataGroup>) {
+  function updateDataGroup(groupId: string, patch: { name?: string }) {
     updateProject((current) => ({
       ...current,
       data: {
@@ -375,16 +387,69 @@ export function App() {
     }));
   }
 
-  function updateDataGroupSerial(groupId: string, patch: Partial<DataGroup["serial"]>) {
+  function updateDataGroupSerial(
+    groupId: string,
+    patch: { prefix?: string; suffix?: string; start?: number; quantity?: number; step?: number; padding?: number },
+  ) {
     updateProject((current) => ({
       ...current,
       data: {
         ...current.data,
         groups: current.data.groups.map((group) =>
-          group.id === groupId
+          group.id === groupId && group.mode === "serial"
             ? { ...group, serial: { ...group.serial, ...patch } }
             : group,
         ),
+      },
+    }));
+  }
+
+  function updateDataGroupFixed(groupId: string, patch: { value?: string; quantity?: number }) {
+    updateProject((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        groups: current.data.groups.map((group) =>
+          group.id === groupId && group.mode === "fixed"
+            ? { ...group, fixed: { ...group.fixed, ...patch } }
+            : group,
+        ),
+      },
+    }));
+  }
+
+  function updateDataGroupMode(groupId: string, mode: DataGroup["mode"]) {
+    updateProject((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        groups: current.data.groups.map((group) => {
+          if (group.id !== groupId || group.mode === mode) return group;
+          if (mode === "fixed") {
+            return {
+              id: group.id,
+              name: group.name,
+              mode: "fixed",
+              fixed: {
+                value: group.mode === "serial" ? `${group.serial.prefix}${group.serial.suffix}` : "QR-FIXED",
+                quantity: group.mode === "serial" ? group.serial.quantity : 10,
+              },
+            };
+          }
+          return {
+            id: group.id,
+            name: group.name,
+            mode: "serial",
+            serial: {
+              prefix: group.mode === "fixed" ? group.fixed.value : "QR-",
+              suffix: "",
+              start: 1,
+              quantity: group.mode === "fixed" ? group.fixed.quantity : 10,
+              step: 1,
+              padding: 4,
+            },
+          };
+        }),
       },
     }));
   }
@@ -875,6 +940,8 @@ export function App() {
             onSelectLayers={(layerIds) => setSelectedLayerIds(layerIds)}
             onUpdateDataGroup={updateDataGroup}
             onUpdateDataGroupSerial={updateDataGroupSerial}
+            onUpdateDataGroupFixed={updateDataGroupFixed}
+            onUpdateDataGroupMode={updateDataGroupMode}
             onUpdateDocument={updateDocument}
             onAddShapeLayer={addShapeLayer}
             onAddTextLayer={addTextLayer}
