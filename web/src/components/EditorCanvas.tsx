@@ -84,6 +84,8 @@ function useHtmlImage(src: string) {
   return image;
 }
 
+const WORKSPACE_GUTTER = 180;
+
 function ImageNode({
   layer,
   selected,
@@ -394,8 +396,8 @@ export function EditorCanvas({
   const docSize = useMemo(() => documentPixelSize(project), [project]);
   const fitScale = Math.min(1, 860 / docSize.width, 610 / docSize.height);
   const scale = fitScale * zoom;
-  const stageWidth = docSize.width * scale;
-  const stageHeight = docSize.height * scale;
+  const stageWidth = (docSize.width + WORKSPACE_GUTTER * 2) * scale;
+  const stageHeight = (docSize.height + WORKSPACE_GUTTER * 2) * scale;
   const bleedRect = guideSnapRect(project, "bleed");
   const safeAreaRect = guideSnapRect(project, "safeArea");
   const layerEditingEnabled = activeTool === "select";
@@ -521,8 +523,8 @@ export function EditorCanvas({
     const pointer = stage?.getPointerPosition();
     if (!pointer) return null;
     return {
-      x: pointer.x / scale,
-      y: pointer.y / scale,
+      x: pointer.x / scale - WORKSPACE_GUTTER,
+      y: pointer.y / scale - WORKSPACE_GUTTER,
     };
   }
 
@@ -756,199 +758,216 @@ export function EditorCanvas({
           >
             <Layer>
               <Rect
-                name="document-background"
-                width={docSize.width}
-                height={docSize.height}
-                fill={
-                  project.document.transparentBackground
-                    ? "transparent"
-                    : project.document.backgroundColor
-                }
-                shadowColor="rgba(15, 23, 42, 0.18)"
-                shadowBlur={28}
-                shadowOffsetY={16}
+                width={docSize.width + WORKSPACE_GUTTER * 2}
+                height={docSize.height + WORKSPACE_GUTTER * 2}
+                fill="transparent"
               />
-              {project.layers.map((layer) => {
-                if (!layer.visible) return null;
-                if (layer.type === "shape") {
-                  return (
-                    <ShapeNode
-                      key={layer.id}
-                      layer={layer}
-                      selected={selectedLayerSet.has(layer.id)}
-                      editable={layerEditingEnabled}
-                      onSelect={(additive) => selectLayer(layer.id, additive)}
-                      onPointerDown={prepareLayerMove}
-                      onPointerMove={updateLayerMoveCursor}
-                      onPointerLeave={clearLayerMove}
-                      onDragStart={dragSelectedLayersStart}
-                      onDragMove={dragSelectedLayersMove}
-                      onDragEnd={dragSelectedLayersEnd}
-                    />
-                  );
-                }
-                if (layer.type === "image") {
-                  return (
-                    <ImageNode
-                      key={layer.id}
-                      layer={layer}
-                      selected={selectedLayerSet.has(layer.id)}
-                      editable={layerEditingEnabled}
-                      onSelect={(additive) => selectLayer(layer.id, additive)}
-                      onPointerDown={prepareLayerMove}
-                      onPointerMove={updateLayerMoveCursor}
-                      onPointerLeave={clearLayerMove}
-                      onDragStart={dragSelectedLayersStart}
-                      onDragMove={dragSelectedLayersMove}
-                      onDragEnd={dragSelectedLayersEnd}
-                    />
-                  );
-                }
-                if (layer.type === "qr") {
-                  return (
-                    <QrNode
-                      key={layer.id}
-                      layer={layer}
-                      selected={selectedLayerSet.has(layer.id)}
-                      editable={layerEditingEnabled}
-                      record={record}
-                      onSelect={(additive) => selectLayer(layer.id, additive)}
-                      onPointerDown={prepareLayerMove}
-                      onPointerMove={updateLayerMoveCursor}
-                      onPointerLeave={clearLayerMove}
-                      onDragStart={dragSelectedLayersStart}
-                      onDragMove={dragSelectedLayersMove}
-                      onDragEnd={dragSelectedLayersEnd}
-                    />
-                  );
-                }
-                if (layer.type === "text") {
-                  return (
-                    <TextNode
-                      key={layer.id}
-                      layer={layer}
-                      selected={selectedLayerSet.has(layer.id)}
-                      editable={layerEditingEnabled}
-                      record={record}
-                      onSelect={(additive) => selectLayer(layer.id, additive)}
-                      onPointerDown={prepareLayerMove}
-                      onPointerMove={updateLayerMoveCursor}
-                      onPointerLeave={clearLayerMove}
-                      onDragStart={dragSelectedLayersStart}
-                      onDragMove={dragSelectedLayersMove}
-                      onDragEnd={dragSelectedLayersEnd}
-                    />
-                  );
-                }
-                return null;
-              })}
-              {layerEditingEnabled ? (
-                <>
-                  {project.layers.map((layer) => {
-                    if (!layer.visible || !selectedLayerSet.has(layer.id)) return null;
+              <Group
+                name="document-content"
+                x={WORKSPACE_GUTTER}
+                y={WORKSPACE_GUTTER}
+              >
+                <Rect
+                  name="document-background"
+                  width={docSize.width}
+                  height={docSize.height}
+                  fill={
+                    project.document.transparentBackground
+                      ? "transparent"
+                      : project.document.backgroundColor
+                  }
+                  shadowColor="rgba(15, 23, 42, 0.18)"
+                  shadowBlur={28}
+                  shadowOffsetY={16}
+                />
+                {project.layers.map((layer) => {
+                  if (!layer.visible) return null;
+                  if (layer.type === "shape") {
                     return (
-                      <Rect
-                        key={`selected-outline-${layer.id}`}
-                        name="selection-overlay"
-                        x={layer.x}
-                        y={layer.y}
-                        width={layer.width}
-                        height={layer.height}
-                        rotation={layer.rotation}
-                        stroke="#0891b2"
-                        strokeWidth={1.5}
-                        dash={[5, 5]}
-                        opacity={0.82}
-                        listening={false}
+                      <ShapeNode
+                        key={layer.id}
+                        layer={layer}
+                        selected={selectedLayerSet.has(layer.id)}
+                        editable={layerEditingEnabled}
+                        onSelect={(additive) => selectLayer(layer.id, additive)}
+                        onPointerDown={prepareLayerMove}
+                        onPointerMove={updateLayerMoveCursor}
+                        onPointerLeave={clearLayerMove}
+                        onDragStart={dragSelectedLayersStart}
+                        onDragMove={dragSelectedLayersMove}
+                        onDragEnd={dragSelectedLayersEnd}
                       />
                     );
-                  })}
-                  {selectionRect.visible
-                    ? project.layers.map((layer) => {
-                        if (!layer.visible || !lassoTargetSet.has(layer.id)) return null;
-                        return (
-                          <Rect
-                            key={`lasso-target-${layer.id}`}
-                            name="selection-overlay"
-                            x={layer.x}
-                            y={layer.y}
-                            width={layer.width}
-                            height={layer.height}
-                            rotation={layer.rotation}
-                            fill="rgba(20, 184, 166, 0.1)"
-                            stroke="#0f766e"
-                            strokeWidth={2}
-                            dash={[8, 5]}
-                            listening={false}
-                          />
-                        );
-                      })
-                    : null}
-                </>
-              ) : null}
-              {layerEditingEnabled ? (
-                <Transformer
-                  ref={transformerRef}
-                  rotateEnabled
-                  onTransformEnd={finishTransform}
-                  boundBoxFunc={(oldBox, newBox) => {
-                    if (newBox.width < 20 || newBox.height < 20) return oldBox;
-                    return newBox;
-                  }}
-                />
-              ) : null}
-              {selectionRect.visible ? (
-                <Rect
-                  x={selectionRect.x}
-                  y={selectionRect.y}
-                  width={selectionRect.width}
-                  height={selectionRect.height}
-                  fill="rgba(20, 184, 166, 0.12)"
-                  stroke="#0f766e"
-                  strokeWidth={1.5}
-                  dash={[6, 5]}
-                  listening={false}
-                />
-              ) : null}
+                  }
+                  if (layer.type === "image") {
+                    return (
+                      <ImageNode
+                        key={layer.id}
+                        layer={layer}
+                        selected={selectedLayerSet.has(layer.id)}
+                        editable={layerEditingEnabled}
+                        onSelect={(additive) => selectLayer(layer.id, additive)}
+                        onPointerDown={prepareLayerMove}
+                        onPointerMove={updateLayerMoveCursor}
+                        onPointerLeave={clearLayerMove}
+                        onDragStart={dragSelectedLayersStart}
+                        onDragMove={dragSelectedLayersMove}
+                        onDragEnd={dragSelectedLayersEnd}
+                      />
+                    );
+                  }
+                  if (layer.type === "qr") {
+                    return (
+                      <QrNode
+                        key={layer.id}
+                        layer={layer}
+                        selected={selectedLayerSet.has(layer.id)}
+                        editable={layerEditingEnabled}
+                        record={record}
+                        onSelect={(additive) => selectLayer(layer.id, additive)}
+                        onPointerDown={prepareLayerMove}
+                        onPointerMove={updateLayerMoveCursor}
+                        onPointerLeave={clearLayerMove}
+                        onDragStart={dragSelectedLayersStart}
+                        onDragMove={dragSelectedLayersMove}
+                        onDragEnd={dragSelectedLayersEnd}
+                      />
+                    );
+                  }
+                  if (layer.type === "text") {
+                    return (
+                      <TextNode
+                        key={layer.id}
+                        layer={layer}
+                        selected={selectedLayerSet.has(layer.id)}
+                        editable={layerEditingEnabled}
+                        record={record}
+                        onSelect={(additive) => selectLayer(layer.id, additive)}
+                        onPointerDown={prepareLayerMove}
+                        onPointerMove={updateLayerMoveCursor}
+                        onPointerLeave={clearLayerMove}
+                        onDragStart={dragSelectedLayersStart}
+                        onDragMove={dragSelectedLayersMove}
+                        onDragEnd={dragSelectedLayersEnd}
+                      />
+                    );
+                  }
+                  return null;
+                })}
+                {layerEditingEnabled ? (
+                  <>
+                    {project.layers.map((layer) => {
+                      if (!layer.visible || !selectedLayerSet.has(layer.id)) return null;
+                      return (
+                        <Rect
+                          key={`selected-outline-${layer.id}`}
+                          name="selection-overlay"
+                          x={layer.x}
+                          y={layer.y}
+                          width={layer.width}
+                          height={layer.height}
+                          rotation={layer.rotation}
+                          stroke="#0891b2"
+                          strokeWidth={1.5}
+                          dash={[5, 5]}
+                          opacity={0.82}
+                          listening={false}
+                        />
+                      );
+                    })}
+                    {selectionRect.visible
+                      ? project.layers.map((layer) => {
+                          if (!layer.visible || !lassoTargetSet.has(layer.id)) return null;
+                          return (
+                            <Rect
+                              key={`lasso-target-${layer.id}`}
+                              name="selection-overlay"
+                              x={layer.x}
+                              y={layer.y}
+                              width={layer.width}
+                              height={layer.height}
+                              rotation={layer.rotation}
+                              fill="rgba(20, 184, 166, 0.1)"
+                              stroke="#0f766e"
+                              strokeWidth={2}
+                              dash={[8, 5]}
+                              listening={false}
+                            />
+                          );
+                        })
+                      : null}
+                  </>
+                ) : null}
+                {layerEditingEnabled ? (
+                  <Transformer
+                    ref={transformerRef}
+                    rotateEnabled
+                    onTransformEnd={finishTransform}
+                    boundBoxFunc={(oldBox, newBox) => {
+                      if (newBox.width < 20 || newBox.height < 20) return oldBox;
+                      return newBox;
+                    }}
+                  />
+                ) : null}
+                {selectionRect.visible ? (
+                  <Rect
+                    x={selectionRect.x}
+                    y={selectionRect.y}
+                    width={selectionRect.width}
+                    height={selectionRect.height}
+                    fill="rgba(20, 184, 166, 0.12)"
+                    stroke="#0f766e"
+                    strokeWidth={1.5}
+                    dash={[6, 5]}
+                    listening={false}
+                  />
+                ) : null}
+              </Group>
             </Layer>
             {project.document.guides.enabled ? (
               <Layer name="guides-layer" listening={false}>
-                {project.document.guides.showBleed ? (
-                  <Rect
-                    x={bleedRect.x}
-                    y={bleedRect.y}
-                    width={bleedRect.width}
-                    height={bleedRect.height}
-                    stroke="#f97316"
-                    strokeWidth={2}
-                    dash={[10, 8]}
-                    opacity={0.9}
-                  />
-                ) : null}
-                {project.document.guides.showTrim ? (
-                  <Rect
-                    x={0.5}
-                    y={0.5}
-                    width={docSize.width - 1}
-                    height={docSize.height - 1}
-                    stroke="#0f172a"
-                    strokeWidth={2}
-                    dash={[18, 12]}
-                    opacity={0.75}
-                  />
-                ) : null}
-                {project.document.guides.showSafeArea ? (
-                  <Rect
-                    x={safeAreaRect.x}
-                    y={safeAreaRect.y}
-                    width={safeAreaRect.width}
-                    height={safeAreaRect.height}
-                    stroke="#0f766e"
-                    strokeWidth={2}
-                    dash={[6, 8]}
-                    opacity={0.9}
-                  />
-                ) : null}
+                <Group
+                  name="document-content"
+                  x={WORKSPACE_GUTTER}
+                  y={WORKSPACE_GUTTER}
+                >
+                  {project.document.guides.showBleed ? (
+                    <Rect
+                      x={bleedRect.x}
+                      y={bleedRect.y}
+                      width={bleedRect.width}
+                      height={bleedRect.height}
+                      stroke="#f97316"
+                      strokeWidth={2}
+                      dash={[10, 8]}
+                      opacity={0.9}
+                    />
+                  ) : null}
+                  {project.document.guides.showTrim ? (
+                    <Rect
+                      x={0.5}
+                      y={0.5}
+                      width={docSize.width - 1}
+                      height={docSize.height - 1}
+                      stroke="#0f172a"
+                      strokeWidth={2}
+                      dash={[18, 12]}
+                      opacity={0.75}
+                    />
+                  ) : null}
+                  {project.document.guides.showSafeArea ? (
+                    <Rect
+                      x={safeAreaRect.x}
+                      y={safeAreaRect.y}
+                      width={safeAreaRect.width}
+                      height={safeAreaRect.height}
+                      stroke="#0f766e"
+                      strokeWidth={2}
+                      dash={[6, 8]}
+                      opacity={0.9}
+                    />
+                  ) : null}
+                </Group>
               </Layer>
             ) : null}
           </Stage>
