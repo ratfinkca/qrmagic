@@ -416,8 +416,7 @@ select:focus {
 }
 
 .canvas-viewport {
-  display: grid;
-  place-items: center;
+  display: block;
   min-height: 0;
   padding: 16px 24px 32px;
   overflow: auto;
@@ -439,6 +438,8 @@ select:focus {
 .canvas-stage-wrap {
   display: grid;
   place-items: center;
+  width: max-content;
+  height: max-content;
   min-width: 100%;
   min-height: 100%;
 }
