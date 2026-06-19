@@ -308,7 +308,7 @@ export function App() {
         cornerDotStyle: "square",
         logoEnabled: false,
         logoSrc: "",
-        logoSize: 0.28,
+        logoSize: 0.38,
         logoMargin: 8,
         logoHideBackgroundDots: true,
       };

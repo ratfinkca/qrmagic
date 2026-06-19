@@ -56,7 +56,7 @@ export const defaultQrStyle: Pick<
   cornerDotStyle: "square",
   logoEnabled: false,
   logoSrc: "",
-  logoSize: 0.28,
+  logoSize: 0.38,
   logoMargin: 8,
   logoHideBackgroundDots: true,
 };
@@ -296,7 +296,7 @@ function normalizeQrLayer(layer: QrLayer): QrLayer {
     ...defaultQrStyle,
     ...layer,
     margin: Math.max(0, Number(layer.margin ?? defaultQrStyle.margin)),
-    logoSize: Math.max(0.05, Math.min(0.5, Number(layer.logoSize ?? defaultQrStyle.logoSize))),
+    logoSize: Math.max(0.05, Math.min(0.8, Number(layer.logoSize ?? defaultQrStyle.logoSize))),
     logoMargin: Math.max(0, Number(layer.logoMargin ?? defaultQrStyle.logoMargin)),
   };
 }

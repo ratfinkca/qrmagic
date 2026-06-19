@@ -103,6 +103,7 @@ describe("normalizeProject", () => {
       type: "qr",
       errorCorrectionLevel: "M",
       dotStyle: "square",
+      logoSize: 0.38,
       logoEnabled: false,
     });
   });
