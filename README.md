@@ -34,6 +34,18 @@ Common checks:
 pnpm build
 ```
 
+### GitHub Pages Demo
+
+The `web/` app is configured for GitHub Pages at:
+
+```text
+https://ratfinkca.github.io/qrmagic/
+```
+
+Publishing happens through `.github/workflows/deploy-pages.yml` on every push to `main`, or manually from the workflow's **Run workflow** button.
+
+Before the first deploy, open the repository on GitHub, go to **Settings > Pages**, and set **Build and deployment > Source** to **GitHub Actions**.
+
 Current prototype capabilities include:
 
 * Visual canvas editor with select, pan, zoom, lasso, and multi-select.
