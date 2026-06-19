@@ -250,6 +250,81 @@ export function Sidebar({
                       Safe
                     </label>
                   </div>
+                  <label>
+                    Guide shape
+                    <select
+                      value={project.document.shape.shape}
+                      onChange={(event) =>
+                        onUpdateDocument({
+                          shape: {
+                            ...project.document.shape,
+                            shape: event.target.value as QrMagicProject["document"]["shape"]["shape"],
+                          },
+                        })
+                      }
+                    >
+                      <option value="rectangle">Rectangle</option>
+                      <option value="ellipse">Circle / oval</option>
+                      <option value="star">Star</option>
+                    </select>
+                  </label>
+                  {project.document.shape.shape === "rectangle" ? (
+                    <label>
+                      Guide corner radius
+                      <input
+                        type="number"
+                        min="0"
+                        value={project.document.shape.cornerRadius}
+                        onChange={(event) =>
+                          onUpdateDocument({
+                            shape: {
+                              ...project.document.shape,
+                              cornerRadius: Math.max(0, Number(event.target.value)),
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                  ) : null}
+                  {project.document.shape.shape === "star" ? (
+                    <div className="field-grid">
+                      <label>
+                        Star points
+                        <input
+                          type="number"
+                          min="3"
+                          max="12"
+                          value={project.document.shape.starPoints}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                starPoints: Math.max(3, Number(event.target.value)),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Arm length
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="0.9"
+                          step="0.05"
+                          value={project.document.shape.starInnerRadiusRatio}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                starInnerRadiusRatio: Number(event.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  ) : null}
                   <div className="field-grid">
                     <label>
                       Bleed %
@@ -351,81 +426,6 @@ export function Sidebar({
                       />
                     </label>
                   </div>
-                  <label>
-                    Guide shape
-                    <select
-                      value={project.document.shape.shape}
-                      onChange={(event) =>
-                        onUpdateDocument({
-                          shape: {
-                            ...project.document.shape,
-                            shape: event.target.value as QrMagicProject["document"]["shape"]["shape"],
-                          },
-                        })
-                      }
-                    >
-                      <option value="rectangle">Rectangle</option>
-                      <option value="ellipse">Circle / oval</option>
-                      <option value="star">Star</option>
-                    </select>
-                  </label>
-                  {project.document.shape.shape === "rectangle" ? (
-                    <label>
-                      Guide corner radius
-                      <input
-                        type="number"
-                        min="0"
-                        value={project.document.shape.cornerRadius}
-                        onChange={(event) =>
-                          onUpdateDocument({
-                            shape: {
-                              ...project.document.shape,
-                              cornerRadius: Math.max(0, Number(event.target.value)),
-                            },
-                          })
-                        }
-                      />
-                    </label>
-                  ) : null}
-                  {project.document.shape.shape === "star" ? (
-                    <div className="field-grid">
-                      <label>
-                        Star points
-                        <input
-                          type="number"
-                          min="3"
-                          max="12"
-                          value={project.document.shape.starPoints}
-                          onChange={(event) =>
-                            onUpdateDocument({
-                              shape: {
-                                ...project.document.shape,
-                                starPoints: Math.max(3, Number(event.target.value)),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                      <label>
-                        Arm length
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="0.9"
-                          step="0.05"
-                          value={project.document.shape.starInnerRadiusRatio}
-                          onChange={(event) =>
-                            onUpdateDocument({
-                              shape: {
-                                ...project.document.shape,
-                                starInnerRadiusRatio: Number(event.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                  ) : null}
                   <div className="field-grid">
                     <label>
                       Start
