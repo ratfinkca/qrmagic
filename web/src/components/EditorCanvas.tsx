@@ -1,11 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from "react-konva";
+import {
+  Ellipse,
+  Group,
+  Image as KonvaImage,
+  Layer,
+  Line,
+  Rect,
+  Stage,
+  Text,
+  Transformer,
+} from "react-konva";
 import Konva from "konva";
-import QRCode from "qrcode";
-import type { EditorTool, ProjectLayer, QrMagicProject, RenderRecord } from "../types";
+import type { EditorTool, ProjectLayer, QrLayer, QrMagicProject, RenderRecord, ShapeGeometry } from "../types";
 import { documentPixelSize, guideSnapRect } from "../lib/project";
+import { renderStyledQrDataUrl } from "../lib/qrStyling";
 import { renderTemplate } from "../lib/serial";
+import { starPolygonPoints } from "../lib/shapeGeometry";
 
 type EditorCanvasProps = {
   project: QrMagicProject;
@@ -38,29 +49,22 @@ function colorWithOpacity(color: string, opacity: number) {
   return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, opacity))})`;
 }
 
-function useQrDataUrl(layer: ProjectLayer, record: RenderRecord) {
+function useQrDataUrl(layer: QrLayer, record: RenderRecord) {
   const [dataUrl, setDataUrl] = useState("");
 
   useEffect(() => {
-    if (layer.type !== "qr") {
-      setDataUrl("");
-      return;
-    }
-
     let canceled = false;
-    QRCode.toDataURL(renderTemplate(layer.payloadTemplate, record, layer.dataGroupId), {
-      margin: 2,
-      color: {
-        dark: layer.foreground,
-        light: layer.background,
-      },
-      errorCorrectionLevel: "M",
-      width: Math.max(layer.width, layer.height),
-    }).then((url) => {
-      if (!canceled) {
-        setDataUrl(url);
-      }
-    });
+    renderStyledQrDataUrl(layer, record)
+      .then((url) => {
+        if (!canceled) {
+          setDataUrl(url);
+        }
+      })
+      .catch(() => {
+        if (!canceled) {
+          setDataUrl("");
+        }
+      });
 
     return () => {
       canceled = true;
@@ -88,6 +92,65 @@ function useHtmlImage(src: string) {
 }
 
 const WORKSPACE_GUTTER = 180;
+
+type ShapeVisualProps = ShapeGeometry & {
+  id?: string;
+  name?: string;
+  x?: number;
+  y?: number;
+  width: number;
+  height: number;
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  dash?: number[];
+  opacity?: number;
+  rotation?: number;
+  listening?: boolean;
+  draggable?: boolean;
+  onMouseDown?: (event: Konva.KonvaEventObject<MouseEvent>) => void;
+  onMouseMove?: (event: Konva.KonvaEventObject<MouseEvent>) => void;
+  onMouseLeave?: (event: Konva.KonvaEventObject<MouseEvent>) => void;
+  onClick?: (event: Konva.KonvaEventObject<MouseEvent>) => void;
+  onTap?: (event: Konva.KonvaEventObject<Event>) => void;
+  onDragStart?: (event: Konva.KonvaEventObject<DragEvent>) => void;
+  onDragMove?: (event: Konva.KonvaEventObject<DragEvent>) => void;
+  onDragEnd?: (event: Konva.KonvaEventObject<DragEvent>) => void;
+};
+
+function ShapeVisual({
+  shape,
+  cornerRadius,
+  starPoints,
+  starInnerRadiusRatio,
+  width,
+  height,
+  ...props
+}: ShapeVisualProps) {
+  if (shape === "ellipse") {
+    return (
+      <Ellipse
+        {...props}
+        x={(props.x ?? 0) + width / 2}
+        y={(props.y ?? 0) + height / 2}
+        radiusX={width / 2}
+        radiusY={height / 2}
+      />
+    );
+  }
+
+  if (shape === "star") {
+    return (
+      <Line
+        {...props}
+        points={starPolygonPoints(width, height, starPoints, starInnerRadiusRatio)}
+        closed
+      />
+    );
+  }
+
+  return <Rect {...props} width={width} height={height} cornerRadius={cornerRadius} />;
+}
 
 function ImageNode({
   layer,
@@ -161,7 +224,7 @@ function QrNode({
   onDragMove,
   onDragEnd,
 }: {
-  layer: ProjectLayer;
+  layer: QrLayer;
   selected: boolean;
   editable: boolean;
   record: RenderRecord;
@@ -176,10 +239,6 @@ function QrNode({
   const groupRef = useRef<Konva.Group>(null);
   const dataUrl = useQrDataUrl(layer, record);
   const image = useHtmlImage(dataUrl);
-
-  if (layer.type !== "qr") {
-    return null;
-  }
 
   return (
     <>
@@ -307,18 +366,16 @@ function ShapeNode({
   onDragMove: (layerId: string, node: Konva.Node) => void;
   onDragEnd: (layerId: string, node: Konva.Node) => void;
 }) {
-  const rectRef = useRef<Konva.Rect>(null);
-
   if (layer.type !== "shape") {
     return null;
   }
 
   return (
     <>
-      <Rect
-        ref={rectRef}
+      <ShapeVisual
         id={layer.id}
         name="design-layer"
+        shape={layer.shape}
         x={layer.x}
         y={layer.y}
         width={layer.width}
@@ -328,6 +385,8 @@ function ShapeNode({
         strokeWidth={layer.strokeWidth}
         dash={layer.dash}
         cornerRadius={layer.cornerRadius}
+        starPoints={layer.starPoints}
+        starInnerRadiusRatio={layer.starInnerRadiusRatio}
         rotation={layer.rotation}
         opacity={layer.opacity}
         draggable={editable && selected && !layer.locked}
@@ -1058,39 +1117,54 @@ export function EditorCanvas({
                   y={WORKSPACE_GUTTER}
                 >
                   {project.document.guides.showBleed ? (
-                    <Rect
+                    <ShapeVisual
                       x={bleedRect.x}
                       y={bleedRect.y}
                       width={bleedRect.width}
                       height={bleedRect.height}
+                      shape={project.document.shape.shape}
+                      cornerRadius={project.document.shape.cornerRadius}
+                      starPoints={project.document.shape.starPoints}
+                      starInnerRadiusRatio={project.document.shape.starInnerRadiusRatio}
                       stroke="#f97316"
                       strokeWidth={2}
                       dash={[10, 8]}
                       opacity={0.9}
+                      listening={false}
                     />
                   ) : null}
                   {project.document.guides.showTrim ? (
-                    <Rect
+                    <ShapeVisual
                       x={0.5}
                       y={0.5}
                       width={docSize.width - 1}
                       height={docSize.height - 1}
+                      shape={project.document.shape.shape}
+                      cornerRadius={project.document.shape.cornerRadius}
+                      starPoints={project.document.shape.starPoints}
+                      starInnerRadiusRatio={project.document.shape.starInnerRadiusRatio}
                       stroke="#0f172a"
                       strokeWidth={2}
                       dash={[18, 12]}
                       opacity={0.75}
+                      listening={false}
                     />
                   ) : null}
                   {project.document.guides.showSafeArea ? (
-                    <Rect
+                    <ShapeVisual
                       x={safeAreaRect.x}
                       y={safeAreaRect.y}
                       width={safeAreaRect.width}
                       height={safeAreaRect.height}
+                      shape={project.document.shape.shape}
+                      cornerRadius={project.document.shape.cornerRadius}
+                      starPoints={project.document.shape.starPoints}
+                      starInnerRadiusRatio={project.document.shape.starInnerRadiusRatio}
                       stroke="#0f766e"
                       strokeWidth={2}
                       dash={[6, 8]}
                       opacity={0.9}
+                      listening={false}
                     />
                   ) : null}
                 </Group>
