@@ -13,13 +13,14 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { documentPixelSize } from "../lib/project";
-import type { GuideSnapTarget, ProjectLayer, QrMagicProject } from "../types";
+import type { DataGroup, GuideSnapTarget, ProjectLayer, QrMagicProject } from "../types";
 
 type Alignment = "left" | "center-x" | "right" | "top" | "center-y" | "bottom";
 
 type InspectorProps = {
   selectedLayer: ProjectLayer | undefined;
   project: QrMagicProject;
+  dataGroups: DataGroup[];
   onUpdateLayer: (layerId: string, patch: Partial<ProjectLayer>) => void;
   onExportPng: () => void;
   onExportBatch: () => void;
@@ -32,6 +33,7 @@ type InspectorProps = {
 export function Inspector({
   selectedLayer,
   project,
+  dataGroups,
   onUpdateLayer,
   onExportPng,
   onExportBatch,
@@ -248,6 +250,23 @@ export function Inspector({
             {selectedLayer.type === "qr" ? (
               <>
                 <label>
+                  Data group
+                  <select
+                    value={selectedLayer.dataGroupId}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        dataGroupId: event.target.value,
+                      } as Partial<ProjectLayer>)
+                    }
+                  >
+                    {dataGroups.map((group) => (
+                      <option value={group.id} key={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
                   Payload
                   <input
                     value={selectedLayer.payloadTemplate}
@@ -288,6 +307,24 @@ export function Inspector({
             ) : null}
             {selectedLayer.type === "text" ? (
               <>
+                <label>
+                  Data group
+                  <select
+                    value={selectedLayer.dataGroupId ?? ""}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        dataGroupId: event.target.value || undefined,
+                      } as Partial<ProjectLayer>)
+                    }
+                  >
+                    <option value="">Primary serial</option>
+                    {dataGroups.map((group) => (
+                      <option value={group.id} key={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label>
                   Text
                   <input

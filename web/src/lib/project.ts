@@ -1,4 +1,32 @@
-import type { GuideSnapTarget, QrMagicProject } from "../types";
+import type { DataGroup, GuideSnapTarget, ProjectLayer, QrMagicProject, SerialSettings } from "../types";
+
+export const DEFAULT_DATA_GROUP_ID = "group_primary";
+
+const defaultSerialSettings: SerialSettings = {
+  prefix: "PARK-",
+  suffix: "",
+  start: 1,
+  quantity: 10,
+  step: 1,
+  padding: 4,
+};
+
+export function createDataGroup(name = "Primary serial"): DataGroup {
+  const timestamp = Date.now();
+  return {
+    id: `group_${timestamp}`,
+    name,
+    mode: "serial",
+    serial: {
+      prefix: "QR-",
+      suffix: "",
+      start: 1,
+      quantity: 10,
+      step: 1,
+      padding: 4,
+    },
+  };
+}
 
 export const initialProject: QrMagicProject = {
   version: 1,
@@ -85,6 +113,7 @@ export const initialProject: QrMagicProject = {
       id: "layer_qr",
       type: "qr",
       name: "QR Code",
+      dataGroupId: DEFAULT_DATA_GROUP_ID,
       visible: true,
       locked: false,
       x: 780,
@@ -101,6 +130,7 @@ export const initialProject: QrMagicProject = {
       id: "layer_serial",
       type: "text",
       name: "Serial",
+      dataGroupId: DEFAULT_DATA_GROUP_ID,
       visible: true,
       locked: false,
       x: 710,
@@ -120,14 +150,14 @@ export const initialProject: QrMagicProject = {
   ],
   data: {
     mode: "serial",
-    serial: {
-      prefix: "PARK-",
-      suffix: "",
-      start: 1,
-      quantity: 10,
-      step: 1,
-      padding: 4,
-    },
+    groups: [
+      {
+        id: DEFAULT_DATA_GROUP_ID,
+        name: "Primary serial",
+        mode: "serial",
+        serial: defaultSerialSettings,
+      },
+    ],
   },
   export: {
     filenameTemplate: "{{serial}}",
@@ -136,6 +166,46 @@ export const initialProject: QrMagicProject = {
     includeGuides: false,
   },
 };
+
+type LegacyProject = QrMagicProject & {
+  data: QrMagicProject["data"] & {
+    serial?: SerialSettings;
+  };
+};
+
+export function normalizeProject(project: QrMagicProject | LegacyProject): QrMagicProject {
+  const legacySerial = "serial" in project.data ? project.data.serial : undefined;
+  const groups =
+    project.data.groups?.length
+      ? project.data.groups
+      : [
+          {
+            id: DEFAULT_DATA_GROUP_ID,
+            name: "Primary serial",
+            mode: "serial" as const,
+            serial: legacySerial ?? defaultSerialSettings,
+          },
+        ];
+  const defaultGroupId = groups[0]?.id ?? DEFAULT_DATA_GROUP_ID;
+  const layers = project.layers.map((layer): ProjectLayer => {
+    if (layer.type === "qr" && !layer.dataGroupId) {
+      return { ...layer, dataGroupId: defaultGroupId };
+    }
+    if (layer.type === "text" && layer.textTemplate.includes("{{serial}}") && !layer.dataGroupId) {
+      return { ...layer, dataGroupId: defaultGroupId };
+    }
+    return layer;
+  });
+
+  return {
+    ...project,
+    layers,
+    data: {
+      mode: "serial",
+      groups,
+    },
+  };
+}
 
 export function documentPixelSize(project: QrMagicProject) {
   if (project.document.unit === "px") {

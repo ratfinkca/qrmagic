@@ -262,6 +262,20 @@ select:focus {
   padding-top: 4px;
 }
 
+.data-group-list {
+  display: grid;
+  gap: 10px;
+}
+
+.data-group-editor {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #dbe3ee;
+  border-radius: 7px;
+  background: #f8fafc;
+}
+
 .panel-subtitle {
   color: #0f172a;
   font-size: 12px;

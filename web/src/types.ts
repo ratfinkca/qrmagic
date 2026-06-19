@@ -22,6 +22,7 @@ export type LayerBase = {
 
 export type QrLayer = LayerBase & {
   type: "qr";
+  dataGroupId: string;
   payloadTemplate: string;
   foreground: string;
   background: string;
@@ -29,6 +30,7 @@ export type QrLayer = LayerBase & {
 
 export type TextLayer = LayerBase & {
   type: "text";
+  dataGroupId?: string;
   textTemplate: string;
   fontFamily: string;
   fontSize: number;
@@ -68,6 +70,13 @@ export type SerialSettings = {
   padding: number;
 };
 
+export type DataGroup = {
+  id: string;
+  name: string;
+  mode: "serial";
+  serial: SerialSettings;
+};
+
 export type QrMagicProject = {
   version: 1;
   document: {
@@ -90,7 +99,7 @@ export type QrMagicProject = {
   layers: ProjectLayer[];
   data: {
     mode: "serial";
-    serial: SerialSettings;
+    groups: DataGroup[];
   };
   export: {
     filenameTemplate: string;
@@ -109,4 +118,10 @@ export type QrMagicProjectFile = {
 export type RenderRecord = {
   index: number;
   serial: string;
+  groups: Record<
+    string,
+    {
+      serial: string;
+    }
+  >;
 };

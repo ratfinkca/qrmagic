@@ -45,7 +45,7 @@ function useQrDataUrl(layer: ProjectLayer, record: RenderRecord) {
     }
 
     let canceled = false;
-    QRCode.toDataURL(renderTemplate(layer.payloadTemplate, record), {
+    QRCode.toDataURL(renderTemplate(layer.payloadTemplate, record, layer.dataGroupId), {
       margin: 2,
       color: {
         dark: layer.foreground,
@@ -276,7 +276,7 @@ function TextNode({
         y={layer.y}
         width={layer.width}
         height={layer.height}
-        text={renderTemplate(layer.textTemplate, record)}
+        text={renderTemplate(layer.textTemplate, record, layer.dataGroupId)}
         fontFamily={layer.fontFamily}
         fontSize={layer.fontSize}
         fontStyle={String(layer.fontWeight)}

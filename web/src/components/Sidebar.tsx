@@ -10,17 +10,20 @@ import {
   GripVertical,
   ImagePlus,
   Layers,
+  Plus,
   QrCode,
   Trash2,
   Type,
 } from "lucide-react";
-import type { ProjectLayer, QrMagicProject } from "../types";
+import type { DataGroup, ProjectLayer, QrMagicProject } from "../types";
 
 type SidebarProps = {
   project: QrMagicProject;
   selectedLayerId: string;
   onSelectLayer: (layerId: string) => void;
-  onUpdateSerial: (patch: Partial<QrMagicProject["data"]["serial"]>) => void;
+  onUpdateDataGroup: (groupId: string, patch: Partial<DataGroup>) => void;
+  onUpdateDataGroupSerial: (groupId: string, patch: Partial<DataGroup["serial"]>) => void;
+  onAddDataGroup: () => void;
   onUpdateDocument: (patch: Partial<QrMagicProject["document"]>) => void;
   onAddShapeLayer: () => void;
   onAddTextLayer: () => void;
@@ -37,7 +40,9 @@ export function Sidebar({
   project,
   selectedLayerId,
   onSelectLayer,
-  onUpdateSerial,
+  onUpdateDataGroup,
+  onUpdateDataGroupSerial,
+  onAddDataGroup,
   onUpdateDocument,
   onAddShapeLayer,
   onAddTextLayer,
@@ -47,7 +52,6 @@ export function Sidebar({
   onDeleteLayer,
   onReorderLayers,
 }: SidebarProps) {
-  const serial = project.data.serial;
   const [openPanels, setOpenPanels] = useState<Record<OpenPanel, boolean>>({
     document: true,
     guides: true,
@@ -295,40 +299,94 @@ export function Sidebar({
         </button>
         {openPanels.data ? (
           <>
-            <div className="field-grid">
-              <label>
-                Prefix
-                <input
-                  value={serial.prefix}
-                  onChange={(event) => onUpdateSerial({ prefix: event.target.value })}
-                />
-              </label>
-              <label>
-                Padding
-                <input
-                  type="number"
-                  value={serial.padding}
-                  onChange={(event) => onUpdateSerial({ padding: Number(event.target.value) })}
-                />
-              </label>
-            </div>
-            <div className="field-grid">
-              <label>
-                Start
-                <input
-                  type="number"
-                  value={serial.start}
-                  onChange={(event) => onUpdateSerial({ start: Number(event.target.value) })}
-                />
-              </label>
-              <label>
-                Quantity
-                <input
-                  type="number"
-                  value={serial.quantity}
-                  onChange={(event) => onUpdateSerial({ quantity: Number(event.target.value) })}
-                />
-              </label>
+            <button className="secondary-action" onClick={onAddDataGroup}>
+              <Plus size={15} />
+              Add data group
+            </button>
+            <div className="data-group-list">
+              {project.data.groups.map((group) => (
+                <div className="data-group-editor" key={group.id}>
+                  <label>
+                    Group name
+                    <input
+                      value={group.name}
+                      onChange={(event) =>
+                        onUpdateDataGroup(group.id, { name: event.target.value })
+                      }
+                    />
+                  </label>
+                  <div className="field-grid">
+                    <label>
+                      Prefix
+                      <input
+                        value={group.serial.prefix}
+                        onChange={(event) =>
+                          onUpdateDataGroupSerial(group.id, { prefix: event.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Suffix
+                      <input
+                        value={group.serial.suffix}
+                        onChange={(event) =>
+                          onUpdateDataGroupSerial(group.id, { suffix: event.target.value })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div className="field-grid">
+                    <label>
+                      Start
+                      <input
+                        type="number"
+                        value={group.serial.start}
+                        onChange={(event) =>
+                          onUpdateDataGroupSerial(group.id, { start: Number(event.target.value) })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Step
+                      <input
+                        type="number"
+                        value={group.serial.step}
+                        onChange={(event) =>
+                          onUpdateDataGroupSerial(group.id, { step: Number(event.target.value) })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div className="field-grid">
+                    <label>
+                      Quantity
+                      <input
+                        type="number"
+                        min="1"
+                        value={group.serial.quantity}
+                        onChange={(event) =>
+                          onUpdateDataGroupSerial(group.id, {
+                            quantity: Math.max(1, Number(event.target.value)),
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Padding
+                      <input
+                        type="number"
+                        min="0"
+                        value={group.serial.padding}
+                        onChange={(event) =>
+                          onUpdateDataGroupSerial(group.id, {
+                            padding: Math.max(0, Number(event.target.value)),
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                </div>
+              ))}
             </div>
           </>
         ) : null}

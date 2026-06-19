@@ -15,9 +15,16 @@ import {
 import { EditorCanvas } from "./components/EditorCanvas";
 import { Inspector } from "./components/Inspector";
 import { Sidebar } from "./components/Sidebar";
-import { documentPixelSize, guideSnapRect, initialProject } from "./lib/project";
-import { createSerialRecords, renderTemplate } from "./lib/serial";
+import {
+  createDataGroup,
+  documentPixelSize,
+  guideSnapRect,
+  initialProject,
+  normalizeProject,
+} from "./lib/project";
+import { createDataRecords, renderTemplate } from "./lib/serial";
 import type {
+  DataGroup,
   EditorTool,
   GuideSnapTarget,
   ProjectLayer,
@@ -36,10 +43,7 @@ export function App() {
   const stageRef = useRef<Konva.Stage | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const projectInputRef = useRef<HTMLInputElement | null>(null);
-  const records = useMemo(
-    () => createSerialRecords(project.data.serial),
-    [project.data.serial],
-  );
+  const records = useMemo(() => createDataRecords(project.data.groups), [project.data.groups]);
   const docSize = useMemo(() => documentPixelSize(project), [project]);
   const currentRecord = records[Math.min(selectedRecordIndex, records.length - 1)] ?? records[0];
   const selectedLayer = project.layers.find((layer) => layer.id === selectedLayerId);
@@ -94,6 +98,7 @@ export function App() {
       name: "Text",
       visible: true,
       locked: false,
+      dataGroupId: project.data.groups[0]?.id,
       x: Math.round(docSize.width * 0.2),
       y: Math.round(docSize.height * 0.2),
       width: Math.round(docSize.width * 0.5),
@@ -112,10 +117,12 @@ export function App() {
 
   function addQrLayer() {
     const layerId = `layer_qr_${Date.now()}`;
-    addLayer({
+    const group = createDataGroup("QR serial");
+    const layer: ProjectLayer = {
       id: layerId,
       type: "qr",
       name: "QR Code",
+      dataGroupId: group.id,
       visible: true,
       locked: false,
       x: Math.round(docSize.width * 0.35),
@@ -127,7 +134,16 @@ export function App() {
       payloadTemplate: "{{serial}}",
       foreground: "#111827",
       background: "#ffffff",
-    });
+    };
+    setProject((current) => ({
+      ...current,
+      data: {
+        mode: "serial",
+        groups: [...current.data.groups, group],
+      },
+      layers: [...current.layers, layer],
+    }));
+    setSelectedLayerId(layerId);
   }
 
   function toggleLayerVisibility(layerId: string) {
@@ -156,15 +172,38 @@ export function App() {
     }));
   }
 
-  function updateSerial(patch: Partial<QrMagicProject["data"]["serial"]>) {
+  function updateDataGroup(groupId: string, patch: Partial<DataGroup>) {
     setProject((current) => ({
       ...current,
       data: {
         ...current.data,
-        serial: {
-          ...current.data.serial,
-          ...patch,
-        },
+        groups: current.data.groups.map((group) =>
+          group.id === groupId ? { ...group, ...patch } : group,
+        ),
+      },
+    }));
+  }
+
+  function updateDataGroupSerial(groupId: string, patch: Partial<DataGroup["serial"]>) {
+    setProject((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        groups: current.data.groups.map((group) =>
+          group.id === groupId
+            ? { ...group, serial: { ...group.serial, ...patch } }
+            : group,
+        ),
+      },
+    }));
+  }
+
+  function addDataGroup() {
+    setProject((current) => ({
+      ...current,
+      data: {
+        mode: "serial",
+        groups: [...current.data.groups, createDataGroup("New serial")],
       },
     }));
   }
@@ -304,11 +343,11 @@ export function App() {
   }
 
   function projectFromFile(value: unknown) {
-    if (isProject(value)) return value;
+    if (isProject(value)) return normalizeProject(value);
     if (!value || typeof value !== "object") return null;
     const candidate = value as Partial<QrMagicProjectFile>;
     return candidate.format === "qrmagic.project" && isProject(candidate.project)
-      ? candidate.project
+      ? normalizeProject(candidate.project)
       : null;
   }
 
@@ -478,7 +517,9 @@ export function App() {
             project={project}
             selectedLayerId={selectedLayerId}
             onSelectLayer={setSelectedLayerId}
-            onUpdateSerial={updateSerial}
+            onUpdateDataGroup={updateDataGroup}
+            onUpdateDataGroupSerial={updateDataGroupSerial}
+            onAddDataGroup={addDataGroup}
             onUpdateDocument={updateDocument}
             onAddShapeLayer={addShapeLayer}
             onAddTextLayer={addTextLayer}
@@ -506,6 +547,7 @@ export function App() {
           <Inspector
             selectedLayer={selectedLayer}
             project={project}
+            dataGroups={project.data.groups}
             onUpdateLayer={updateLayer}
             onExportPng={exportPng}
             onExportBatch={exportBatchPngs}
