@@ -93,6 +93,17 @@ button {
   color: #0f766e;
 }
 
+.tool-button:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.tool-button:disabled:hover {
+  border-color: transparent;
+  background: transparent;
+  color: #475569;
+}
+
 .zoom-indicator {
   display: inline-flex;
   align-items: center;

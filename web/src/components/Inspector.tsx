@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   AlignCenterHorizontal,
@@ -24,7 +24,11 @@ type InspectorProps = {
   selectedLayerCount: number;
   project: QrMagicProject;
   dataGroups: DataGroup[];
-  onUpdateLayer: (layerId: string, patch: Partial<ProjectLayer>) => void;
+  onUpdateLayer: (
+    layerId: string,
+    patch: Partial<ProjectLayer>,
+    options?: { recordHistory?: boolean },
+  ) => void;
   onExportPng: () => void;
   onExportBatch: () => void;
   onUpdateExport: (patch: Partial<QrMagicProject["export"]>) => void;
@@ -34,7 +38,12 @@ type InspectorProps = {
   onUpdateSelectionBounds: (
     patch: Partial<Pick<ProjectLayer, "x" | "y" | "width" | "height">>,
   ) => void;
-  onUpdateSelectedLayers: (patch: Partial<Pick<ProjectLayer, "opacity">>) => void;
+  onUpdateSelectedLayers: (
+    patch: Partial<Pick<ProjectLayer, "opacity">>,
+    options?: { recordHistory?: boolean },
+  ) => void;
+  onBeginProjectChange: () => void;
+  onCommitProjectChange: () => void;
 };
 
 export function Inspector({
@@ -52,11 +61,22 @@ export function Inspector({
   onAlignSelection,
   onUpdateSelectionBounds,
   onUpdateSelectedLayers,
+  onBeginProjectChange,
+  onCommitProjectChange,
 }: InspectorProps) {
   const [snapTarget, setSnapTarget] = useState<GuideSnapTarget>("page");
   const [alignTarget, setAlignTarget] = useState<AlignTarget>("selection");
+  const deferredCommitTimerRef = useRef<number | null>(null);
   const effectiveAlignTarget: AlignTarget =
     selectedLayerCount > 1 || alignTarget !== "selection" ? alignTarget : "page";
+
+  useEffect(() => {
+    return () => {
+      if (deferredCommitTimerRef.current) {
+        window.clearTimeout(deferredCommitTimerRef.current);
+      }
+    };
+  }, []);
 
   function selectionBounds(layers: ProjectLayer[]) {
     if (!layers.length) return { x: 0, y: 0, width: 0, height: 0 };
@@ -73,6 +93,46 @@ export function Inspector({
   }
 
   const selectedGroupBounds = selectionBounds(selectedLayers);
+
+  function transientLayerUpdate(layerId: string, patch: Partial<ProjectLayer>) {
+    onBeginProjectChange();
+    onUpdateLayer(layerId, patch, { recordHistory: false });
+    scheduleDeferredCommit();
+  }
+
+  function transientSelectionUpdate(patch: Partial<Pick<ProjectLayer, "opacity">>) {
+    onBeginProjectChange();
+    onUpdateSelectedLayers(patch, { recordHistory: false });
+    scheduleDeferredCommit();
+  }
+
+  function scheduleDeferredCommit() {
+    if (deferredCommitTimerRef.current) {
+      window.clearTimeout(deferredCommitTimerRef.current);
+    }
+    deferredCommitTimerRef.current = window.setTimeout(() => {
+      deferredCommitTimerRef.current = null;
+      onCommitProjectChange();
+    }, 450);
+  }
+
+  function commitDeferredChange() {
+    if (deferredCommitTimerRef.current) {
+      window.clearTimeout(deferredCommitTimerRef.current);
+      deferredCommitTimerRef.current = null;
+    }
+    onCommitProjectChange();
+  }
+
+  function deferredInputHandlers() {
+    return {
+      onPointerDown: onBeginProjectChange,
+      onKeyDown: onBeginProjectChange,
+      onPointerUp: commitDeferredChange,
+      onKeyUp: commitDeferredChange,
+      onBlur: commitDeferredChange,
+    };
+  }
 
   function isAligned(alignment: Alignment) {
     if (!selectedLayers.length) return false;
@@ -328,8 +388,9 @@ export function Inspector({
                 max="1"
                 step="0.01"
                 value={selectedLayer.opacity}
+                {...deferredInputHandlers()}
                 onChange={(event) =>
-                  onUpdateLayer(selectedLayer.id, { opacity: Number(event.target.value) })
+                  transientLayerUpdate(selectedLayer.id, { opacity: Number(event.target.value) })
                 }
               />
             </label>
@@ -392,8 +453,9 @@ export function Inspector({
                     <input
                       type="color"
                       value={selectedLayer.foreground}
+                      {...deferredInputHandlers()}
                       onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
+                        transientLayerUpdate(selectedLayer.id, {
                           foreground: event.target.value,
                         } as Partial<ProjectLayer>)
                       }
@@ -404,8 +466,9 @@ export function Inspector({
                     <input
                       type="color"
                       value={selectedLayer.background}
+                      {...deferredInputHandlers()}
                       onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
+                        transientLayerUpdate(selectedLayer.id, {
                           background: event.target.value,
                         } as Partial<ProjectLayer>)
                       }
@@ -463,8 +526,9 @@ export function Inspector({
                     <input
                       type="color"
                       value={selectedLayer.fill}
+                      {...deferredInputHandlers()}
                       onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
+                        transientLayerUpdate(selectedLayer.id, {
                           fill: event.target.value,
                         } as Partial<ProjectLayer>)
                       }
@@ -474,16 +538,17 @@ export function Inspector({
                 <label>
                   Color opacity
                   <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={selectedLayer.fillOpacity}
-                    onChange={(event) =>
-                      onUpdateLayer(selectedLayer.id, {
-                        fillOpacity: Number(event.target.value),
-                      } as Partial<ProjectLayer>)
-                    }
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={selectedLayer.fillOpacity}
+                  {...deferredInputHandlers()}
+                  onChange={(event) =>
+                    transientLayerUpdate(selectedLayer.id, {
+                      fillOpacity: Number(event.target.value),
+                    } as Partial<ProjectLayer>)
+                  }
                   />
                 </label>
               </>
@@ -498,8 +563,9 @@ export function Inspector({
                       value={
                         selectedLayer.fill === "transparent" ? "#ffffff" : selectedLayer.fill
                       }
+                      {...deferredInputHandlers()}
                       onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
+                        transientLayerUpdate(selectedLayer.id, {
                           fill: event.target.value,
                         } as Partial<ProjectLayer>)
                       }
@@ -512,8 +578,9 @@ export function Inspector({
                       value={
                         selectedLayer.stroke === "transparent" ? "#111827" : selectedLayer.stroke
                       }
+                      {...deferredInputHandlers()}
                       onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
+                        transientLayerUpdate(selectedLayer.id, {
                           stroke: event.target.value,
                         } as Partial<ProjectLayer>)
                       }
@@ -529,8 +596,9 @@ export function Inspector({
                       max="1"
                       step="0.01"
                       value={selectedLayer.fillOpacity}
+                      {...deferredInputHandlers()}
                       onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
+                        transientLayerUpdate(selectedLayer.id, {
                           fillOpacity: Number(event.target.value),
                         } as Partial<ProjectLayer>)
                       }
@@ -544,8 +612,9 @@ export function Inspector({
                       max="1"
                       step="0.01"
                       value={selectedLayer.strokeOpacity}
+                      {...deferredInputHandlers()}
                       onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
+                        transientLayerUpdate(selectedLayer.id, {
                           strokeOpacity: Number(event.target.value),
                         } as Partial<ProjectLayer>)
                       }
@@ -659,8 +728,9 @@ export function Inspector({
                     ? selectedLayers[0].opacity
                     : 1
                 }
+                {...deferredInputHandlers()}
                 onChange={(event) =>
-                  onUpdateSelectedLayers({ opacity: Number(event.target.value) })
+                  transientSelectionUpdate({ opacity: Number(event.target.value) })
                 }
               />
             </label>
