@@ -30,6 +30,13 @@ import {
   initialProject,
   normalizeProject,
 } from "./lib/project";
+import {
+  renderGuidePngBlob,
+  renderLayeredTemplatePdfBlob,
+  renderProjectImageBlob,
+  renderProjectPdfBlob,
+  renderProjectPngBlob,
+} from "./lib/exportRenderer";
 import { createDataRecords, renderTemplate } from "./lib/serial";
 import type {
   DataGroup,
@@ -53,8 +60,16 @@ type ZoomCommand = {
 type ProjectUpdateOptions = {
   recordHistory?: boolean;
 };
+type ExportSetFormat = "png" | "jpg" | "pdf";
 
 const MAX_HISTORY_STEPS = 80;
+const EXPORT_SET_FORMATS: ExportSetFormat[] = ["png", "jpg", "pdf"];
+
+function getExportSetFormat(project: QrMagicProject): ExportSetFormat {
+  const [format] = project.export.formats;
+  return EXPORT_SET_FORMATS.includes(format as ExportSetFormat)
+    ? (format as ExportSetFormat)
+    : "png";
 const MAX_RECENT_COLORS = 14;
 
 function normalizeHexColor(color: string) {
@@ -68,7 +83,7 @@ export function App() {
   const [selectedLayerIds, setSelectedLayerIds] = useState([initialProject.layers[0].id]);
   const [selectedRecordIndex, setSelectedRecordIndex] = useState(0);
   const [panelsVisible, setPanelsVisible] = useState(true);
-  const [isExportingBatch, setIsExportingBatch] = useState(false);
+  const [exportStatus, setExportStatus] = useState<"template" | "set" | null>(null);
   const [zoom, setZoom] = useState(1);
   const [fitScale, setFitScale] = useState(1);
   const [zoomCommand, setZoomCommand] = useState<ZoomCommand | null>(null);
@@ -78,6 +93,7 @@ export function App() {
   const projectInputRef = useRef<HTMLInputElement | null>(null);
   const pendingProjectHistoryRef = useRef<QrMagicProject | null>(null);
   const projectRef = useRef(project);
+  const exportLockedRef = useRef(false);
   const records = useMemo(() => createDataRecords(project.data.groups), [project.data.groups]);
   const docSize = useMemo(() => documentPixelSize(project), [project]);
   const currentRecord = records[Math.min(selectedRecordIndex, records.length - 1)] ?? records[0];
@@ -89,16 +105,24 @@ export function App() {
   const selectedLayers = project.layers.filter((layer) => selectedLayerIds.includes(layer.id));
   const canUndo = projectHistory.past.length > 0;
   const canRedo = projectHistory.future.length > 0;
+  const isExportLocked = exportStatus !== null;
+  const exportSetFormat = getExportSetFormat(project);
 
   useEffect(() => {
     projectRef.current = project;
   }, [project]);
+
+  useEffect(() => {
+    exportLockedRef.current = isExportLocked;
+  }, [isExportLocked]);
 
   const updateProject = useCallback(
     (
       updater: QrMagicProject | ((current: QrMagicProject) => QrMagicProject),
       options: ProjectUpdateOptions = {},
     ) => {
+      if (exportLockedRef.current) return;
+
       setProject((current) => {
         const nextProject = typeof updater === "function" ? updater(current) : updater;
         if (nextProject === current) return current;
@@ -180,6 +204,7 @@ export function App() {
         target?.tagName === "SELECT" ||
         target?.isContentEditable;
       if (isEditableTarget || (!event.ctrlKey && !event.metaKey)) return;
+      if (exportLockedRef.current) return;
 
       const key = event.key.toLowerCase();
       if (key === "z" && !event.shiftKey) {
@@ -564,76 +589,105 @@ export function App() {
     URL.revokeObjectURL(link.href);
   }
 
-  function waitForCanvasUpdate() {
-    return new Promise<void>((resolve) => {
-      window.setTimeout(() => resolve(), 50);
-    });
+  function sanitizeFilename(value: string) {
+    return value.replace(/[\\/:*?"<>|]/g, "_").trim() || "qrmagic";
   }
 
-  function exportStageDataUrl(stage: Konva.Stage) {
-    const guidesLayer = stage.findOne(".guides-layer");
-    const wasVisible = guidesLayer?.visible() ?? false;
-    const transformerNodes = stage.find("Transformer");
-    const transformerVisibility = transformerNodes.map((node) => node.visible());
-    const selectionOverlayNodes = stage.find(".selection-overlay");
-    const selectionOverlayVisibility = selectionOverlayNodes.map((node) => node.visible());
-    const documentContentNodes = stage.find(".document-content");
-    const documentContentPositions = documentContentNodes.map((node) => ({
-      x: node.x(),
-      y: node.y(),
-    }));
-    const originalStageSize = stage.size();
-    const originalScale = stage.scale();
+  async function exportPngTemplate() {
+    if (exportLockedRef.current) return;
 
-    if (!project.export.includeGuides) {
-      guidesLayer?.visible(false);
+    const projectSnapshot = projectRef.current;
+    const record = currentRecord;
+    const baseName = sanitizeFilename(record.serial);
+    const zip = new JSZip();
+    exportLockedRef.current = true;
+    setExportStatus("template");
+
+    try {
+      const [artworkBlob, previewBlob, bleedBlob, trimBlob, safeAreaBlob, layeredPdfBlob] = await Promise.all([
+        renderProjectPngBlob(projectSnapshot, record, { includeGuides: false }),
+        renderProjectPngBlob(projectSnapshot, record, { includeGuides: true }),
+        renderGuidePngBlob(projectSnapshot, "bleed"),
+        renderGuidePngBlob(projectSnapshot, "trim"),
+        renderGuidePngBlob(projectSnapshot, "safeArea"),
+        renderLayeredTemplatePdfBlob(projectSnapshot, record),
+      ]);
+      zip.file(`${baseName}-artwork.png`, artworkBlob);
+      zip.file(`${baseName}-template-preview.png`, previewBlob);
+      zip.file(`${baseName}-guide-bleed.png`, bleedBlob);
+      zip.file(`${baseName}-guide-trim.png`, trimBlob);
+      zip.file(`${baseName}-guide-safe-area.png`, safeAreaBlob);
+      zip.file(`${baseName}-template-layered.pdf`, layeredPdfBlob);
+      zip.file(
+        "README.txt",
+        [
+          "QR Magic template export",
+          "",
+          "Import the PNG files into GIMP as layers.",
+          "Use artwork as the bottom layer, then place guide overlays above it.",
+          "The template-preview file is a flattened reference image with guides visible.",
+          "The layered PDF uses optional content groups for apps that expose PDF layers.",
+        ].join("\n"),
+      );
+      const blob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(blob, `${baseName}-template.zip`);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "QR Magic could not export the template.");
+    } finally {
+      exportLockedRef.current = false;
+      setExportStatus(null);
     }
-    transformerNodes.forEach((node) => node.visible(false));
-    selectionOverlayNodes.forEach((node) => node.visible(false));
-    documentContentNodes.forEach((node) => node.position({ x: 0, y: 0 }));
-    stage.size(docSize);
-    stage.scale({ x: 1, y: 1 });
-    stage.batchDraw();
-    const uri = stage.toDataURL({ pixelRatio: 1 });
-    stage.size(originalStageSize);
-    stage.scale(originalScale);
-    guidesLayer?.visible(wasVisible);
-    transformerNodes.forEach((node, index) => node.visible(transformerVisibility[index]));
-    selectionOverlayNodes.forEach((node, index) => node.visible(selectionOverlayVisibility[index]));
-    documentContentNodes.forEach((node, index) => node.position(documentContentPositions[index]));
-    stage.batchDraw();
-    return uri;
   }
 
   async function exportBatchPngs() {
-    const stage = stageRef.current;
-    if (!stage || isExportingBatch) return;
+    if (exportLockedRef.current) return;
 
-    setIsExportingBatch(true);
-    const originalRecordIndex = selectedRecordIndex;
+    const projectSnapshot = projectRef.current;
+    const recordSnapshot = createDataRecords(projectSnapshot.data.groups);
+    const format = getExportSetFormat(projectSnapshot);
     const zip = new JSZip();
+    const usedFilenames = new Set<string>();
+    exportLockedRef.current = true;
+    setExportStatus("set");
 
-    for (const record of records) {
-      setSelectedRecordIndex(record.index);
-      await waitForCanvasUpdate();
-      const uri = exportStageDataUrl(stage);
-      const baseName = renderTemplate(project.export.filenameTemplate, record)
-        .replace(/[\\/:*?"<>|]/g, "_")
-        .trim();
-      zip.file(`${baseName || record.serial}.png`, dataUrlToBlob(uri));
+    try {
+      if (format === "pdf") {
+        const blob = await renderProjectPdfBlob(projectSnapshot, recordSnapshot, {
+          includeGuides: projectSnapshot.export.includeGuides,
+        });
+        downloadBlob(blob, `${sanitizeFilename(projectSnapshot.document.name)}-pdf-set.pdf`);
+        return;
+      }
+
+      for (const record of recordSnapshot) {
+        const blob = await renderProjectImageBlob(projectSnapshot, record, {
+          includeGuides: projectSnapshot.export.includeGuides,
+          format,
+        });
+        const requestedBaseName = sanitizeFilename(
+          renderTemplate(projectSnapshot.export.filenameTemplate, record),
+        );
+        let baseName = requestedBaseName;
+        let duplicateIndex = 2;
+        while (usedFilenames.has(`${baseName}.${format}`)) {
+          baseName = `${requestedBaseName}-${duplicateIndex}`;
+          duplicateIndex += 1;
+        }
+        usedFilenames.add(`${baseName}.${format}`);
+        zip.file(`${baseName}.${format}`, blob);
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(
+        blob,
+        `${sanitizeFilename(projectSnapshot.document.name)}-${format}-set.zip`,
+      );
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "QR Magic could not export the set.");
+    } finally {
+      exportLockedRef.current = false;
+      setExportStatus(null);
     }
-
-    setSelectedRecordIndex(originalRecordIndex);
-    const blob = await zip.generateAsync({ type: "blob" });
-    downloadBlob(
-      blob,
-      `${project.document.name.replace(/[\\/:*?"<>|]/g, "_") || "qrmagic"}-png-set.zip`,
-    );
-    setIsExportingBatch(false);
-  }
-
-  function sanitizeFilename(value: string) {
-    return value.replace(/[\\/:*?"<>|]/g, "_").trim() || "qrmagic";
   }
 
   function saveProjectFile() {
@@ -908,6 +962,7 @@ export function App() {
             className={`tool-button ${activeTool === "select" ? "selected" : ""}`}
             title="Select"
             onClick={() => setActiveTool("select")}
+            disabled={isExportLocked}
           >
             <MousePointer2 size={17} />
           </button>
@@ -915,6 +970,7 @@ export function App() {
             className={`tool-button ${activeTool === "pan" ? "selected" : ""}`}
             title="Pan canvas"
             onClick={() => setActiveTool("pan")}
+            disabled={isExportLocked}
           >
             <Hand size={17} />
           </button>
@@ -922,35 +978,36 @@ export function App() {
             className={`tool-button ${panelsVisible ? "" : "selected"}`}
             title={panelsVisible ? "Hide panels" : "Show panels"}
             onClick={() => setPanelsVisible((visible) => !visible)}
+            disabled={isExportLocked}
           >
             <PanelLeft size={17} />
           </button>
           <span className="toolbar-divider" />
-          <button className="tool-button" title="Undo" onClick={undoProjectChange} disabled={!canUndo}>
+          <button className="tool-button" title="Undo" onClick={undoProjectChange} disabled={!canUndo || isExportLocked}>
             <Undo2 size={17} />
           </button>
-          <button className="tool-button" title="Redo" onClick={redoProjectChange} disabled={!canRedo}>
+          <button className="tool-button" title="Redo" onClick={redoProjectChange} disabled={!canRedo || isExportLocked}>
             <Redo2 size={17} />
           </button>
           <span className="toolbar-divider" />
-          <button className="tool-button" title="Zoom out" onClick={() => updateZoom(-0.1)}>
+          <button className="tool-button" title="Zoom out" onClick={() => updateZoom(-0.1)} disabled={isExportLocked}>
             <ZoomOut size={17} />
           </button>
-          <button className="zoom-indicator" title="Actual size" onClick={() => setActualZoom(1)}>
+          <button className="zoom-indicator" title="Actual size" onClick={() => setActualZoom(1)} disabled={isExportLocked}>
             <Search size={14} />
             <span>{Math.round(fitScale * zoom * 100)}%</span>
           </button>
-          <button className="tool-button" title="Zoom in" onClick={() => updateZoom(0.1)}>
+          <button className="tool-button" title="Zoom in" onClick={() => updateZoom(0.1)} disabled={isExportLocked}>
             <ZoomIn size={17} />
           </button>
-          <button className="tool-button" title="Fit page" onClick={() => requestZoomCommand("fit")}>
+          <button className="tool-button" title="Fit page" onClick={() => requestZoomCommand("fit")} disabled={isExportLocked}>
             <Maximize2 size={17} />
           </button>
           <button
             className="tool-button"
             title="Zoom to selection"
             onClick={() => requestZoomCommand("selection")}
-            disabled={!selectedLayerIds.length}
+            disabled={!selectedLayerIds.length || isExportLocked}
           >
             <Focus size={17} />
           </button>
@@ -959,10 +1016,11 @@ export function App() {
             className="tool-button"
             title="Open project"
             onClick={() => projectInputRef.current?.click()}
+            disabled={isExportLocked}
           >
             <FolderOpen size={17} />
           </button>
-          <button className="tool-button" title="Save project" onClick={saveProjectFile}>
+          <button className="tool-button" title="Save project" onClick={saveProjectFile} disabled={isExportLocked}>
             <Save size={17} />
           </button>
           <input
@@ -994,7 +1052,12 @@ export function App() {
         </div>
       </header>
 
-      <div className={`workspace ${panelsVisible ? "" : "panels-hidden"}`}>
+      <div
+        className={`workspace ${panelsVisible ? "" : "panels-hidden"} ${
+          isExportLocked ? "export-locked" : ""
+        }`}
+        aria-busy={isExportLocked}
+      >
         {panelsVisible ? (
           <Sidebar
             project={project}
@@ -1043,13 +1106,15 @@ export function App() {
             project={project}
             dataGroups={project.data.groups}
             onUpdateLayer={updateLayer}
+            onExportPng={exportPngTemplate}
             onUseColor={rememberColor}
             onSaveColor={savePaletteColor}
             onRemoveColor={removePaletteColor}
             onExportPng={exportPng}
             onExportBatch={exportBatchPngs}
             onUpdateExport={updateExport}
-            isExportingBatch={isExportingBatch}
+            exportStatus={exportStatus}
+            exportSetFormat={exportSetFormat}
             onSnapToTarget={snapSelectedLayerToTarget}
             onAlignSelection={alignSelectedLayers}
             onUpdateSelectionBounds={updateSelectedGroupBounds}
@@ -1057,6 +1122,13 @@ export function App() {
             onBeginProjectChange={beginProjectChangeTransaction}
             onCommitProjectChange={commitProjectChangeTransaction}
           />
+        ) : null}
+        {isExportLocked ? (
+          <div className="export-lock-overlay" role="status" aria-live="polite">
+            {exportStatus === "set"
+              ? `Exporting ${exportSetFormat.toUpperCase()} set...`
+              : "Exporting template..."}
+          </div>
         ) : null}
       </div>
     </main>

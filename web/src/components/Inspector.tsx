@@ -25,6 +25,7 @@ import type {
 
 type Alignment = "left" | "center-x" | "right" | "top" | "center-y" | "bottom";
 type AlignTarget = GuideSnapTarget | "selection";
+type ExportSetFormat = "png" | "jpg" | "pdf";
 
 type InspectorProps = {
   selectedLayer: ProjectLayer | undefined;
@@ -43,7 +44,8 @@ type InspectorProps = {
   onExportPng: () => void;
   onExportBatch: () => void;
   onUpdateExport: (patch: Partial<QrMagicProject["export"]>) => void;
-  isExportingBatch: boolean;
+  exportStatus: "template" | "set" | null;
+  exportSetFormat: ExportSetFormat;
   onSnapToTarget: (target: GuideSnapTarget) => void;
   onAlignSelection: (alignment: Alignment, target: AlignTarget) => void;
   onUpdateSelectionBounds: (
@@ -70,7 +72,8 @@ export function Inspector({
   onExportPng,
   onExportBatch,
   onUpdateExport,
-  isExportingBatch,
+  exportStatus,
+  exportSetFormat,
   onSnapToTarget,
   onAlignSelection,
   onUpdateSelectionBounds,
@@ -84,6 +87,7 @@ export function Inspector({
   const qrLogoInputRef = useRef<HTMLInputElement | null>(null);
   const effectiveAlignTarget: AlignTarget =
     selectedLayerCount > 1 || alignTarget !== "selection" ? alignTarget : "page";
+  const isExporting = exportStatus !== null;
 
   useEffect(() => {
     return () => {
@@ -332,27 +336,48 @@ export function Inspector({
         </div>
         <div className="export-summary">
           <strong>{project.export.renderMode}</strong>
-          <span>{project.export.formats.join(", ").toUpperCase()}</span>
+          <span>{exportSetFormat.toUpperCase()}</span>
         </div>
+        <label>
+          Set format
+          <select
+            value={exportSetFormat}
+            disabled={isExporting}
+            onChange={(event) =>
+              onUpdateExport({
+                formats: [event.target.value as ExportSetFormat],
+              })
+            }
+          >
+            <option value="png">PNG zip</option>
+            <option value="jpg">JPG zip</option>
+            <option value="pdf">PDF</option>
+          </select>
+        </label>
         <label className="checkbox-row">
           <input
             type="checkbox"
             checked={project.export.includeGuides}
+            disabled={isExporting}
             onChange={(event) => onUpdateExport({ includeGuides: event.target.checked })}
           />
           Include visible guides
         </label>
-        <button className="primary-action" onClick={onExportPng}>
+        <button className="primary-action" onClick={onExportPng} disabled={isExporting}>
           <Download size={16} />
-          Export PNG
+          {exportStatus === "template" ? "Exporting template..." : "Export Template"}
         </button>
         <button
           className="secondary-action"
           onClick={onExportBatch}
-          disabled={isExportingBatch}
+          disabled={isExporting}
         >
           <Download size={16} />
-          {isExportingBatch ? "Exporting set..." : "Export PNG Set"}
+          {exportStatus === "set"
+            ? "Exporting set..."
+            : exportSetFormat === "pdf"
+              ? "Export PDF Set"
+              : `Export ${exportSetFormat.toUpperCase()} Set`}
         </button>
       </section>
 
