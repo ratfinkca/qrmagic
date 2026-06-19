@@ -22,6 +22,9 @@ import { Sidebar } from "./components/Sidebar";
 import {
   createDataGroup,
   createProjectId,
+  defaultLayerShadow,
+  defaultShapeFill,
+  defaultShapeGeometry,
   documentPixelSize,
   guideSnapRect,
   initialProject,
@@ -67,6 +70,11 @@ function getExportSetFormat(project: QrMagicProject): ExportSetFormat {
   return EXPORT_SET_FORMATS.includes(format as ExportSetFormat)
     ? (format as ExportSetFormat)
     : "png";
+const MAX_RECENT_COLORS = 14;
+
+function normalizeHexColor(color: string) {
+  const normalized = color.trim().toLowerCase();
+  return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : null;
 }
 
 export function App() {
@@ -249,7 +257,6 @@ export function App() {
     addLayer({
       id: layerId,
       type: "shape",
-      shape: "rectangle",
       name: "Color Shape",
       visible: true,
       locked: false,
@@ -259,12 +266,16 @@ export function App() {
       height: Math.round(docSize.height * 0.25),
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       fill: "#14b8a6",
+      ...defaultShapeFill,
       fillOpacity: 1,
       stroke: "transparent",
       strokeOpacity: 1,
       strokeWidth: 0,
       dash: [],
+      ...defaultShapeGeometry,
+      shape: "rectangle",
       cornerRadius: 12,
     });
   }
@@ -284,6 +295,7 @@ export function App() {
       height: 64,
       rotation: 0,
       opacity: 1,
+      ...defaultLayerShadow,
       textTemplate: "New text",
       fontFamily: "Inter, Arial, sans-serif",
       fontSize: 36,
@@ -322,9 +334,20 @@ export function App() {
         height: qrSize,
         rotation: 0,
         opacity: 1,
+        ...defaultLayerShadow,
         payloadTemplate: "{{serial}}",
         foreground: "#111827",
         background: "#ffffff",
+        errorCorrectionLevel: "M",
+        margin: 2,
+        dotStyle: "square",
+        cornerSquareStyle: "square",
+        cornerDotStyle: "square",
+        logoEnabled: false,
+        logoSrc: "",
+        logoSize: 0.38,
+        logoMargin: 8,
+        logoHideBackgroundDots: true,
       };
       const serialLayer: ProjectLayer = {
         id: serialLayerId,
@@ -339,6 +362,7 @@ export function App() {
         height: 52,
         rotation: 0,
         opacity: 1,
+        ...defaultLayerShadow,
         textTemplate: "{{serial}}",
         fontFamily: "Inter, Arial, sans-serif",
         fontSize: 34,
@@ -389,7 +413,7 @@ export function App() {
     }));
   }
 
-  function updateDataGroup(groupId: string, patch: Partial<DataGroup>) {
+  function updateDataGroup(groupId: string, patch: { name?: string }) {
     updateProject((current) => ({
       ...current,
       data: {
@@ -401,13 +425,16 @@ export function App() {
     }));
   }
 
-  function updateDataGroupSerial(groupId: string, patch: Partial<DataGroup["serial"]>) {
+  function updateDataGroupSerial(
+    groupId: string,
+    patch: { prefix?: string; suffix?: string; start?: number; quantity?: number; step?: number; padding?: number },
+  ) {
     updateProject((current) => ({
       ...current,
       data: {
         ...current.data,
         groups: current.data.groups.map((group) =>
-          group.id === groupId
+          group.id === groupId && group.mode === "serial"
             ? { ...group, serial: { ...group.serial, ...patch } }
             : group,
         ),
@@ -415,14 +442,67 @@ export function App() {
     }));
   }
 
-  function updateDocument(patch: Partial<QrMagicProject["document"]>) {
+  function updateDataGroupFixed(groupId: string, patch: { value?: string; quantity?: number }) {
+    updateProject((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        groups: current.data.groups.map((group) =>
+          group.id === groupId && group.mode === "fixed"
+            ? { ...group, fixed: { ...group.fixed, ...patch } }
+            : group,
+        ),
+      },
+    }));
+  }
+
+  function updateDataGroupMode(groupId: string, mode: DataGroup["mode"]) {
+    updateProject((current) => ({
+      ...current,
+      data: {
+        ...current.data,
+        groups: current.data.groups.map((group) => {
+          if (group.id !== groupId || group.mode === mode) return group;
+          if (mode === "fixed") {
+            return {
+              id: group.id,
+              name: group.name,
+              mode: "fixed",
+              fixed: {
+                value: group.mode === "serial" ? `${group.serial.prefix}${group.serial.suffix}` : "QR-FIXED",
+                quantity: group.mode === "serial" ? group.serial.quantity : 10,
+              },
+            };
+          }
+          return {
+            id: group.id,
+            name: group.name,
+            mode: "serial",
+            serial: {
+              prefix: group.mode === "fixed" ? group.fixed.value : "QR-",
+              suffix: "",
+              start: 1,
+              quantity: group.mode === "fixed" ? group.fixed.quantity : 10,
+              step: 1,
+              padding: 4,
+            },
+          };
+        }),
+      },
+    }));
+  }
+
+  function updateDocument(
+    patch: Partial<QrMagicProject["document"]>,
+    options?: ProjectUpdateOptions,
+  ) {
     updateProject((current) => ({
       ...current,
       document: {
         ...current.document,
         ...patch,
       },
-    }));
+    }), options);
   }
 
   function updateExport(patch: Partial<QrMagicProject["export"]>) {
@@ -433,6 +513,72 @@ export function App() {
         ...patch,
       },
     }));
+  }
+
+  function rememberColor(color: string) {
+    const normalized = normalizeHexColor(color);
+    if (!normalized) return;
+
+    updateProject((current) => ({
+      ...current,
+      colors: {
+        ...current.colors,
+        recent: [
+          normalized,
+          ...current.colors.recent.filter((existingColor) => existingColor !== normalized),
+        ].slice(0, MAX_RECENT_COLORS),
+      },
+    }), { recordHistory: false });
+  }
+
+  function savePaletteColor(color: string) {
+    const normalized = normalizeHexColor(color);
+    if (!normalized) return;
+
+    updateProject((current) => {
+      if (current.colors.palette.includes(normalized)) return current;
+      return {
+        ...current,
+        colors: {
+          ...current.colors,
+          palette: [...current.colors.palette, normalized],
+        },
+      };
+    });
+  }
+
+  function removePaletteColor(color: string) {
+    const normalized = normalizeHexColor(color);
+    if (!normalized) return;
+
+    updateProject((current) => ({
+      ...current,
+      colors: {
+        ...current.colors,
+        palette: current.colors.palette.filter((existingColor) => existingColor !== normalized),
+      },
+    }));
+  }
+
+  function exportPng() {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const uri = exportStageDataUrl(stage);
+    const link = document.createElement("a");
+    link.download = `${currentRecord.serial}.png`;
+    link.href = uri;
+    link.click();
+  }
+
+  function dataUrlToBlob(dataUrl: string) {
+    const [meta, data] = dataUrl.split(",");
+    const mime = meta.match(/data:(.*);base64/)?.[1] ?? "image/png";
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return new Blob([bytes], { type: mime });
   }
 
   function downloadBlob(blob: Blob, filename: string) {
@@ -794,6 +940,7 @@ export function App() {
         height: docSize.height,
         rotation: 0,
         opacity: 1,
+        ...defaultLayerShadow,
         assetId: layerId,
         src,
         fit: "stretch",
@@ -918,7 +1065,14 @@ export function App() {
             onSelectLayers={(layerIds) => setSelectedLayerIds(layerIds)}
             onUpdateDataGroup={updateDataGroup}
             onUpdateDataGroupSerial={updateDataGroupSerial}
+            onUpdateDataGroupFixed={updateDataGroupFixed}
+            onUpdateDataGroupMode={updateDataGroupMode}
             onUpdateDocument={updateDocument}
+            onBeginProjectChange={beginProjectChangeTransaction}
+            onCommitProjectChange={commitProjectChangeTransaction}
+            onUseColor={rememberColor}
+            onSaveColor={savePaletteColor}
+            onRemoveColor={removePaletteColor}
             onAddShapeLayer={addShapeLayer}
             onAddTextLayer={addTextLayer}
             onAddQrLayer={addQrLayer}
@@ -953,6 +1107,10 @@ export function App() {
             dataGroups={project.data.groups}
             onUpdateLayer={updateLayer}
             onExportPng={exportPngTemplate}
+            onUseColor={rememberColor}
+            onSaveColor={savePaletteColor}
+            onRemoveColor={removePaletteColor}
+            onExportPng={exportPng}
             onExportBatch={exportBatchPngs}
             onUpdateExport={updateExport}
             exportStatus={exportStatus}

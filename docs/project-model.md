@@ -22,6 +22,10 @@ High-level shape:
 {
   "version": 1,
   "document": {},
+  "colors": {
+    "recent": [],
+    "palette": []
+  },
   "assets": [],
   "layers": [],
   "data": {},
@@ -29,6 +33,8 @@ High-level shape:
   "metadata": {}
 }
 ```
+
+The `colors` section stores project-level color picker state. `recent` is automatically updated from committed picker choices, while `palette` stores user-saved swatches that travel with the project file.
 
 ## Document
 
@@ -54,10 +60,21 @@ The document defines the design surface.
       "bottom": 0.125,
       "left": 0.125
     },
-    "backgroundColor": "#ffffff"
+    "shape": {
+      "shape": "rectangle",
+      "cornerRadius": 18,
+      "vertices": 5,
+      "vertexInset": 1,
+      "vertexRadius": 0,
+      "sideDeflection": 0
+    },
+    "backgroundColor": "#ffffff",
+    "backgroundOpacity": 1
   }
 }
 ```
+
+The current web prototype uses the document `shape` for trim, bleed, and safe-area guide rendering. Shape layers have their own independent shape settings. Named presets such as triangle, diamond, rounded hexagon, guitar pick, and shield are stored as preset names plus polygon customization fields where applicable.
 
 Initial supported units should probably be:
 
@@ -114,11 +131,19 @@ Common fields:
   "width": 1200,
   "height": 900,
   "rotation": 0,
-  "opacity": 1
+  "opacity": 1,
+  "shadowEnabled": false,
+  "shadowColor": "#111827",
+  "shadowOpacity": 0.28,
+  "shadowBlur": 16,
+  "shadowOffsetX": 0,
+  "shadowOffsetY": 8
 }
 ```
 
 Coordinates should be stored in document units or normalized pixels. The implementation should choose one approach and use it consistently. For predictable rendering, normalized pixels may be simpler internally; the UI can display inches or millimeters.
+
+Layer shadows are common to image, QR, text, and shape layers. Shape layers also support `fillMode` values of `solid`, `linear-gradient`, and `radial-gradient`, with gradient start/end colors and an angle for linear gradients.
 
 ## Image Layer
 
@@ -166,7 +191,17 @@ Possible `fit` values:
     "errorCorrection": "M",
     "quietZone": 4,
     "foreground": "#000000",
-    "background": "#ffffff"
+    "background": "#ffffff",
+    "dotStyle": "rounded",
+    "cornerSquareStyle": "extra-rounded",
+    "cornerDotStyle": "dot",
+    "logo": {
+      "enabled": true,
+      "source": "data:image/png;base64...",
+      "size": 0.28,
+      "margin": 8,
+      "hideBackgroundDots": true
+    }
   }
 }
 ```
@@ -237,6 +272,13 @@ Manual serial mode:
   }
 }
 ```
+
+The current web prototype supports multiple data groups. A group can be:
+
+- `serial`: generates a sequence from prefix, suffix, start, quantity, step, and padding.
+- `fixed`: repeats one value.
+
+When any serial group exists, serial groups control the exported record count and fixed groups repeat on each serial record. When all groups are fixed, fixed group quantity controls the set size.
 
 CSV mode:
 

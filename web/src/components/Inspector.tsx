@@ -12,8 +12,16 @@ import {
   RotateCw,
   SlidersHorizontal,
 } from "lucide-react";
+import { ColorControl } from "./ColorControl";
 import { guideSnapRect } from "../lib/project";
-import type { DataGroup, GuideSnapTarget, ProjectLayer, QrMagicProject } from "../types";
+import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
+import type {
+  DataGroup,
+  GuideSnapTarget,
+  ProjectLayer,
+  QrMagicProject,
+  ShapeFillMode,
+} from "../types";
 
 type Alignment = "left" | "center-x" | "right" | "top" | "center-y" | "bottom";
 type AlignTarget = GuideSnapTarget | "selection";
@@ -30,6 +38,9 @@ type InspectorProps = {
     patch: Partial<ProjectLayer>,
     options?: { recordHistory?: boolean },
   ) => void;
+  onUseColor: (color: string) => void;
+  onSaveColor: (color: string) => void;
+  onRemoveColor: (color: string) => void;
   onExportPng: () => void;
   onExportBatch: () => void;
   onUpdateExport: (patch: Partial<QrMagicProject["export"]>) => void;
@@ -55,6 +66,9 @@ export function Inspector({
   project,
   dataGroups,
   onUpdateLayer,
+  onUseColor,
+  onSaveColor,
+  onRemoveColor,
   onExportPng,
   onExportBatch,
   onUpdateExport,
@@ -70,6 +84,7 @@ export function Inspector({
   const [snapTarget, setSnapTarget] = useState<GuideSnapTarget>("page");
   const [alignTarget, setAlignTarget] = useState<AlignTarget>("selection");
   const deferredCommitTimerRef = useRef<number | null>(null);
+  const qrLogoInputRef = useRef<HTMLInputElement | null>(null);
   const effectiveAlignTarget: AlignTarget =
     selectedLayerCount > 1 || alignTarget !== "selection" ? alignTarget : "page";
   const isExporting = exportStatus !== null;
@@ -136,6 +151,40 @@ export function Inspector({
       onKeyUp: commitDeferredChange,
       onBlur: commitDeferredChange,
     };
+  }
+
+  function layerColorControl(
+    label: string,
+    value: string,
+    patchForColor: (color: string) => Partial<ProjectLayer>,
+  ) {
+    if (!selectedLayer) return null;
+
+    return (
+      <ColorControl
+        label={label}
+        value={value === "transparent" ? "#ffffff" : value}
+        recentColors={project.colors.recent}
+        paletteColors={project.colors.palette}
+        onChange={(color) =>
+          transientLayerUpdate(selectedLayer.id, patchForColor(color) as Partial<ProjectLayer>)
+        }
+        onChangeEnd={onUseColor}
+        onSaveColor={onSaveColor}
+        onRemoveColor={onRemoveColor}
+      />
+    );
+  }
+
+  function updateQrLogo(file: File, layerId: string) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      onUpdateLayer(layerId, {
+        logoSrc: String(reader.result),
+        logoEnabled: true,
+      } as Partial<ProjectLayer>);
+    };
+    reader.readAsDataURL(file);
   }
 
   function isAligned(alignment: Alignment) {
@@ -419,6 +468,82 @@ export function Inspector({
                 }
               />
             </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={selectedLayer.shadowEnabled}
+                onChange={(event) =>
+                  onUpdateLayer(selectedLayer.id, {
+                    shadowEnabled: event.target.checked,
+                  } as Partial<ProjectLayer>)
+                }
+              />
+              Shadow
+            </label>
+            {selectedLayer.shadowEnabled ? (
+              <>
+                <div className="field-grid">
+                  {layerColorControl("Shadow color", selectedLayer.shadowColor, (color) => ({
+                    shadowColor: color,
+                  }))}
+                  <label>
+                    Shadow opacity
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={selectedLayer.shadowOpacity}
+                      {...deferredInputHandlers()}
+                      onChange={(event) =>
+                        transientLayerUpdate(selectedLayer.id, {
+                          shadowOpacity: Number(event.target.value),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="field-grid">
+                  <label>
+                    Blur
+                    <input
+                      type="number"
+                      min="0"
+                      value={selectedLayer.shadowBlur}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          shadowBlur: Math.max(0, Number(event.target.value)),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Offset X
+                    <input
+                      type="number"
+                      value={selectedLayer.shadowOffsetX}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          shadowOffsetX: Number(event.target.value),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+                <label>
+                  Offset Y
+                  <input
+                    type="number"
+                    value={selectedLayer.shadowOffsetY}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        shadowOffsetY: Number(event.target.value),
+                      } as Partial<ProjectLayer>)
+                    }
+                  />
+                </label>
+              </>
+            ) : null}
             {alignmentControls()}
             {selectedLayer.type === "shape" || selectedLayer.type === "image" ? (
               <label>
@@ -473,33 +598,172 @@ export function Inspector({
                   />
                 </label>
                 <div className="field-grid">
+                  {layerColorControl("Foreground", selectedLayer.foreground, (color) => ({
+                    foreground: color,
+                  }))}
+                  {layerColorControl("Background", selectedLayer.background, (color) => ({
+                    background: color,
+                  }))}
+                </div>
+                <div className="field-grid">
                   <label>
-                    Foreground
-                    <input
-                      type="color"
-                      value={selectedLayer.foreground}
-                      {...deferredInputHandlers()}
+                    Error correction
+                    <select
+                      value={selectedLayer.errorCorrectionLevel}
                       onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          foreground: event.target.value,
+                        onUpdateLayer(selectedLayer.id, {
+                          errorCorrectionLevel: event.target.value as typeof selectedLayer.errorCorrectionLevel,
                         } as Partial<ProjectLayer>)
                       }
-                    />
+                    >
+                      <option value="L">L</option>
+                      <option value="M">M</option>
+                      <option value="Q">Q</option>
+                      <option value="H">H</option>
+                    </select>
                   </label>
                   <label>
-                    Background
+                    Quiet zone
                     <input
-                      type="color"
-                      value={selectedLayer.background}
-                      {...deferredInputHandlers()}
+                      type="number"
+                      min="0"
+                      value={selectedLayer.margin}
                       onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          background: event.target.value,
+                        onUpdateLayer(selectedLayer.id, {
+                          margin: Math.max(0, Number(event.target.value)),
                         } as Partial<ProjectLayer>)
                       }
                     />
                   </label>
                 </div>
+                <div className="field-grid">
+                  <label>
+                    Dots
+                    <select
+                      value={selectedLayer.dotStyle}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          dotStyle: event.target.value as typeof selectedLayer.dotStyle,
+                        } as Partial<ProjectLayer>)
+                      }
+                    >
+                      <option value="square">Square</option>
+                      <option value="rounded">Rounded</option>
+                      <option value="dots">Dots</option>
+                      <option value="classy">Classy</option>
+                      <option value="classy-rounded">Classy rounded</option>
+                      <option value="extra-rounded">Extra rounded</option>
+                    </select>
+                  </label>
+                  <label>
+                    Corners
+                    <select
+                      value={selectedLayer.cornerSquareStyle}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          cornerSquareStyle: event.target.value as typeof selectedLayer.cornerSquareStyle,
+                        } as Partial<ProjectLayer>)
+                      }
+                    >
+                      <option value="square">Square</option>
+                      <option value="rounded">Rounded</option>
+                      <option value="dot">Dot</option>
+                      <option value="extra-rounded">Extra rounded</option>
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  Corner dots
+                  <select
+                    value={selectedLayer.cornerDotStyle}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        cornerDotStyle: event.target.value as typeof selectedLayer.cornerDotStyle,
+                      } as Partial<ProjectLayer>)
+                    }
+                  >
+                    <option value="square">Square</option>
+                    <option value="dot">Dot</option>
+                    <option value="rounded">Rounded</option>
+                    <option value="dots">Dots</option>
+                  </select>
+                </label>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={selectedLayer.logoEnabled}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        logoEnabled: event.target.checked,
+                      } as Partial<ProjectLayer>)
+                    }
+                  />
+                  Logo
+                </label>
+                <input
+                  ref={qrLogoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  className="visually-hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) updateQrLogo(file, selectedLayer.id);
+                    event.target.value = "";
+                  }}
+                />
+                <button
+                  className="secondary-action"
+                  onClick={() => qrLogoInputRef.current?.click()}
+                >
+                  Choose logo
+                </button>
+                {selectedLayer.logoEnabled ? (
+                  <>
+                    <div className="field-grid">
+                      <label>
+                        Logo size
+                        <input
+                          type="range"
+                          min="0.05"
+                          max="0.8"
+                          step="0.01"
+                          value={selectedLayer.logoSize}
+                          {...deferredInputHandlers()}
+                          onChange={(event) =>
+                            transientLayerUpdate(selectedLayer.id, {
+                              logoSize: Number(event.target.value),
+                            } as Partial<ProjectLayer>)
+                          }
+                        />
+                      </label>
+                      <label>
+                        Logo margin
+                        <input
+                          type="number"
+                          min="0"
+                          value={selectedLayer.logoMargin}
+                          onChange={(event) =>
+                            onUpdateLayer(selectedLayer.id, {
+                              logoMargin: Math.max(0, Number(event.target.value)),
+                            } as Partial<ProjectLayer>)
+                          }
+                        />
+                      </label>
+                    </div>
+                    <label className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        checked={selectedLayer.logoHideBackgroundDots}
+                        onChange={(event) =>
+                          onUpdateLayer(selectedLayer.id, {
+                            logoHideBackgroundDots: event.target.checked,
+                          } as Partial<ProjectLayer>)
+                        }
+                      />
+                      Clear dots behind logo
+                    </label>
+                  </>
+                ) : null}
               </>
             ) : null}
             {selectedLayer.type === "text" ? (
@@ -546,19 +810,7 @@ export function Inspector({
                       }
                     />
                   </label>
-                  <label>
-                    Color
-                    <input
-                      type="color"
-                      value={selectedLayer.fill}
-                      {...deferredInputHandlers()}
-                      onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          fill: event.target.value,
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
+                  {layerColorControl("Color", selectedLayer.fill, (color) => ({ fill: color }))}
                 </div>
                 <label>
                   Color opacity
@@ -580,41 +832,75 @@ export function Inspector({
             ) : null}
             {selectedLayer.type === "shape" ? (
               <>
-                <div className="field-grid">
+                <label>
+                  Shape
+                  <select
+                    value={selectedLayer.shape}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        ...presetShapeGeometry(event.target.value as typeof selectedLayer.shape),
+                      } as Partial<ProjectLayer>)
+                    }
+                  >
+                    {SHAPE_OPTIONS.map((option) => (
+                      <option value={option.value} key={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="appearance-group">
+                  <div className="appearance-group-title">Fill</div>
+                  <div className="field-grid">
+                    <label>
+                      Mode
+                      <select
+                        value={selectedLayer.fillMode}
+                        onChange={(event) =>
+                          onUpdateLayer(selectedLayer.id, {
+                            fillMode: event.target.value as ShapeFillMode,
+                          } as Partial<ProjectLayer>)
+                        }
+                      >
+                        <option value="solid">Solid</option>
+                        <option value="linear-gradient">Linear gradient</option>
+                        <option value="radial-gradient">Radial gradient</option>
+                      </select>
+                    </label>
+                    {layerColorControl(
+                      selectedLayer.fillMode === "solid" ? "Color" : "From",
+                      selectedLayer.fillMode === "solid"
+                        ? selectedLayer.fill
+                        : selectedLayer.fillGradientFrom,
+                      (color) =>
+                        selectedLayer.fillMode === "solid"
+                          ? { fill: color }
+                          : { fillGradientFrom: color },
+                    )}
+                  </div>
+                  {selectedLayer.fillMode !== "solid" ? (
+                    <div className="field-grid">
+                      {layerColorControl("To", selectedLayer.fillGradientTo, (color) => ({
+                        fillGradientTo: color,
+                      }))}
+                      {selectedLayer.fillMode === "linear-gradient" ? (
+                        <label>
+                          Angle
+                          <input
+                            type="number"
+                            value={selectedLayer.fillGradientAngle}
+                            onChange={(event) =>
+                              onUpdateLayer(selectedLayer.id, {
+                                fillGradientAngle: Number(event.target.value),
+                              } as Partial<ProjectLayer>)
+                            }
+                          />
+                        </label>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <label>
-                    Fill
-                    <input
-                      type="color"
-                      value={
-                        selectedLayer.fill === "transparent" ? "#ffffff" : selectedLayer.fill
-                      }
-                      {...deferredInputHandlers()}
-                      onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          fill: event.target.value,
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
-                  <label>
-                    Stroke
-                    <input
-                      type="color"
-                      value={
-                        selectedLayer.stroke === "transparent" ? "#111827" : selectedLayer.stroke
-                      }
-                      {...deferredInputHandlers()}
-                      onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          stroke: event.target.value,
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
-                </div>
-                <div className="field-grid">
-                  <label>
-                    Fill opacity
+                    Opacity
                     <input
                       type="range"
                       min="0"
@@ -629,8 +915,28 @@ export function Inspector({
                       }
                     />
                   </label>
+                </div>
+                <div className="appearance-group">
+                  <div className="appearance-group-title">Stroke</div>
+                  <div className="field-grid">
+                    {layerColorControl("Color", selectedLayer.stroke, (color) => ({
+                      stroke: color,
+                    }))}
+                    <label>
+                      Width
+                      <input
+                        type="number"
+                        value={selectedLayer.strokeWidth}
+                        onChange={(event) =>
+                          onUpdateLayer(selectedLayer.id, {
+                            strokeWidth: Number(event.target.value),
+                          } as Partial<ProjectLayer>)
+                        }
+                      />
+                    </label>
+                  </div>
                   <label>
-                    Stroke opacity
+                    Opacity
                     <input
                       type="range"
                       min="0"
@@ -647,18 +953,7 @@ export function Inspector({
                   </label>
                 </div>
                 <div className="field-grid">
-                  <label>
-                    Stroke width
-                    <input
-                      type="number"
-                      value={selectedLayer.strokeWidth}
-                      onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
-                          strokeWidth: Number(event.target.value),
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
+                  {selectedLayer.shape === "rectangle" ? (
                   <label>
                     Corner radius
                     <input
@@ -671,7 +966,77 @@ export function Inspector({
                       }
                     />
                   </label>
+                  ) : null}
                 </div>
+                <details className="shape-customize">
+                  <summary>Customize shape</summary>
+                  <div className="field-grid">
+                    <label>
+                      Vertices
+                      <input
+                        type="number"
+                        min="3"
+                        max="12"
+                        value={selectedLayer.vertices}
+                        onChange={(event) =>
+                          onUpdateLayer(selectedLayer.id, {
+                            vertices: Math.max(3, Math.min(12, Number(event.target.value))),
+                          } as Partial<ProjectLayer>)
+                        }
+                      />
+                    </label>
+                    <label>
+                      Vertex inset
+                      <input
+                        type="range"
+                        min="0.1"
+                        max="1"
+                        step="0.05"
+                        value={selectedLayer.vertexInset}
+                        {...deferredInputHandlers()}
+                        onChange={(event) =>
+                          transientLayerUpdate(selectedLayer.id, {
+                            vertexInset: Number(event.target.value),
+                          } as Partial<ProjectLayer>)
+                        }
+                      />
+                    </label>
+                  </div>
+                  <div className="field-grid">
+                    <label>
+                      Vertex radius
+                      <input
+                        type="range"
+                        min="0"
+                        max="0.45"
+                        step="0.01"
+                        value={selectedLayer.vertexRadius}
+                        {...deferredInputHandlers()}
+                        onChange={(event) =>
+                          transientLayerUpdate(selectedLayer.id, {
+                            vertexRadius: Number(event.target.value),
+                          } as Partial<ProjectLayer>)
+                        }
+                      />
+                    </label>
+                    <label>
+                      Side deflection
+                      <input
+                        type="range"
+                        min="-1"
+                        max="1"
+                        step="0.05"
+                        value={selectedLayer.sideDeflection}
+                        {...deferredInputHandlers()}
+                        onChange={(event) =>
+                          transientLayerUpdate(selectedLayer.id, {
+                            sideDeflection: Number(event.target.value),
+                          } as Partial<ProjectLayer>)
+                        }
+                      />
+                    </label>
+                  </div>
+                </details>
                 <label>
                   Dash pattern
                   <input

@@ -1,11 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer } from "react-konva";
+import {
+  Ellipse,
+  Group,
+  Image as KonvaImage,
+  Layer,
+  Path,
+  Rect,
+  Stage,
+  Text,
+  Transformer,
+} from "react-konva";
 import Konva from "konva";
-import QRCode from "qrcode";
-import type { EditorTool, ProjectLayer, QrMagicProject, RenderRecord } from "../types";
+import type {
+  EditorTool,
+  ProjectLayer,
+  QrLayer,
+  QrMagicProject,
+  RenderRecord,
+  ShapeGeometry,
+  ShapeLayer,
+} from "../types";
 import { documentPixelSize, guideSnapRect } from "../lib/project";
+import { renderStyledQrDataUrl } from "../lib/qrStyling";
 import { renderTemplate } from "../lib/serial";
+import { polygonPath } from "../lib/shapeGeometry";
 
 type EditorCanvasProps = {
   project: QrMagicProject;
@@ -38,29 +57,73 @@ function colorWithOpacity(color: string, opacity: number) {
   return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, opacity))})`;
 }
 
-function useQrDataUrl(layer: ProjectLayer, record: RenderRecord) {
+function layerShadowProps(layer: ProjectLayer) {
+  return {
+    shadowEnabled: layer.shadowEnabled,
+    shadowColor: colorWithOpacity(layer.shadowColor, layer.shadowOpacity),
+    shadowBlur: layer.shadowBlur,
+    shadowOffsetX: layer.shadowOffsetX,
+    shadowOffsetY: layer.shadowOffsetY,
+  };
+}
+
+function shapeFillProps(layer: ShapeLayer) {
+  if (layer.fillMode === "linear-gradient") {
+    const angle = (layer.fillGradientAngle * Math.PI) / 180;
+    const centerX = layer.width / 2;
+    const centerY = layer.height / 2;
+    const radius = Math.sqrt(layer.width ** 2 + layer.height ** 2) / 2;
+    const dx = Math.cos(angle) * radius;
+    const dy = Math.sin(angle) * radius;
+
+    return {
+      fill: undefined,
+      fillLinearGradientStartPoint: { x: centerX - dx, y: centerY - dy },
+      fillLinearGradientEndPoint: { x: centerX + dx, y: centerY + dy },
+      fillLinearGradientColorStops: [
+        0,
+        colorWithOpacity(layer.fillGradientFrom, layer.fillOpacity),
+        1,
+        colorWithOpacity(layer.fillGradientTo, layer.fillOpacity),
+      ],
+    };
+  }
+
+  if (layer.fillMode === "radial-gradient") {
+    return {
+      fill: undefined,
+      fillRadialGradientStartPoint: { x: layer.width / 2, y: layer.height / 2 },
+      fillRadialGradientStartRadius: 0,
+      fillRadialGradientEndPoint: { x: layer.width / 2, y: layer.height / 2 },
+      fillRadialGradientEndRadius: Math.max(layer.width, layer.height) / 2,
+      fillRadialGradientColorStops: [
+        0,
+        colorWithOpacity(layer.fillGradientFrom, layer.fillOpacity),
+        1,
+        colorWithOpacity(layer.fillGradientTo, layer.fillOpacity),
+      ],
+    };
+  }
+
+  return { fill: colorWithOpacity(layer.fill, layer.fillOpacity) };
+}
+
+function useQrDataUrl(layer: QrLayer, record: RenderRecord) {
   const [dataUrl, setDataUrl] = useState("");
 
   useEffect(() => {
-    if (layer.type !== "qr") {
-      setDataUrl("");
-      return;
-    }
-
     let canceled = false;
-    QRCode.toDataURL(renderTemplate(layer.payloadTemplate, record, layer.dataGroupId), {
-      margin: 2,
-      color: {
-        dark: layer.foreground,
-        light: layer.background,
-      },
-      errorCorrectionLevel: "M",
-      width: Math.max(layer.width, layer.height),
-    }).then((url) => {
-      if (!canceled) {
-        setDataUrl(url);
-      }
-    });
+    renderStyledQrDataUrl(layer, record)
+      .then((url) => {
+        if (!canceled) {
+          setDataUrl(url);
+        }
+      })
+      .catch(() => {
+        if (!canceled) {
+          setDataUrl("");
+        }
+      });
 
     return () => {
       canceled = true;
@@ -88,6 +151,97 @@ function useHtmlImage(src: string) {
 }
 
 const WORKSPACE_GUTTER = 180;
+
+type ShapeVisualProps = ShapeGeometry & {
+  id?: string;
+  name?: string;
+  x?: number;
+  y?: number;
+  width: number;
+  height: number;
+  fill?: string;
+  fillLinearGradientStartPoint?: { x: number; y: number };
+  fillLinearGradientEndPoint?: { x: number; y: number };
+  fillLinearGradientColorStops?: Array<number | string>;
+  fillRadialGradientStartPoint?: { x: number; y: number };
+  fillRadialGradientStartRadius?: number;
+  fillRadialGradientEndPoint?: { x: number; y: number };
+  fillRadialGradientEndRadius?: number;
+  fillRadialGradientColorStops?: Array<number | string>;
+  stroke?: string;
+  strokeWidth?: number;
+  dash?: number[];
+  opacity?: number;
+  rotation?: number;
+  shadowEnabled?: boolean;
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  listening?: boolean;
+  draggable?: boolean;
+  onMouseDown?: (event: Konva.KonvaEventObject<MouseEvent>) => void;
+  onMouseMove?: (event: Konva.KonvaEventObject<MouseEvent>) => void;
+  onMouseLeave?: (event: Konva.KonvaEventObject<MouseEvent>) => void;
+  onClick?: (event: Konva.KonvaEventObject<MouseEvent>) => void;
+  onTap?: (event: Konva.KonvaEventObject<Event>) => void;
+  onDragStart?: (event: Konva.KonvaEventObject<DragEvent>) => void;
+  onDragMove?: (event: Konva.KonvaEventObject<DragEvent>) => void;
+  onDragEnd?: (event: Konva.KonvaEventObject<DragEvent>) => void;
+};
+
+function ShapeVisual({
+  shape,
+  cornerRadius,
+  vertices,
+  vertexInset,
+  vertexRadius,
+  sideDeflection,
+  width,
+  height,
+  ...props
+}: ShapeVisualProps) {
+  if (shape === "ellipse") {
+    return (
+      <Ellipse
+        {...props}
+        x={(props.x ?? 0) + width / 2}
+        y={(props.y ?? 0) + height / 2}
+        radiusX={width / 2}
+        radiusY={height / 2}
+      />
+    );
+  }
+
+  if (shape === "pill") {
+    return (
+      <Rect
+        {...props}
+        width={width}
+        height={height}
+        cornerRadius={Math.min(width, height) / 2}
+      />
+    );
+  }
+
+  if (shape !== "rectangle") {
+    return (
+      <Path
+        {...props}
+        data={polygonPath(width, height, {
+          shape,
+          cornerRadius,
+          vertices,
+          vertexInset,
+          vertexRadius,
+          sideDeflection,
+        })}
+      />
+    );
+  }
+
+  return <Rect {...props} width={width} height={height} cornerRadius={cornerRadius} />;
+}
 
 function ImageNode({
   layer,
@@ -133,6 +287,7 @@ function ImageNode({
           height={layer.height}
           rotation={layer.rotation}
           opacity={layer.opacity}
+          {...layerShadowProps(layer)}
           draggable={editable && selected && !layer.locked}
           onMouseDown={(event) => editable && onPointerDown(layer, event.currentTarget)}
           onMouseMove={(event) => editable && onPointerMove(layer, event.currentTarget)}
@@ -161,7 +316,7 @@ function QrNode({
   onDragMove,
   onDragEnd,
 }: {
-  layer: ProjectLayer;
+  layer: QrLayer;
   selected: boolean;
   editable: boolean;
   record: RenderRecord;
@@ -176,10 +331,6 @@ function QrNode({
   const groupRef = useRef<Konva.Group>(null);
   const dataUrl = useQrDataUrl(layer, record);
   const image = useHtmlImage(dataUrl);
-
-  if (layer.type !== "qr") {
-    return null;
-  }
 
   return (
     <>
@@ -208,9 +359,7 @@ function QrNode({
           height={layer.height}
           fill={layer.background}
           cornerRadius={6}
-          shadowColor="rgba(15, 23, 42, 0.16)"
-          shadowBlur={selected ? 16 : 8}
-          shadowOffsetY={selected ? 8 : 4}
+          {...layerShadowProps(layer)}
         />
         {image ? (
           <KonvaImage image={image} width={layer.width} height={layer.height} />
@@ -307,29 +456,32 @@ function ShapeNode({
   onDragMove: (layerId: string, node: Konva.Node) => void;
   onDragEnd: (layerId: string, node: Konva.Node) => void;
 }) {
-  const rectRef = useRef<Konva.Rect>(null);
-
   if (layer.type !== "shape") {
     return null;
   }
 
   return (
     <>
-      <Rect
-        ref={rectRef}
+      <ShapeVisual
         id={layer.id}
         name="design-layer"
+        shape={layer.shape}
         x={layer.x}
         y={layer.y}
         width={layer.width}
         height={layer.height}
-        fill={colorWithOpacity(layer.fill, layer.fillOpacity)}
+        {...shapeFillProps(layer)}
         stroke={colorWithOpacity(layer.stroke, layer.strokeOpacity)}
         strokeWidth={layer.strokeWidth}
         dash={layer.dash}
         cornerRadius={layer.cornerRadius}
+        vertices={layer.vertices}
+        vertexInset={layer.vertexInset}
+        vertexRadius={layer.vertexRadius}
+        sideDeflection={layer.sideDeflection}
         rotation={layer.rotation}
         opacity={layer.opacity}
+        {...layerShadowProps(layer)}
         draggable={editable && selected && !layer.locked}
         onMouseDown={(event) => editable && onPointerDown(layer, event.currentTarget)}
         onMouseMove={(event) => editable && onPointerMove(layer, event.currentTarget)}
@@ -897,11 +1049,10 @@ export function EditorCanvas({
                   name="document-background"
                   width={docSize.width}
                   height={docSize.height}
-                  fill={
-                    project.document.transparentBackground
-                      ? "transparent"
-                      : project.document.backgroundColor
-                  }
+                  fill={colorWithOpacity(
+                    project.document.backgroundColor,
+                    project.document.backgroundOpacity,
+                  )}
                   shadowColor="rgba(15, 23, 42, 0.18)"
                   shadowBlur={28}
                   shadowOffsetY={16}
@@ -1058,39 +1209,60 @@ export function EditorCanvas({
                   y={WORKSPACE_GUTTER}
                 >
                   {project.document.guides.showBleed ? (
-                    <Rect
+                    <ShapeVisual
                       x={bleedRect.x}
                       y={bleedRect.y}
                       width={bleedRect.width}
                       height={bleedRect.height}
+                      shape={project.document.shape.shape}
+                      cornerRadius={project.document.shape.cornerRadius}
+                      vertices={project.document.shape.vertices}
+                      vertexInset={project.document.shape.vertexInset}
+                      vertexRadius={project.document.shape.vertexRadius}
+                      sideDeflection={project.document.shape.sideDeflection}
                       stroke="#f97316"
                       strokeWidth={2}
                       dash={[10, 8]}
                       opacity={0.9}
+                      listening={false}
                     />
                   ) : null}
                   {project.document.guides.showTrim ? (
-                    <Rect
+                    <ShapeVisual
                       x={0.5}
                       y={0.5}
                       width={docSize.width - 1}
                       height={docSize.height - 1}
+                      shape={project.document.shape.shape}
+                      cornerRadius={project.document.shape.cornerRadius}
+                      vertices={project.document.shape.vertices}
+                      vertexInset={project.document.shape.vertexInset}
+                      vertexRadius={project.document.shape.vertexRadius}
+                      sideDeflection={project.document.shape.sideDeflection}
                       stroke="#0f172a"
                       strokeWidth={2}
                       dash={[18, 12]}
                       opacity={0.75}
+                      listening={false}
                     />
                   ) : null}
                   {project.document.guides.showSafeArea ? (
-                    <Rect
+                    <ShapeVisual
                       x={safeAreaRect.x}
                       y={safeAreaRect.y}
                       width={safeAreaRect.width}
                       height={safeAreaRect.height}
+                      shape={project.document.shape.shape}
+                      cornerRadius={project.document.shape.cornerRadius}
+                      vertices={project.document.shape.vertices}
+                      vertexInset={project.document.shape.vertexInset}
+                      vertexRadius={project.document.shape.vertexRadius}
+                      sideDeflection={project.document.shape.sideDeflection}
                       stroke="#0f766e"
                       strokeWidth={2}
                       dash={[6, 8]}
                       opacity={0.9}
+                      listening={false}
                     />
                   ) : null}
                 </Group>

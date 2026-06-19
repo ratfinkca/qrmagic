@@ -14,15 +14,30 @@ import {
   Trash2,
   Type,
 } from "lucide-react";
+import { ColorControl } from "./ColorControl";
+import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
 import type { DataGroup, ProjectLayer, QrMagicProject } from "../types";
 
 type SidebarProps = {
   project: QrMagicProject;
   selectedLayerIds: string[];
   onSelectLayers: (layerIds: string[]) => void;
-  onUpdateDataGroup: (groupId: string, patch: Partial<DataGroup>) => void;
-  onUpdateDataGroupSerial: (groupId: string, patch: Partial<DataGroup["serial"]>) => void;
-  onUpdateDocument: (patch: Partial<QrMagicProject["document"]>) => void;
+  onUpdateDataGroup: (groupId: string, patch: { name?: string }) => void;
+  onUpdateDataGroupSerial: (
+    groupId: string,
+    patch: { prefix?: string; suffix?: string; start?: number; quantity?: number; step?: number; padding?: number },
+  ) => void;
+  onUpdateDataGroupFixed: (groupId: string, patch: { value?: string; quantity?: number }) => void;
+  onUpdateDataGroupMode: (groupId: string, mode: DataGroup["mode"]) => void;
+  onUpdateDocument: (
+    patch: Partial<QrMagicProject["document"]>,
+    options?: { recordHistory?: boolean },
+  ) => void;
+  onBeginProjectChange: () => void;
+  onCommitProjectChange: () => void;
+  onUseColor: (color: string) => void;
+  onSaveColor: (color: string) => void;
+  onRemoveColor: (color: string) => void;
   onAddShapeLayer: () => void;
   onAddTextLayer: () => void;
   onAddQrLayer: () => void;
@@ -40,7 +55,14 @@ export function Sidebar({
   onSelectLayers,
   onUpdateDataGroup,
   onUpdateDataGroupSerial,
+  onUpdateDataGroupFixed,
+  onUpdateDataGroupMode,
   onUpdateDocument,
+  onBeginProjectChange,
+  onCommitProjectChange,
+  onUseColor,
+  onSaveColor,
+  onRemoveColor,
   onAddShapeLayer,
   onAddTextLayer,
   onAddQrLayer,
@@ -57,6 +79,7 @@ export function Sidebar({
   });
   const layersTopFirst = [...project.layers].reverse();
   const selectedLayerSet = new Set(selectedLayerIds);
+  const hasSerialGroup = project.data.groups.some((group) => group.mode === "serial");
   const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null);
   const [dragOverLayerId, setDragOverLayerId] = useState<string | null>(null);
 
@@ -91,6 +114,27 @@ export function Sidebar({
     onReorderLayers([...nextTopFirst].reverse());
     setDraggingLayerId(null);
     setDragOverLayerId(null);
+  }
+
+  function updateDocumentColor(color: string) {
+    onBeginProjectChange();
+    onUpdateDocument({ backgroundColor: color }, { recordHistory: false });
+  }
+
+  function commitDocumentColor(color: string) {
+    onUseColor(color);
+    onCommitProjectChange();
+  }
+
+  function updateDocumentOpacity(opacity: number) {
+    onBeginProjectChange();
+    onUpdateDocument(
+      {
+        backgroundOpacity: opacity,
+        transparentBackground: opacity <= 0,
+      },
+      { recordHistory: false },
+    );
   }
 
   return (
@@ -155,27 +199,38 @@ export function Sidebar({
                 />
               </label>
             </div>
-            <label>
-              Page color
-              <div className="color-row">
-                <input
-                  type="color"
+            <div className="document-color-field">
+              <div className="field-grid">
+                <ColorControl
+                  label="Page color"
                   value={project.document.backgroundColor}
-                  disabled={project.document.transparentBackground}
-                  onChange={(event) => onUpdateDocument({ backgroundColor: event.target.value })}
+                  recentColors={project.colors.recent}
+                  paletteColors={project.colors.palette}
+                  onChange={updateDocumentColor}
+                  onChangeEnd={commitDocumentColor}
+                  onSaveColor={onSaveColor}
+                  onRemoveColor={onRemoveColor}
                 />
-                <label className="checkbox-row">
+                <label>
+                  Opacity
                   <input
-                    type="checkbox"
-                    checked={project.document.transparentBackground}
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={project.document.backgroundOpacity}
+                    onPointerDown={onBeginProjectChange}
+                    onKeyDown={onBeginProjectChange}
+                    onPointerUp={onCommitProjectChange}
+                    onKeyUp={onCommitProjectChange}
+                    onBlur={onCommitProjectChange}
                     onChange={(event) =>
-                      onUpdateDocument({ transparentBackground: event.target.checked })
+                      updateDocumentOpacity(Number(event.target.value))
                     }
                   />
-                  Transparent
                 </label>
               </div>
-            </label>
+            </div>
             <div className="guide-controls">
               <button className="subpanel-heading" onClick={() => togglePanel("guides")}>
                 <span>Guides</span>
@@ -242,6 +297,123 @@ export function Sidebar({
                       Safe
                     </label>
                   </div>
+                  <label>
+                    Guide shape
+                    <select
+                      value={project.document.shape.shape}
+                      onChange={(event) =>
+                        onUpdateDocument({
+                          shape: {
+                            ...presetShapeGeometry(
+                              event.target.value as QrMagicProject["document"]["shape"]["shape"],
+                            ),
+                          },
+                        })
+                      }
+                    >
+                      {SHAPE_OPTIONS.map((option) => (
+                        <option value={option.value} key={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {project.document.shape.shape === "rectangle" ? (
+                    <label>
+                      Guide corner radius
+                      <input
+                        type="number"
+                        min="0"
+                        value={project.document.shape.cornerRadius}
+                        onChange={(event) =>
+                          onUpdateDocument({
+                            shape: {
+                              ...project.document.shape,
+                              cornerRadius: Math.max(0, Number(event.target.value)),
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                  ) : null}
+                  <details className="shape-customize">
+                    <summary>Customize shape</summary>
+                    <div className="field-grid">
+                      <label>
+                        Vertices
+                        <input
+                          type="number"
+                          min="3"
+                          max="12"
+                          value={project.document.shape.vertices}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                vertices: Math.max(3, Math.min(12, Number(event.target.value))),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Vertex inset
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="1"
+                          step="0.05"
+                          value={project.document.shape.vertexInset}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                vertexInset: Number(event.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="field-grid">
+                      <label>
+                        Vertex radius
+                        <input
+                          type="range"
+                          min="0"
+                          max="0.45"
+                          step="0.01"
+                          value={project.document.shape.vertexRadius}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                vertexRadius: Number(event.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Side deflection
+                        <input
+                          type="range"
+                          min="-1"
+                          max="1"
+                          step="0.05"
+                          value={project.document.shape.sideDeflection}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                sideDeflection: Number(event.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </details>
                   <div className="field-grid">
                     <label>
                       Bleed %
@@ -309,6 +481,20 @@ export function Sidebar({
                       }
                     />
                   </label>
+                  <label>
+                    Mode
+                    <select
+                      value={group.mode}
+                      onChange={(event) =>
+                        onUpdateDataGroupMode(group.id, event.target.value as DataGroup["mode"])
+                      }
+                    >
+                      <option value="serial">Serial</option>
+                      <option value="fixed">Fixed</option>
+                    </select>
+                  </label>
+                  {group.mode === "serial" ? (
+                    <>
                   <div className="field-grid">
                     <label>
                       Prefix
@@ -379,6 +565,39 @@ export function Sidebar({
                       />
                     </label>
                   </div>
+                    </>
+                  ) : (
+                    <>
+                      <label>
+                        Fixed value
+                        <input
+                          value={group.fixed.value}
+                          onChange={(event) =>
+                            onUpdateDataGroupFixed(group.id, { value: event.target.value })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Quantity
+                        <input
+                          type="number"
+                          min="1"
+                          value={group.fixed.quantity}
+                          disabled={hasSerialGroup}
+                          title={
+                            hasSerialGroup
+                              ? "Serial data groups control quantity when present."
+                              : "Fixed-only jobs repeat this value for the set quantity."
+                          }
+                          onChange={(event) =>
+                            onUpdateDataGroupFixed(group.id, {
+                              quantity: Math.max(1, Number(event.target.value)),
+                            })
+                          }
+                        />
+                      </label>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
