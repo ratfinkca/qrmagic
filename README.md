@@ -52,7 +52,7 @@ The `web/` app is configured for GitHub Pages at:
 https://ratfinkca.github.io/qrmagic/
 ```
 
-Publishing happens through `.github/workflows/deploy-pages.yml` on every push to `main`, or manually from the workflow's **Run workflow** button.
+The `.github/workflows/deploy-pages.yml` workflow runs unit tests, browser export tests in Chromium, and the production build on pull requests and pushes to `main`. Pages publishing runs only after all three pass on `main`, including manual runs from the workflow's **Run workflow** button. Pull requests never deploy.
 
 Before the first deploy, open the repository on GitHub, go to **Settings > Pages**, and set **Build and deployment > Source** to **GitHub Actions**.
 
