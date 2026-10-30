@@ -24,6 +24,7 @@ import type {
 import { documentPixelSize, guideSnapRect } from "../lib/project";
 import { renderStyledQrDataUrl } from "../lib/qrStyling";
 import { renderTemplate } from "../lib/serial";
+import { colorWithOpacity, layerShadowProps, shapeFillProps } from "../lib/layerRendering";
 import { polygonPath } from "../lib/shapeGeometry";
 
 type EditorCanvasProps = {
@@ -40,73 +41,6 @@ type EditorCanvasProps = {
   onUpdateLayer: (layerId: string, patch: Partial<ProjectLayer>) => void;
   registerStage: (stage: Konva.Stage | null) => void;
 };
-
-function colorWithOpacity(color: string, opacity: number) {
-  if (color === "transparent") {
-    return color;
-  }
-
-  const normalized = color.replace("#", "");
-  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
-    return color;
-  }
-
-  const red = parseInt(normalized.slice(0, 2), 16);
-  const green = parseInt(normalized.slice(2, 4), 16);
-  const blue = parseInt(normalized.slice(4, 6), 16);
-  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, opacity))})`;
-}
-
-function layerShadowProps(layer: ProjectLayer) {
-  return {
-    shadowEnabled: layer.shadowEnabled,
-    shadowColor: colorWithOpacity(layer.shadowColor, layer.shadowOpacity),
-    shadowBlur: layer.shadowBlur,
-    shadowOffsetX: layer.shadowOffsetX,
-    shadowOffsetY: layer.shadowOffsetY,
-  };
-}
-
-function shapeFillProps(layer: ShapeLayer) {
-  if (layer.fillMode === "linear-gradient") {
-    const angle = (layer.fillGradientAngle * Math.PI) / 180;
-    const centerX = layer.width / 2;
-    const centerY = layer.height / 2;
-    const radius = Math.sqrt(layer.width ** 2 + layer.height ** 2) / 2;
-    const dx = Math.cos(angle) * radius;
-    const dy = Math.sin(angle) * radius;
-
-    return {
-      fill: undefined,
-      fillLinearGradientStartPoint: { x: centerX - dx, y: centerY - dy },
-      fillLinearGradientEndPoint: { x: centerX + dx, y: centerY + dy },
-      fillLinearGradientColorStops: [
-        0,
-        colorWithOpacity(layer.fillGradientFrom, layer.fillOpacity),
-        1,
-        colorWithOpacity(layer.fillGradientTo, layer.fillOpacity),
-      ],
-    };
-  }
-
-  if (layer.fillMode === "radial-gradient") {
-    return {
-      fill: undefined,
-      fillRadialGradientStartPoint: { x: layer.width / 2, y: layer.height / 2 },
-      fillRadialGradientStartRadius: 0,
-      fillRadialGradientEndPoint: { x: layer.width / 2, y: layer.height / 2 },
-      fillRadialGradientEndRadius: Math.max(layer.width, layer.height) / 2,
-      fillRadialGradientColorStops: [
-        0,
-        colorWithOpacity(layer.fillGradientFrom, layer.fillOpacity),
-        1,
-        colorWithOpacity(layer.fillGradientTo, layer.fillOpacity),
-      ],
-    };
-  }
-
-  return { fill: colorWithOpacity(layer.fill, layer.fillOpacity) };
-}
 
 function useQrDataUrl(layer: QrLayer, record: RenderRecord) {
   const [dataUrl, setDataUrl] = useState("");
@@ -417,6 +351,7 @@ function TextNode({
         fill={colorWithOpacity(layer.fill, layer.fillOpacity)}
         align={layer.align}
         verticalAlign="middle"
+        {...layerShadowProps(layer)}
         rotation={layer.rotation}
         opacity={layer.opacity}
         draggable={editable && selected && !layer.locked}

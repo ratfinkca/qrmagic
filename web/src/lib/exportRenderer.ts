@@ -1,3 +1,5 @@
+import Konva from "konva";
+import { colorWithOpacity, layerShadowProps, shapeFillProps, shapeGeometryProps, textLayerProps } from "./layerRendering";
 import {
   PDFDict,
   PDFDocument,
@@ -18,22 +20,6 @@ export type GuideExportLayer = "bleed" | "trim" | "safeArea";
 export type RasterExportFormat = "png" | "jpg";
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>();
-
-function colorWithOpacity(color: string, opacity: number) {
-  if (color === "transparent") {
-    return color;
-  }
-
-  const normalized = color.replace("#", "");
-  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
-    return color;
-  }
-
-  const red = parseInt(normalized.slice(0, 2), 16);
-  const green = parseInt(normalized.slice(2, 4), 16);
-  const blue = parseInt(normalized.slice(4, 6), 16);
-  return `rgba(${red}, ${green}, ${blue}, ${Math.max(0, Math.min(1, opacity))})`;
-}
 
 function loadImage(src: string) {
   const cachedImage = imageCache.get(src);
@@ -78,26 +64,32 @@ function drawLayerFrame(
   context.globalAlpha *= layer.opacity;
   context.translate(layer.x, layer.y);
   context.rotate((layer.rotation * Math.PI) / 180);
+  if (layer.shadowEnabled) {
+    context.shadowColor = colorWithOpacity(layer.shadowColor, layer.shadowOpacity);
+    context.shadowBlur = layer.shadowBlur;
+    context.shadowOffsetX = layer.shadowOffsetX;
+    context.shadowOffsetY = layer.shadowOffsetY;
+  }
   draw();
   context.restore();
 }
 
+function paintNode(context: CanvasRenderingContext2D, node: Konva.Node) {
+  try {
+    const canvas = node.toCanvas({ x: 0, y: 0, width: context.canvas.width, height: context.canvas.height, pixelRatio: 1 });
+    context.drawImage(canvas, 0, 0);
+  } finally { node.destroy(); }
+}
+
 function drawShapeLayer(context: CanvasRenderingContext2D, layer: ProjectLayer) {
   if (layer.type !== "shape") return;
-
-  drawLayerFrame(context, layer, () => {
-    roundedRect(context, layer.width, layer.height, layer.cornerRadius);
-    context.fillStyle = colorWithOpacity(layer.fill, layer.fillOpacity);
-    context.fill();
-
-    if (layer.strokeWidth > 0 && layer.stroke !== "transparent") {
-      context.strokeStyle = colorWithOpacity(layer.stroke, layer.strokeOpacity);
-      context.lineWidth = layer.strokeWidth;
-      context.setLineDash(layer.dash);
-      context.stroke();
-      context.setLineDash([]);
-    }
-  });
+  const geometry = shapeGeometryProps(layer.width, layer.height, layer, layer.x, layer.y);
+  const config = { ...geometry.props, ...shapeFillProps(layer), ...layerShadowProps(layer),
+    rotation: layer.rotation, opacity: layer.opacity, stroke: colorWithOpacity(layer.stroke, layer.strokeOpacity),
+    strokeWidth: layer.strokeWidth, dash: layer.dash };
+  paintNode(context, geometry.kind === "Ellipse"
+    ? new Konva.Ellipse({ ...config, radiusX: layer.width / 2, radiusY: layer.height / 2 })
+    : geometry.kind === "Rect" ? new Konva.Rect(config) : new Konva.Path(config));
 }
 
 async function drawImageLayer(context: CanvasRenderingContext2D, layer: ProjectLayer) {
@@ -157,12 +149,10 @@ async function drawQrLayer(
   const dataUrl = await renderStyledQrDataUrl(layer, record);
   const qrImage = await loadImage(dataUrl);
 
-  drawLayerFrame(context, layer, () => {
-    context.fillStyle = layer.background;
-    roundedRect(context, layer.width, layer.height, 6);
-    context.fill();
-    context.drawImage(qrImage, 0, 0, layer.width, layer.height);
-  });
+  const group = new Konva.Group({ x: layer.x, y: layer.y, rotation: layer.rotation, opacity: layer.opacity });
+  group.add(new Konva.Rect({ width: layer.width, height: layer.height, fill: layer.background, cornerRadius: 6, ...layerShadowProps(layer) }));
+  group.add(new Konva.Image({ image: qrImage, width: layer.width, height: layer.height }));
+  paintNode(context, group);
 }
 
 function drawTextLayer(
@@ -172,17 +162,8 @@ function drawTextLayer(
 ) {
   if (layer.type !== "text") return;
 
-  drawLayerFrame(context, layer, () => {
-    const text = renderTemplate(layer.textTemplate, record, layer.dataGroupId);
-    context.fillStyle = colorWithOpacity(layer.fill, layer.fillOpacity);
-    context.font = `${layer.fontWeight} ${layer.fontSize}px ${layer.fontFamily}`;
-    context.textAlign = layer.align;
-    context.textBaseline = "middle";
-
-    const textX =
-      layer.align === "center" ? layer.width / 2 : layer.align === "right" ? layer.width : 0;
-    context.fillText(text, textX, layer.height / 2, layer.width);
-  });
+  paintNode(context, new Konva.Text({ x: layer.x, y: layer.y, width: layer.width, height: layer.height,
+    rotation: layer.rotation, opacity: layer.opacity, ...textLayerProps(layer, record) }));
 }
 
 function drawGuideLayer(
@@ -274,7 +255,7 @@ async function renderProjectCanvas(
   }
 
   if (!project.document.transparentBackground) {
-    context.fillStyle = project.document.backgroundColor;
+    context.fillStyle = colorWithOpacity(project.document.backgroundColor, project.document.backgroundOpacity);
     context.fillRect(0, 0, size.width, size.height);
   }
 

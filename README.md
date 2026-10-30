@@ -31,8 +31,18 @@ pnpm dev
 Common checks:
 
 ```bash
+pnpm test
 pnpm build
 ```
+
+Browser export regressions compare the editor artwork with exported PNG pixels:
+
+```bash
+pnpm exec playwright install chromium
+pnpm test:export
+```
+
+On Windows, an installed Edge can be used with `$env:PLAYWRIGHT_CHANNEL="msedge"` before running `pnpm test:export`.
 
 ### GitHub Pages Demo
 
