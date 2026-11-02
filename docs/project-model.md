@@ -1,5 +1,7 @@
 # QR Magic Project Model
 
+The web app now saves version 2 projects. See [Production document model](production-documents.md) for the implemented finished-size, external bleed, cut-shape, copy-quantity, migration, and export contract. The examples below describe the earlier design direction.
+
 ## Purpose
 
 The project model describes everything needed to reopen, edit, preview, and export a QR Magic job. It should be stable, portable, and readable enough to become the foundation for saved templates and public examples.

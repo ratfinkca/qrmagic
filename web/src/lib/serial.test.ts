@@ -31,6 +31,10 @@ function fixedGroup(id: string, value: string, quantity: number): DataGroup {
 }
 
 describe("createDataRecords", () => {
+  it("keeps every fixed source present for the entire job", () => {
+    const records = createDataRecords([fixedGroup("first", "FIRST", 1), fixedGroup("second", "SECOND", 4)]);
+    expect(records.map(record => record.groups.first.serial)).toEqual(["FIRST", "FIRST", "FIRST", "FIRST"]);
+  });
   it("keeps serial-only group behavior", () => {
     const records = createDataRecords([serialGroup("serial", 3)]);
 

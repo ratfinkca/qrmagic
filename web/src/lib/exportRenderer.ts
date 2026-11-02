@@ -9,10 +9,11 @@ import {
   PDFOperatorNames,
   PDFString,
 } from "pdf-lib";
+import { productionGeometry } from "./production";
 import type { ProjectLayer, QrMagicProject, RenderRecord } from "../types";
-import { documentPixelSize, guideSnapRect } from "./project";
+import { guideSnapRect } from "./project";
 import { renderStyledQrDataUrl } from "./qrStyling";
-import { renderTemplate } from "./serial";
+
 
 type RenderOptions = {
   includeGuides: boolean;
@@ -36,26 +37,6 @@ function loadImage(src: string) {
   });
   imageCache.set(src, imagePromise);
   return imagePromise;
-}
-
-function roundedRect(
-  context: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  radius: number,
-) {
-  const safeRadius = Math.min(radius, width / 2, height / 2);
-  context.beginPath();
-  context.moveTo(safeRadius, 0);
-  context.lineTo(width - safeRadius, 0);
-  context.quadraticCurveTo(width, 0, width, safeRadius);
-  context.lineTo(width, height - safeRadius);
-  context.quadraticCurveTo(width, height, width - safeRadius, height);
-  context.lineTo(safeRadius, height);
-  context.quadraticCurveTo(0, height, 0, height - safeRadius);
-  context.lineTo(0, safeRadius);
-  context.quadraticCurveTo(0, 0, safeRadius, 0);
-  context.closePath();
 }
 
 function drawLayerFrame(
@@ -170,42 +151,31 @@ function drawTextLayer(
     rotation: layer.rotation, opacity: layer.opacity, ...textLayerProps(layer, record) }));
 }
 
-function drawGuideLayer(
-  context: CanvasRenderingContext2D,
-  project: QrMagicProject,
-  guideLayer: GuideExportLayer,
-) {
-  if (!project.document.guides.enabled) return;
+function drawGuideLayer(context: CanvasRenderingContext2D, project: QrMagicProject, guideLayer: GuideExportLayer) {
+  const guides = project.document.guides;
+  if (!guides.enabled) return;
+  const visible = guideLayer === "trim" ? guides.showTrim : guideLayer === "bleed" ? guides.showBleed : guides.showSafeArea;
+  if (!visible) return;
+  const rect = guideSnapRect(project, guideLayer);
+  const style = guideLayer === "bleed" ? { stroke: "#f97316", dash: [10, 8], opacity: 0.9 }
+    : guideLayer === "trim" ? { stroke: "#0f172a", dash: [18, 12], opacity: 0.75 }
+    : { stroke: "#0f766e", dash: [6, 8], opacity: 0.9 };
+  const geometry = shapeGeometryProps(rect.width, rect.height, project.document.shape, rect.x, rect.y);
+  const config = { ...geometry.props, ...style, strokeWidth: 2 };
+  const node = guideLayer === "bleed" ? new Konva.Rect({ ...rect, ...style, strokeWidth: 2 })
+    : geometry.kind === "Ellipse" ? new Konva.Ellipse({ ...config, radiusX: rect.width / 2, radiusY: rect.height / 2 })
+    : geometry.kind === "Rect" ? new Konva.Rect(config) : new Konva.Path(config);
+  paintNode(context, node);
+}
 
-  const size = documentPixelSize(project);
-  const bleedRect = guideSnapRect(project, "bleed");
-  const safeAreaRect = guideSnapRect(project, "safeArea");
-
-  context.save();
-  context.lineWidth = 2;
-
-  if (guideLayer === "bleed" && project.document.guides.showBleed) {
-    context.strokeStyle = "#f97316";
-    context.globalAlpha = 0.9;
-    context.setLineDash([10, 8]);
-    context.strokeRect(bleedRect.x, bleedRect.y, bleedRect.width, bleedRect.height);
-  }
-
-  if (guideLayer === "trim" && project.document.guides.showTrim) {
-    context.strokeStyle = "#0f172a";
-    context.globalAlpha = 0.75;
-    context.setLineDash([18, 12]);
-    context.strokeRect(0.5, 0.5, size.width - 1, size.height - 1);
-  }
-
-  if (guideLayer === "safeArea" && project.document.guides.showSafeArea) {
-    context.strokeStyle = "#0f766e";
-    context.globalAlpha = 0.9;
-    context.setLineDash([6, 8]);
-    context.strokeRect(safeAreaRect.x, safeAreaRect.y, safeAreaRect.width, safeAreaRect.height);
-  }
-
-  context.restore();
+function makeExportCanvas(project: QrMagicProject) {
+  const geometry = productionGeometry(project);
+  const scene = new SceneCanvas({ ...geometry.output, pixelRatio: 1 });
+  const canvas = scene._canvas;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Could not create export canvas.");
+  renderCanvases.set(context, { scene, buffer: new SceneCanvas({ ...geometry.output, pixelRatio: 1 }) });
+  return { geometry, canvas, context };
 }
 
 function drawGuides(context: CanvasRenderingContext2D, project: QrMagicProject) {
@@ -249,21 +219,14 @@ async function renderProjectCanvas(
 ) {
   await document.fonts?.ready;
 
-  const size = documentPixelSize(project);
-  const scene = new SceneCanvas({ ...size, pixelRatio: 1 });
-  const canvas = scene._canvas;
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("Could not create export canvas.");
-  }
-
-  renderCanvases.set(context, { scene, buffer: new SceneCanvas({ ...size, pixelRatio: 1 }) });
+  const { geometry, canvas, context } = makeExportCanvas(project);
 
   if (!project.document.transparentBackground) {
     context.fillStyle = colorWithOpacity(project.document.backgroundColor, project.document.backgroundOpacity);
-    context.fillRect(0, 0, size.width, size.height);
+    context.fillRect(0, 0, geometry.output.width, geometry.output.height);
   }
 
+  context.translate(geometry.bleedPixels, geometry.bleedPixels);
   for (const layer of project.layers) {
     if (!layer.visible) continue;
     if (layer.type === "shape") drawShapeLayer(context, layer);
@@ -297,38 +260,21 @@ export async function renderProjectPngBlob(
 }
 
 export function renderGuidePngBlob(project: QrMagicProject, guideLayer: GuideExportLayer) {
-  const size = documentPixelSize(project);
-  const canvas = document.createElement("canvas");
-  canvas.width = size.width;
-  canvas.height = size.height;
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("Could not create guide canvas.");
-  }
+  const { canvas, context, geometry } = makeExportCanvas(project);
+  context.translate(geometry.bleedPixels, geometry.bleedPixels);
 
   drawGuideLayer(context, project, guideLayer);
   return canvasToImageBlob(canvas, "png");
 }
 
 function documentPointSize(project: QrMagicProject) {
-  if (project.document.unit === "px") {
-    return {
-      width: (project.document.width / project.document.dpi) * 72,
-      height: (project.document.height / project.document.dpi) * 72,
-    };
-  }
+  return productionGeometry(project).points;
+}
 
-  if (project.document.unit === "mm") {
-    return {
-      width: (project.document.width / 25.4) * 72,
-      height: (project.document.height / 25.4) * 72,
-    };
-  }
-
-  return {
-    width: project.document.width * 72,
-    height: project.document.height * 72,
-  };
+function setProductionBoxes(page: ReturnType<PDFDocument["addPage"]>, project: QrMagicProject) {
+  const geometry = productionGeometry(project);
+  page.setBleedBox(0, 0, geometry.points.width, geometry.points.height);
+  page.setTrimBox(geometry.bleedPoints, geometry.bleedPoints, geometry.trimPoints.width, geometry.trimPoints.height);
 }
 
 function blobToBytes(blob: Blob) {
@@ -341,21 +287,6 @@ function pdfBytesToBlob(bytes: Uint8Array) {
   return new Blob([buffer], { type: "application/pdf" });
 }
 
-async function drawPngBlobOnPage(
-  pdfDoc: PDFDocument,
-  page: ReturnType<PDFDocument["addPage"]>,
-  blob: Blob,
-) {
-  const pageSize = page.getSize();
-  const image = await pdfDoc.embedPng(await blobToBytes(blob));
-  page.drawImage(image, {
-    x: 0,
-    y: 0,
-    width: pageSize.width,
-    height: pageSize.height,
-  });
-}
-
 export async function renderProjectPdfBlob(
   project: QrMagicProject,
   records: RenderRecord[],
@@ -363,11 +294,18 @@ export async function renderProjectPdfBlob(
 ) {
   const pdfDoc = await PDFDocument.create();
   const pageSize = documentPointSize(project);
+  let previousRecord: RenderRecord | undefined;
+  let previousImage: Awaited<ReturnType<PDFDocument["embedPng"]>> | undefined;
 
   for (const record of records) {
     const page = pdfDoc.addPage([pageSize.width, pageSize.height]);
-    const pngBlob = await renderProjectPngBlob(project, record, options);
-    await drawPngBlobOnPage(pdfDoc, page, pngBlob);
+    setProductionBoxes(page, project);
+    if (record !== previousRecord || !previousImage) {
+      const pngBlob = await renderProjectPngBlob(project, record, options);
+      previousImage = await pdfDoc.embedPng(await blobToBytes(pngBlob));
+      previousRecord = record;
+    }
+    page.drawImage(previousImage, { x: 0, y: 0, width: pageSize.width, height: pageSize.height });
   }
 
   const bytes = await pdfDoc.save();
@@ -445,6 +383,7 @@ export async function renderLayeredTemplatePdfBlob(
   const pdfDoc = await PDFDocument.create();
   const pageSize = documentPointSize(project);
   const page = pdfDoc.addPage([pageSize.width, pageSize.height]);
+  setProductionBoxes(page, project);
   const groups = [
     { name: "QRMagicArtwork", label: "Artwork" },
     { name: "QRMagicBleedGuide", label: "Bleed guide" },

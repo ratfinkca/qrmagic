@@ -21,6 +21,7 @@ import type {
   ShapeGeometry,
   ShapeLayer,
 } from "../types";
+import { productionGeometry } from "../lib/production";
 import { documentPixelSize, guideSnapRect } from "../lib/project";
 import { renderStyledQrDataUrl } from "../lib/qrStyling";
 import { renderTemplate } from "../lib/serial";
@@ -84,7 +85,7 @@ function useHtmlImage(src: string) {
   return image;
 }
 
-const WORKSPACE_GUTTER = 180;
+
 
 type ShapeVisualProps = ShapeGeometry & {
   id?: string;
@@ -488,6 +489,24 @@ export function EditorCanvas({
   } | null>(null);
   const ignoreNextLayerClickRef = useRef(false);
   const docSize = useMemo(() => documentPixelSize(project), [project]);
+  const geometry = productionGeometry(project);
+  const [finishedPreview, setFinishedPreview] = useState(false);
+  const cutPath = useMemo(() => {
+    const shape = project.document.shape;
+    if (!["rectangle", "ellipse", "pill"].includes(shape.shape)) {
+      return new Path2D(polygonPath(docSize.width, docSize.height, shape));
+    }
+    const path = new Path2D();
+    if (shape.shape === "ellipse") {
+      path.ellipse(docSize.width / 2, docSize.height / 2, docSize.width / 2, docSize.height / 2, 0, 0, Math.PI * 2);
+    } else {
+      const radius = shape.shape === "pill" ? Math.min(docSize.width, docSize.height) / 2
+        : Math.min(shape.cornerRadius, docSize.width / 2, docSize.height / 2);
+      path.roundRect(0, 0, docSize.width, docSize.height, radius);
+    }
+    return path;
+  }, [project.document.shape, docSize.width, docSize.height]);
+  const WORKSPACE_GUTTER = Math.max(180, geometry.bleedPixels + 40);
   const fitScale = useMemo(() => {
     if (!viewportSize.width || !viewportSize.height) {
       return Math.min(1, 860 / docSize.width, 610 / docSize.height);
@@ -504,7 +523,7 @@ export function EditorCanvas({
   const stageHeight = (docSize.height + WORKSPACE_GUTTER * 2) * scale;
   const bleedRect = guideSnapRect(project, "bleed");
   const safeAreaRect = guideSnapRect(project, "safeArea");
-  const layerEditingEnabled = activeTool === "select";
+  const layerEditingEnabled = activeTool === "select" && !finishedPreview;
   const previousScaleRef = useRef(scale);
   const pendingWheelZoomRef = useRef<{
     viewportX: number;
@@ -944,6 +963,8 @@ export function EditorCanvas({
     <div className="canvas-shell">
       <div className="canvas-meta">
         <span>{project.document.name}</span>
+        <button className="preview-toggle" aria-pressed={finishedPreview}
+          onClick={() => setFinishedPreview(current => !current)}>Finished preview</button>
         <span>
           {project.document.width} {project.document.unit} x {project.document.height}{" "}
           {project.document.unit} at {project.document.dpi} DPI
@@ -977,13 +998,16 @@ export function EditorCanvas({
               />
               <Group
                 name="document-content"
+                clipFunc={finishedPreview ? () => [cutPath] : undefined}
                 x={WORKSPACE_GUTTER}
                 y={WORKSPACE_GUTTER}
               >
                 <Rect
                   name="document-background"
-                  width={docSize.width}
-                  height={docSize.height}
+                  x={-geometry.bleedPixels}
+                  y={-geometry.bleedPixels}
+                  width={geometry.output.width}
+                  height={geometry.output.height}
                   fill={colorWithOpacity(
                     project.document.backgroundColor,
                     project.document.backgroundOpacity,
@@ -1136,7 +1160,7 @@ export function EditorCanvas({
                 ) : null}
               </Group>
             </Layer>
-            {project.document.guides.enabled ? (
+            {project.document.guides.enabled && !finishedPreview ? (
               <Layer name="guides-layer" listening={false}>
                 <Group
                   name="document-content"
@@ -1144,23 +1168,8 @@ export function EditorCanvas({
                   y={WORKSPACE_GUTTER}
                 >
                   {project.document.guides.showBleed ? (
-                    <ShapeVisual
-                      x={bleedRect.x}
-                      y={bleedRect.y}
-                      width={bleedRect.width}
-                      height={bleedRect.height}
-                      shape={project.document.shape.shape}
-                      cornerRadius={project.document.shape.cornerRadius}
-                      vertices={project.document.shape.vertices}
-                      vertexInset={project.document.shape.vertexInset}
-                      vertexRadius={project.document.shape.vertexRadius}
-                      sideDeflection={project.document.shape.sideDeflection}
-                      stroke="#f97316"
-                      strokeWidth={2}
-                      dash={[10, 8]}
-                      opacity={0.9}
-                      listening={false}
-                    />
+                    <Rect x={bleedRect.x} y={bleedRect.y} width={bleedRect.width} height={bleedRect.height}
+                      stroke="#f97316" strokeWidth={2} dash={[10, 8]} opacity={0.9} listening={false} />
                   ) : null}
                   {project.document.guides.showTrim ? (
                     <ShapeVisual

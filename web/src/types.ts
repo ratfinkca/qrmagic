@@ -155,13 +155,16 @@ export type FixedDataGroup = {
 export type DataGroup = SerialDataGroup | FixedDataGroup;
 
 export type QrMagicProject = {
-  version: 1;
+  version: 1 | 2;
+  production: { copiesPerRecord: number };
   colors: {
     recent: string[];
     palette: string[];
   };
   document: {
     name: string;
+    bleedMm: number;
+    safeAreaMm: number;
     unit: Unit;
     width: number;
     height: number;

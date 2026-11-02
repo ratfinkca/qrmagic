@@ -12,6 +12,8 @@ import {
   RotateCw,
   SlidersHorizontal,
 } from "lucide-react";
+import { QrContentEditor } from "./QrContentEditor";
+import { productionCount } from "../lib/production";
 import { ColorControl } from "./ColorControl";
 import { guideSnapRect } from "../lib/project";
 import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
@@ -38,6 +40,9 @@ type InspectorProps = {
     patch: Partial<ProjectLayer>,
     options?: { recordHistory?: boolean },
   ) => void;
+  onChangeQrMode: (layerId: string, mode: DataGroup["mode"]) => void;
+  onChangeFixed: (id: string, patch: { value?: string }) => void;
+  onMakeQrIndependent: (layerId: string) => void;
   onUseColor: (color: string) => void;
   onSaveColor: (color: string) => void;
   onRemoveColor: (color: string) => void;
@@ -66,6 +71,9 @@ export function Inspector({
   project,
   dataGroups,
   onUpdateLayer,
+  onChangeQrMode,
+  onChangeFixed,
+  onMakeQrIndependent,
   onUseColor,
   onSaveColor,
   onRemoveColor,
@@ -88,6 +96,11 @@ export function Inspector({
   const effectiveAlignTarget: AlignTarget =
     selectedLayerCount > 1 || alignTarget !== "selection" ? alignTarget : "page";
   const isExporting = exportStatus !== null;
+  const pixelsPerUnit = project.document.unit === "px" ? 1
+    : project.document.unit === "mm" ? project.document.dpi / 25.4 : project.document.dpi;
+  const displayLength = (pixels: number) => Number((pixels / pixelsPerUnit).toFixed(3));
+  const readLength = (value: string) => Number(value) * pixelsPerUnit;
+
 
   useEffect(() => {
     return () => {
@@ -329,58 +342,6 @@ export function Inspector({
 
   return (
     <aside className="inspector">
-      <section className="panel">
-        <div className="panel-title">
-          <Download size={16} />
-          <span>Export</span>
-        </div>
-        <div className="export-summary">
-          <strong>{project.export.renderMode}</strong>
-          <span>{exportSetFormat.toUpperCase()}</span>
-        </div>
-        <label>
-          Set format
-          <select
-            value={exportSetFormat}
-            disabled={isExporting}
-            onChange={(event) =>
-              onUpdateExport({
-                formats: [event.target.value as ExportSetFormat],
-              })
-            }
-          >
-            <option value="png">PNG zip</option>
-            <option value="jpg">JPG zip</option>
-            <option value="pdf">PDF</option>
-          </select>
-        </label>
-        <label className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={project.export.includeGuides}
-            disabled={isExporting}
-            onChange={(event) => onUpdateExport({ includeGuides: event.target.checked })}
-          />
-          Include visible guides
-        </label>
-        <button className="primary-action" onClick={onExportPng} disabled={isExporting}>
-          <Download size={16} />
-          {exportStatus === "template" ? "Exporting template..." : "Export Template"}
-        </button>
-        <button
-          className="secondary-action"
-          onClick={onExportBatch}
-          disabled={isExporting}
-        >
-          <Download size={16} />
-          {exportStatus === "set"
-            ? "Exporting set..."
-            : exportSetFormat === "pdf"
-              ? "Export PDF Set"
-              : `Export ${exportSetFormat.toUpperCase()} Set`}
-        </button>
-      </section>
-
       <section className="panel inspector-panel">
         <div className="panel-title">
           <SlidersHorizontal size={16} />
@@ -388,215 +349,12 @@ export function Inspector({
         </div>
         {selectedLayer ? (
           <>
-            <label>
-              Layer name
-              <input
-                value={selectedLayer.name}
-                onChange={(event) =>
-                  onUpdateLayer(selectedLayer.id, { name: event.target.value })
-                }
-              />
-            </label>
-            <div className="field-grid">
-              <label>
-                X
-                <input
-                  type="number"
-                  value={Math.round(selectedLayer.x)}
-                  onChange={(event) =>
-                    onUpdateLayer(selectedLayer.id, { x: Number(event.target.value) })
-                  }
-                />
-              </label>
-              <label>
-                Y
-                <input
-                  type="number"
-                  value={Math.round(selectedLayer.y)}
-                  onChange={(event) =>
-                    onUpdateLayer(selectedLayer.id, { y: Number(event.target.value) })
-                  }
-                />
-              </label>
-            </div>
-            <div className="field-grid">
-              <label>
-                Width
-                <input
-                  type="number"
-                  value={Math.round(selectedLayer.width)}
-                  onChange={(event) =>
-                    onUpdateLayer(selectedLayer.id, { width: Number(event.target.value) })
-                  }
-                />
-              </label>
-              <label>
-                Height
-                <input
-                  type="number"
-                  value={Math.round(selectedLayer.height)}
-                  onChange={(event) =>
-                    onUpdateLayer(selectedLayer.id, { height: Number(event.target.value) })
-                  }
-                />
-              </label>
-            </div>
-            <label>
-              <span className="inline-label">
-                <RotateCw size={14} />
-                Rotation
-              </span>
-              <input
-                type="number"
-                value={Math.round(selectedLayer.rotation)}
-                onChange={(event) =>
-                  onUpdateLayer(selectedLayer.id, { rotation: Number(event.target.value) })
-                }
-              />
-            </label>
-            <label>
-              Layer opacity
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={selectedLayer.opacity}
-                {...deferredInputHandlers()}
-                onChange={(event) =>
-                  transientLayerUpdate(selectedLayer.id, { opacity: Number(event.target.value) })
-                }
-              />
-            </label>
-            <label className="checkbox-row">
-              <input
-                type="checkbox"
-                checked={selectedLayer.shadowEnabled}
-                onChange={(event) =>
-                  onUpdateLayer(selectedLayer.id, {
-                    shadowEnabled: event.target.checked,
-                  } as Partial<ProjectLayer>)
-                }
-              />
-              Shadow
-            </label>
-            {selectedLayer.shadowEnabled ? (
-              <>
-                <div className="field-grid">
-                  {layerColorControl("Shadow color", selectedLayer.shadowColor, (color) => ({
-                    shadowColor: color,
-                  }))}
-                  <label>
-                    Shadow opacity
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={selectedLayer.shadowOpacity}
-                      {...deferredInputHandlers()}
-                      onChange={(event) =>
-                        transientLayerUpdate(selectedLayer.id, {
-                          shadowOpacity: Number(event.target.value),
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
-                </div>
-                <div className="field-grid">
-                  <label>
-                    Blur
-                    <input
-                      type="number"
-                      min="0"
-                      value={selectedLayer.shadowBlur}
-                      onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
-                          shadowBlur: Math.max(0, Number(event.target.value)),
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
-                  <label>
-                    Offset X
-                    <input
-                      type="number"
-                      value={selectedLayer.shadowOffsetX}
-                      onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
-                          shadowOffsetX: Number(event.target.value),
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
-                </div>
-                <label>
-                  Offset Y
-                  <input
-                    type="number"
-                    value={selectedLayer.shadowOffsetY}
-                    onChange={(event) =>
-                      onUpdateLayer(selectedLayer.id, {
-                        shadowOffsetY: Number(event.target.value),
-                      } as Partial<ProjectLayer>)
-                    }
-                  />
-                </label>
-              </>
-            ) : null}
-            {alignmentControls()}
-            {selectedLayer.type === "shape" || selectedLayer.type === "image" ? (
-              <label>
-                Snap layer to
-                <div className="snap-row">
-                  <select
-                    value={snapTarget}
-                    onChange={(event) => setSnapTarget(event.target.value as GuideSnapTarget)}
-                  >
-                    <option value="page">Page bounds</option>
-                    <option value="trim">Trim line</option>
-                    <option value="bleed">Bleed guide</option>
-                    <option value="safeArea">Safe area</option>
-                  </select>
-                  <button
-                    className="secondary-action"
-                    onClick={() => onSnapToTarget(snapTarget)}
-                  >
-                    Snap
-                  </button>
-                </div>
-              </label>
-            ) : null}
+            {selectedLayer.type === "qr" ? <QrContentEditor layer={selectedLayer} project={project}
+              onUpdateLayer={onUpdateLayer} onChangeMode={onChangeQrMode} onChangeFixed={onChangeFixed}
+              onMakeIndependent={onMakeQrIndependent} /> : null}
+            <h3>Appearance</h3>
             {selectedLayer.type === "qr" ? (
               <>
-                <label>
-                  Data group
-                  <select
-                    value={selectedLayer.dataGroupId}
-                    onChange={(event) =>
-                      onUpdateLayer(selectedLayer.id, {
-                        dataGroupId: event.target.value,
-                      } as Partial<ProjectLayer>)
-                    }
-                  >
-                    {dataGroups.map((group) => (
-                      <option value={group.id} key={group.id}>
-                        {group.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Payload
-                  <input
-                    value={selectedLayer.payloadTemplate}
-                    onChange={(event) =>
-                      onUpdateLayer(selectedLayer.id, {
-                        payloadTemplate: event.target.value,
-                      } as Partial<ProjectLayer>)
-                    }
-                  />
-                </label>
                 <div className="field-grid">
                   {layerColorControl("Foreground", selectedLayer.foreground, (color) => ({
                     foreground: color,
@@ -604,37 +362,6 @@ export function Inspector({
                   {layerColorControl("Background", selectedLayer.background, (color) => ({
                     background: color,
                   }))}
-                </div>
-                <div className="field-grid">
-                  <label>
-                    Error correction
-                    <select
-                      value={selectedLayer.errorCorrectionLevel}
-                      onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
-                          errorCorrectionLevel: event.target.value as typeof selectedLayer.errorCorrectionLevel,
-                        } as Partial<ProjectLayer>)
-                      }
-                    >
-                      <option value="L">L</option>
-                      <option value="M">M</option>
-                      <option value="Q">Q</option>
-                      <option value="H">H</option>
-                    </select>
-                  </label>
-                  <label>
-                    Quiet zone
-                    <input
-                      type="number"
-                      min="0"
-                      value={selectedLayer.margin}
-                      onChange={(event) =>
-                        onUpdateLayer(selectedLayer.id, {
-                          margin: Math.max(0, Number(event.target.value)),
-                        } as Partial<ProjectLayer>)
-                      }
-                    />
-                  </label>
                 </div>
                 <div className="field-grid">
                   <label>
@@ -764,6 +491,39 @@ export function Inspector({
                     </label>
                   </>
                 ) : null}
+                <details className="editor-disclosure"><summary>Advanced QR settings</summary>
+                <div className="field-grid">
+                  <label>
+                    Error correction
+                    <select
+                      value={selectedLayer.errorCorrectionLevel}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          errorCorrectionLevel: event.target.value as typeof selectedLayer.errorCorrectionLevel,
+                        } as Partial<ProjectLayer>)
+                      }
+                    >
+                      <option value="L">L</option>
+                      <option value="M">M</option>
+                      <option value="Q">Q</option>
+                      <option value="H">H</option>
+                    </select>
+                  </label>
+                  <label>
+                    Quiet zone
+                    <input
+                      type="number"
+                      min="0"
+                      value={selectedLayer.margin}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          margin: Math.max(0, Number(event.target.value)),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+                </details>
               </>
             ) : null}
             {selectedLayer.type === "text" ? (
@@ -968,11 +728,11 @@ export function Inspector({
                   </label>
                   ) : null}
                 </div>
-                <details className="shape-customize">
-                  <summary>Customize shape</summary>
+                {!["rectangle", "ellipse", "pill"].includes(selectedLayer.shape) ? <details className="shape-customize">
+                  <summary>Customize outline</summary>
                   <div className="field-grid">
-                    <label>
-                      Vertices
+                    {selectedLayer.shape !== "diamond" ? <label>
+                      Points
                       <input
                         type="number"
                         min="3"
@@ -984,9 +744,9 @@ export function Inspector({
                           } as Partial<ProjectLayer>)
                         }
                       />
-                    </label>
+                    </label> : null}
                     <label>
-                      Vertex inset
+                      Inner radius ({Math.round(selectedLayer.vertexInset * 100)}%)
                       <input
                         type="range"
                         min="0.1"
@@ -1004,7 +764,7 @@ export function Inspector({
                   </div>
                   <div className="field-grid">
                     <label>
-                      Vertex radius
+                      Corner rounding ({Math.round(selectedLayer.vertexRadius * 100)}%)
                       <input
                         type="range"
                         min="0"
@@ -1020,7 +780,7 @@ export function Inspector({
                       />
                     </label>
                     <label>
-                      Side deflection
+                      Side curve ({selectedLayer.sideDeflection.toFixed(2)})
                       <input
                         type="range"
                         min="-1"
@@ -1036,7 +796,7 @@ export function Inspector({
                       />
                     </label>
                   </div>
-                </details>
+                </details> : null}
                 <label>
                   Dash pattern
                   <input
@@ -1053,6 +813,192 @@ export function Inspector({
                 </label>
               </>
             ) : null}
+            <details className="editor-disclosure" key={`position-${selectedLayer.id}`}>
+              <summary>Position and size ({project.document.unit})</summary>
+            <label>
+              Layer name
+              <input
+                value={selectedLayer.name}
+                onChange={(event) =>
+                  onUpdateLayer(selectedLayer.id, { name: event.target.value })
+                }
+              />
+            </label>
+            <div className="field-grid">
+              <label>
+                X
+                <input
+                  type="number"
+                  step="any"
+                  value={displayLength(selectedLayer.x)}
+                  onChange={(event) =>
+                    onUpdateLayer(selectedLayer.id, { x: readLength(event.target.value) })
+                  }
+                />
+              </label>
+              <label>
+                Y
+                <input
+                  type="number"
+                  step="any"
+                  value={displayLength(selectedLayer.y)}
+                  onChange={(event) =>
+                    onUpdateLayer(selectedLayer.id, { y: readLength(event.target.value) })
+                  }
+                />
+              </label>
+            </div>
+            <div className="field-grid">
+              <label>
+                Width
+                <input
+                  type="number"
+                  step="any"
+                  value={displayLength(selectedLayer.width)}
+                  onChange={(event) =>
+                    onUpdateLayer(selectedLayer.id, { width: readLength(event.target.value) })
+                  }
+                />
+              </label>
+              <label>
+                Height
+                <input
+                  type="number"
+                  step="any"
+                  value={displayLength(selectedLayer.height)}
+                  onChange={(event) =>
+                    onUpdateLayer(selectedLayer.id, { height: readLength(event.target.value) })
+                  }
+                />
+              </label>
+            </div>
+            <label>
+              <span className="inline-label">
+                <RotateCw size={14} />
+                Rotation
+              </span>
+              <input
+                type="number"
+                value={Math.round(selectedLayer.rotation)}
+                onChange={(event) =>
+                  onUpdateLayer(selectedLayer.id, { rotation: Number(event.target.value) })
+                }
+              />
+            </label>
+            <label>
+              Layer opacity
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={selectedLayer.opacity}
+                {...deferredInputHandlers()}
+                onChange={(event) =>
+                  transientLayerUpdate(selectedLayer.id, { opacity: Number(event.target.value) })
+                }
+              />
+            </label>
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={selectedLayer.shadowEnabled}
+                onChange={(event) =>
+                  onUpdateLayer(selectedLayer.id, {
+                    shadowEnabled: event.target.checked,
+                  } as Partial<ProjectLayer>)
+                }
+              />
+              Shadow
+            </label>
+            {selectedLayer.shadowEnabled ? (
+              <>
+                <div className="field-grid">
+                  {layerColorControl("Shadow color", selectedLayer.shadowColor, (color) => ({
+                    shadowColor: color,
+                  }))}
+                  <label>
+                    Shadow opacity
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={selectedLayer.shadowOpacity}
+                      {...deferredInputHandlers()}
+                      onChange={(event) =>
+                        transientLayerUpdate(selectedLayer.id, {
+                          shadowOpacity: Number(event.target.value),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="field-grid">
+                  <label>
+                    Blur
+                    <input
+                      type="number"
+                      min="0"
+                      value={selectedLayer.shadowBlur}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          shadowBlur: Math.max(0, Number(event.target.value)),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Offset X
+                    <input
+                      type="number"
+                      value={selectedLayer.shadowOffsetX}
+                      onChange={(event) =>
+                        onUpdateLayer(selectedLayer.id, {
+                          shadowOffsetX: Number(event.target.value),
+                        } as Partial<ProjectLayer>)
+                      }
+                    />
+                  </label>
+                </div>
+                <label>
+                  Offset Y
+                  <input
+                    type="number"
+                    value={selectedLayer.shadowOffsetY}
+                    onChange={(event) =>
+                      onUpdateLayer(selectedLayer.id, {
+                        shadowOffsetY: Number(event.target.value),
+                      } as Partial<ProjectLayer>)
+                    }
+                  />
+                </label>
+              </>
+            ) : null}
+            {alignmentControls()}
+            {selectedLayer.type === "shape" || selectedLayer.type === "image" ? (
+              <label>
+                Snap layer to
+                <div className="snap-row">
+                  <select
+                    value={snapTarget}
+                    onChange={(event) => setSnapTarget(event.target.value as GuideSnapTarget)}
+                  >
+                    <option value="page">Page bounds</option>
+                    <option value="trim">Trim line</option>
+                    <option value="bleed">Bleed guide</option>
+                    <option value="safeArea">Safe area</option>
+                  </select>
+                  <button
+                    className="secondary-action"
+                    onClick={() => onSnapToTarget(snapTarget)}
+                  >
+                    Snap
+                  </button>
+                </div>
+              </label>
+            ) : null}
+            </details>
           </>
         ) : selectedLayerCount > 1 ? (
           <>
@@ -1065,9 +1011,10 @@ export function Inspector({
                 X
                 <input
                   type="number"
-                  value={Math.round(selectedGroupBounds.x)}
+                  step="any"
+                  value={displayLength(selectedGroupBounds.x)}
                   onChange={(event) =>
-                    onUpdateSelectionBounds({ x: Number(event.target.value) })
+                    onUpdateSelectionBounds({ x: readLength(event.target.value) })
                   }
                 />
               </label>
@@ -1075,9 +1022,10 @@ export function Inspector({
                 Y
                 <input
                   type="number"
-                  value={Math.round(selectedGroupBounds.y)}
+                  step="any"
+                  value={displayLength(selectedGroupBounds.y)}
                   onChange={(event) =>
-                    onUpdateSelectionBounds({ y: Number(event.target.value) })
+                    onUpdateSelectionBounds({ y: readLength(event.target.value) })
                   }
                 />
               </label>
@@ -1087,9 +1035,10 @@ export function Inspector({
                 Width
                 <input
                   type="number"
-                  value={Math.round(selectedGroupBounds.width)}
+                  step="any"
+                  value={displayLength(selectedGroupBounds.width)}
                   onChange={(event) =>
-                    onUpdateSelectionBounds({ width: Math.max(1, Number(event.target.value)) })
+                    onUpdateSelectionBounds({ width: Math.max(1, readLength(event.target.value)) })
                   }
                 />
               </label>
@@ -1097,9 +1046,10 @@ export function Inspector({
                 Height
                 <input
                   type="number"
-                  value={Math.round(selectedGroupBounds.height)}
+                  step="any"
+                  value={displayLength(selectedGroupBounds.height)}
                   onChange={(event) =>
-                    onUpdateSelectionBounds({ height: Math.max(1, Number(event.target.value)) })
+                    onUpdateSelectionBounds({ height: Math.max(1, readLength(event.target.value)) })
                   }
                 />
               </label>
@@ -1133,6 +1083,60 @@ export function Inspector({
           </div>
         )}
       </section>
+      <section className="panel">
+        <div className="panel-title">
+          <Download size={16} />
+          <span>Export</span>
+        </div>
+        <div className="export-summary">
+          <strong>{productionCount(project).total.toLocaleString()} items</strong>
+          <span>{exportSetFormat.toUpperCase()}</span>
+        </div>
+        <label>
+          Set format
+          <select
+            aria-label="Set format"
+            value={exportSetFormat}
+            disabled={isExporting}
+            onChange={(event) =>
+              onUpdateExport({
+                formats: [event.target.value as ExportSetFormat],
+              })
+            }
+          >
+            <option value="png">PNG zip</option>
+            <option value="jpg">JPG zip</option>
+            <option value="pdf">PDF</option>
+          </select>
+        </label>
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={project.export.includeGuides}
+            disabled={isExporting}
+            onChange={(event) => onUpdateExport({ includeGuides: event.target.checked })}
+          />
+          Print guides on artwork (proofing only)
+        </label>
+        <p className="chooser-hint">The job includes every copy. The proof package contains one item and separate guide overlays.</p>
+        <button className="primary-action" onClick={onExportPng} disabled={isExporting}>
+          <Download size={16} />
+          {exportStatus === "template" ? "Exporting template..." : "Download proof package"}
+        </button>
+        <button
+          className="secondary-action"
+          onClick={onExportBatch}
+          disabled={isExporting}
+        >
+          <Download size={16} />
+          {exportStatus === "set"
+            ? "Exporting set..."
+            : exportSetFormat === "pdf"
+              ? "Download job PDF"
+              : `Download job ${exportSetFormat.toUpperCase()} ZIP`}
+        </button>
+      </section>
+
     </aside>
   );
 }

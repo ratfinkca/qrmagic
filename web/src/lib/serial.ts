@@ -14,7 +14,7 @@ export function createSerialRecords(settings: SerialSettings): RenderRecord[] {
   }));
 }
 
-export function createDataRecords(groups: DataGroup[]): RenderRecord[] {
+export function dataRecordCount(groups: DataGroup[]): number {
   const serialGroups = groups.filter((group) => group.mode === "serial");
   const quantitySourceGroups = serialGroups.length ? serialGroups : groups;
   const quantity = Math.max(
@@ -23,6 +23,14 @@ export function createDataRecords(groups: DataGroup[]): RenderRecord[] {
       group.mode === "serial" ? group.serial.quantity : group.fixed.quantity,
     ),
   );
+  if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100000) {
+    throw new Error("Record count must be a whole number between 1 and 100,000.");
+  }
+  return quantity;
+}
+
+export function createDataRecords(groups: DataGroup[]): RenderRecord[] {
+  const quantity = dataRecordCount(groups);
   return Array.from({ length: quantity }, (_, index) => {
     const groupValues = Object.fromEntries(
       groups.map((group) => {
@@ -32,9 +40,7 @@ export function createDataRecords(groups: DataGroup[]): RenderRecord[] {
             ? index < groupQuantity
               ? formatSerial(group.serial, index)
               : ""
-            : serialGroups.length || index < groupQuantity
-              ? group.fixed.value
-              : "";
+            : group.fixed.value;
         return [
           group.id,
           {

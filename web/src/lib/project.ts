@@ -10,6 +10,8 @@ import type {
   ShapeGeometry,
   ShapeLayer,
 } from "../types";
+import { productionGeometry, productionCount, positiveInteger, normalizeFixedJob } from "./production";
+import { formatSerial } from "./serial";
 import { normalizedShapeGeometry, presetShapeGeometry } from "./shapeGeometry";
 
 export const DEFAULT_DATA_GROUP_ID = "group_primary";
@@ -140,14 +142,29 @@ export function createFixedDataGroup(
   };
 }
 
+export function convertDataGroupMode(group: DataGroup, mode: DataGroup["mode"], quantity: number): DataGroup {
+  if (group.mode === mode) return group;
+  if (mode === "fixed" && group.mode === "serial") {
+    return { id: group.id, name: group.name, mode, fixed: {
+      value: formatSerial(group.serial, 0), quantity,
+    } };
+  }
+  return { id: group.id, name: group.name, mode: "serial", serial: {
+    prefix: "QR-", suffix: "", start: 1, quantity, step: 1, padding: 4,
+  } };
+}
+
 export const initialProject: QrMagicProject = {
-  version: 1,
+  version: 2,
+  production: { copiesPerRecord: 1 },
   colors: {
     recent: ["#f59e0b", "#f97316", "#111827", "#ffffff"],
     palette: DEFAULT_COLOR_PALETTE,
   },
   document: {
     name: "Festival Parking Decal",
+    bleedMm: 0,
+    safeAreaMm: 6.096,
     unit: "in",
     width: 4,
     height: 3,
@@ -316,7 +333,7 @@ function normalizeDataGroup(group: DataGroup | (Partial<DataGroup> & { serial?: 
       fixed: {
         ...defaultFixedSettings,
         ...(group.fixed ?? {}),
-        quantity: Math.max(1, Number(group.fixed?.quantity ?? defaultFixedSettings.quantity)),
+        quantity: positiveInteger(Number(group.fixed?.quantity ?? defaultFixedSettings.quantity), "Unique records"),
       },
     };
   }
@@ -328,7 +345,7 @@ function normalizeDataGroup(group: DataGroup | (Partial<DataGroup> & { serial?: 
     serial: {
       ...defaultSerialSettings,
       ...(group.serial ?? {}),
-      quantity: Math.max(1, Number(group.serial?.quantity ?? defaultSerialSettings.quantity)),
+      quantity: positiveInteger(Number(group.serial?.quantity ?? defaultSerialSettings.quantity), "Unique records"),
       padding: Math.max(0, Number(group.serial?.padding ?? defaultSerialSettings.padding)),
     },
   };
@@ -411,14 +428,19 @@ export function normalizeProject(project: QrMagicProject | LegacyProject): QrMag
     return normalizeLayerBase(layer);
   });
 
-  return {
+  const normalized: QrMagicProject = {
     ...project,
+    version: 2,
+    production: { copiesPerRecord: positiveInteger(project.production?.copiesPerRecord ?? 1, "Copies per record") },
     colors: {
       recent: normalizeColorList(project.colors?.recent),
       palette: normalizeColorList(project.colors?.palette, DEFAULT_COLOR_PALETTE),
     },
     document: {
       ...project.document,
+      bleedMm: project.version === 1 ? 0 : Number(project.document.bleedMm ?? 0),
+      safeAreaMm: project.document.safeAreaMm ?? Math.min(project.document.width, project.document.height) *
+        (project.document.unit === "in" ? 25.4 : project.document.unit === "px" ? 25.4 / project.document.dpi : 1) * project.document.guides.safeAreaRatio,
       backgroundOpacity: Math.max(
         0,
         Math.min(
@@ -444,6 +466,9 @@ export function normalizeProject(project: QrMagicProject | LegacyProject): QrMag
       groups,
     },
   };
+  productionGeometry(normalized);
+  productionCount(normalized);
+  return normalizeFixedJob(normalized);
 }
 
 export function documentPixelSize(project: QrMagicProject) {
@@ -468,23 +493,13 @@ export function documentPixelSize(project: QrMagicProject) {
 }
 
 export function guideInset(project: QrMagicProject, guide: "bleed" | "safeArea") {
-  const size = documentPixelSize(project);
-  const ratio =
-    guide === "bleed"
-      ? project.document.guides.bleedRatio
-      : project.document.guides.safeAreaRatio;
-  return Math.round(Math.min(size.width, size.height) * ratio);
+  const mm = guide === "bleed" ? (project.document.bleedMm ?? 0) : project.document.safeAreaMm;
+  return Math.round(mm / 25.4 * project.document.dpi);
 }
 
 export function guideSnapRect(project: QrMagicProject, target: GuideSnapTarget) {
   const size = documentPixelSize(project);
-  const inset =
-    target === "bleed" || target === "safeArea" ? guideInset(project, target) : 0;
-
-  return {
-    x: inset,
-    y: inset,
-    width: Math.max(1, size.width - inset * 2),
-    height: Math.max(1, size.height - inset * 2),
-  };
+  const inset = target === "bleed" ? -productionGeometry(project).bleedPixels
+    : target === "safeArea" ? guideInset(project, "safeArea") : 0;
+  return { x: inset, y: inset, width: Math.max(1, size.width - inset * 2), height: Math.max(1, size.height - inset * 2) };
 }

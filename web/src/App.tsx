@@ -3,6 +3,7 @@ import type Konva from "konva";
 import JSZip from "jszip";
 import {
   Focus,
+  FilePlus2,
   FolderOpen,
   Hand,
   Maximize2,
@@ -16,11 +17,15 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { ProjectChooser } from "./components/ProjectChooser";
+import { createPrintRecords, productionCount, productionGeometry, positiveInteger, normalizeFixedJob, jobSummary, isRepeatedJob } from "./lib/production";
 import { EditorCanvas } from "./components/EditorCanvas";
 import { Inspector } from "./components/Inspector";
 import { Sidebar } from "./components/Sidebar";
 import {
   createDataGroup,
+  createFixedDataGroup,
+  convertDataGroupMode,
   createProjectId,
   defaultLayerShadow,
   defaultShapeFill,
@@ -79,11 +84,13 @@ function normalizeHexColor(color: string) {
 }
 
 export function App() {
+  const [chooserOpen, setChooserOpen] = useState(true);
   const [project, setProject] = useState<QrMagicProject>(initialProject);
   const [projectHistory, setProjectHistory] = useState<ProjectHistory>({ past: [], future: [] });
   const [selectedLayerIds, setSelectedLayerIds] = useState([initialProject.layers[0].id]);
   const [selectedRecordIndex, setSelectedRecordIndex] = useState(0);
   const [panelsVisible, setPanelsVisible] = useState(true);
+  const [compactPanel, setCompactPanel] = useState<"document" | "inspector" | null>(null);
   const [exportStatus, setExportStatus] = useState<"template" | "set" | null>(null);
   const [zoom, setZoom] = useState(1);
   const [fitScale, setFitScale] = useState(1);
@@ -94,6 +101,7 @@ export function App() {
   const projectInputRef = useRef<HTMLInputElement | null>(null);
   const pendingProjectHistoryRef = useRef<QrMagicProject | null>(null);
   const projectRef = useRef(project);
+  const lastSavedProjectRef = useRef<QrMagicProject | null>(initialProject);
   const exportLockedRef = useRef(false);
   const records = useMemo(() => createDataRecords(project.data.groups), [project.data.groups]);
   const docSize = useMemo(() => documentPixelSize(project), [project]);
@@ -125,7 +133,13 @@ export function App() {
       if (exportLockedRef.current) return;
 
       setProject((current) => {
-        const nextProject = typeof updater === "function" ? updater(current) : updater;
+        const proposed = typeof updater === "function" ? updater(current) : updater;
+        let nextProject: QrMagicProject;
+        try {
+          nextProject = normalizeFixedJob(proposed);
+          productionCount(nextProject);
+          productionGeometry(nextProject);
+        } catch { return current; }
         if (nextProject === current) return current;
 
         if (options.recordHistory !== false) {
@@ -143,14 +157,22 @@ export function App() {
   const resetProject = useCallback((nextProject: QrMagicProject) => {
     setProject(nextProject);
     setProjectHistory({ past: [], future: [] });
+    projectRef.current = nextProject;
+    lastSavedProjectRef.current = nextProject;
+    pendingProjectHistoryRef.current = null;
   }, []);
+
+  useEffect(() => {
+    // Also normalize an in-progress project retained by the local dev server.
+    updateProject(current => current, { recordHistory: false });
+  }, [updateProject]);
 
   const undoProjectChange = useCallback(() => {
     setProjectHistory((history) => {
       const previousProject = history.past.at(-1);
       if (!previousProject) return history;
 
-      setProject(previousProject);
+      setProject(normalizeFixedJob(previousProject));
       return {
         past: history.past.slice(0, -1),
         future: [project, ...history.future].slice(0, MAX_HISTORY_STEPS),
@@ -163,7 +185,7 @@ export function App() {
       const nextProject = history.future[0];
       if (!nextProject) return history;
 
-      setProject(nextProject);
+      setProject(normalizeFixedJob(nextProject));
       return {
         past: [...history.past, project].slice(-MAX_HISTORY_STEPS),
         future: history.future.slice(1),
@@ -307,16 +329,20 @@ export function App() {
     });
   }
 
-  function addQrLayer() {
+  function addQrLayer(mode: DataGroup["mode"] = "fixed", includeLabel = false) {
     const qrLayerId = createProjectId("layer_qr");
     const serialLayerId = createProjectId("layer_text");
     updateProject((current) => {
-      const group = createDataGroup(
+      const group = (mode === "serial" ? createDataGroup : createFixedDataGroup)(
         uniqueName(
-          "QR serial",
+          mode === "serial" ? "QR serial" : "QR content",
           current.data.groups.map((groupItem) => groupItem.name),
         ),
       );
+      const count = productionCount(current);
+      const wasRepeated = isRepeatedJob(current);
+      if (group.mode === "fixed") group.fixed.quantity = 1;
+      if (group.mode === "serial") group.serial.quantity = wasRepeated ? count.total : count.records;
       const layerNames = current.layers.map((layer) => layer.name);
       const qrX = Math.round(docSize.width * 0.35);
       const qrY = Math.round(docSize.height * 0.3);
@@ -375,11 +401,12 @@ export function App() {
 
       return {
         ...current,
+        production: wasRepeated && mode === "serial" ? { copiesPerRecord: 1 } : current.production,
         data: {
           mode: "serial",
           groups: [...current.data.groups, group],
         },
-        layers: [...current.layers, qrLayer, serialLayer],
+        layers: [...current.layers, qrLayer, ...(includeLabel ? [serialLayer] : [])],
       };
     });
     setSelectedLayerIds([qrLayerId]);
@@ -458,45 +485,65 @@ export function App() {
   }
 
   function updateDataGroupMode(groupId: string, mode: DataGroup["mode"]) {
-    updateProject((current) => ({
-      ...current,
-      data: {
-        ...current.data,
-        groups: current.data.groups.map((group) => {
-          if (group.id !== groupId || group.mode === mode) return group;
-          if (mode === "fixed") {
-            return {
-              id: group.id,
-              name: group.name,
-              mode: "fixed",
-              fixed: {
-                value: group.mode === "serial" ? `${group.serial.prefix}${group.serial.suffix}` : "QR-FIXED",
-                quantity: group.mode === "serial" ? group.serial.quantity : 10,
-              },
-            };
-          }
-          return {
-            id: group.id,
-            name: group.name,
-            mode: "serial",
-            serial: {
-              prefix: group.mode === "fixed" ? group.fixed.value : "QR-",
-              suffix: "",
-              start: 1,
-              quantity: group.mode === "fixed" ? group.fixed.quantity : 10,
-              step: 1,
-              padding: 4,
-            },
-          };
-        }),
-      },
-    }));
+    updateProject(current => {
+      const count = productionCount(current);
+      const wasRepeated = isRepeatedJob(current);
+      const quantity = wasRepeated ? count.total : count.records;
+      return { ...current,
+        production: wasRepeated && mode === "serial" ? { copiesPerRecord: 1 } : current.production,
+        data: { ...current.data, groups: current.data.groups.map(group => group.id === groupId
+          ? convertDataGroupMode(group, mode, quantity) : group) },
+      };
+    });
+  }
+
+  function changeQrContentMode(layerId: string, mode: DataGroup["mode"]) {
+    updateProject(current => {
+      const layer = current.layers.find(item => item.id === layerId);
+      if (layer?.type !== "qr") return current;
+      const count = productionCount(current);
+      const wasRepeated = isRepeatedJob(current);
+      const quantity = wasRepeated ? count.total : count.records;
+      const existing = current.data.groups.find(group => group.id === layer.dataGroupId);
+      const base = existing ?? createFixedDataGroup("QR content");
+      const source = convertDataGroupMode(base, mode, quantity);
+      return { ...current,
+        production: wasRepeated && mode === "serial" ? { copiesPerRecord: 1 } : current.production,
+        data: { ...current.data, groups: existing
+          ? current.data.groups.map(group => group.id === source.id ? source : group)
+          : [...current.data.groups, source] },
+        layers: current.layers.map(item => item.id === layerId
+          ? { ...layer, dataGroupId: source.id, payloadTemplate: "{{serial}}" } : item),
+      };
+    });
+  }
+
+  function makeQrIndependent(layerId: string) {
+    updateProject(current => {
+      const layer = current.layers.find(item => item.id === layerId);
+      if (layer?.type !== "qr") return current;
+      const group = current.data.groups.find(source => source.id === layer.dataGroupId);
+      if (!group) return current;
+      const source = { ...structuredClone(group), id: createProjectId("group"), name: `${group.name} (independent)` };
+      return { ...current, data: { ...current.data, groups: [...current.data.groups, source] },
+        layers: current.layers.map(item => item.id === layerId ? { ...layer, dataGroupId: source.id } : item) };
+    });
   }
 
   function updateDocument(
     patch: Partial<QrMagicProject["document"]>,
     options?: ProjectUpdateOptions,
   ) {
+    if (patch.unit && patch.unit !== project.document.unit) {
+      const mmPerUnit = (unit: QrMagicProject["document"]["unit"]) =>
+        unit === "mm" ? 1 : unit === "in" ? 25.4 : 25.4 / project.document.dpi;
+      const factor = mmPerUnit(project.document.unit) / mmPerUnit(patch.unit);
+      patch = { ...patch, width: project.document.width * factor, height: project.document.height * factor };
+    }
+    const next = { ...project.document, ...patch };
+    if (![next.width, next.height, next.dpi].every(value => Number.isFinite(value) && value > 0)) return;
+    if (![next.bleedMm, next.safeAreaMm].every(value => Number.isFinite(value) && value >= 0 && value <= 25)) return;
+    if (next.dpi > 1200) return;
     updateProject((current) => ({
       ...current,
       document: {
@@ -623,7 +670,7 @@ export function App() {
     if (exportLockedRef.current) return;
 
     const projectSnapshot = projectRef.current;
-    const recordSnapshot = createDataRecords(projectSnapshot.data.groups);
+    const recordSnapshot = createPrintRecords(projectSnapshot);
     const format = getExportSetFormat(projectSnapshot);
     const zip = new JSZip();
     const usedFilenames = new Set<string>();
@@ -639,11 +686,16 @@ export function App() {
         return;
       }
 
+      let previousRecord: typeof currentRecord | undefined;
+      let recordBlob: Blob | undefined;
       for (const record of recordSnapshot) {
-        const blob = await renderProjectImageBlob(projectSnapshot, record, {
-          includeGuides: projectSnapshot.export.includeGuides,
-          format,
-        });
+        if (record !== previousRecord || !recordBlob) {
+          recordBlob = await renderProjectImageBlob(projectSnapshot, record, {
+            includeGuides: projectSnapshot.export.includeGuides,
+            format,
+          });
+          previousRecord = record;
+        }
         const requestedBaseName = sanitizeFilename(
           renderTemplate(projectSnapshot.export.filenameTemplate, record),
         );
@@ -654,7 +706,7 @@ export function App() {
           duplicateIndex += 1;
         }
         usedFilenames.add(`${baseName}.${format}`);
-        zip.file(`${baseName}.${format}`, blob);
+        zip.file(`${baseName}.${format}`, recordBlob);
       }
 
       const blob = await zip.generateAsync({ type: "blob" });
@@ -680,13 +732,20 @@ export function App() {
       new Blob([JSON.stringify(projectFile, null, 2)], { type: "application/json" }),
       `${sanitizeFilename(project.document.name)}.qrmagic.json`,
     );
+    lastSavedProjectRef.current = project;
+  }
+
+  function canReplaceProject() {
+    return projectRef.current === lastSavedProjectRef.current || window.confirm(
+      "Replace the current design? Save a project file first to keep your changes.",
+    );
   }
 
   function isProject(value: unknown): value is QrMagicProject {
     if (!value || typeof value !== "object") return false;
     const candidate = value as Partial<QrMagicProject>;
     return (
-      candidate.version === 1 &&
+      (candidate.version === 1 || candidate.version === 2) &&
       Boolean(candidate.document) &&
       Array.isArray(candidate.layers) &&
       Boolean(candidate.data) &&
@@ -712,7 +771,9 @@ export function App() {
           window.alert("That file does not look like a QR Magic project.");
           return;
         }
+        if (!canReplaceProject()) return;
         resetProject(loadedProject);
+        setChooserOpen(false);
         setSelectedLayerIds([loadedProject.layers[0]?.id ?? ""].filter(Boolean));
         setSelectedRecordIndex(0);
         setZoom(1);
@@ -932,6 +993,17 @@ export function App() {
 
   return (
     <main className="app-shell">
+      {chooserOpen ? <ProjectChooser onClose={() => setChooserOpen(false)}
+        onOpen={() => projectInputRef.current?.click()}
+        onCreate={next => {
+          if (!canReplaceProject()) return;
+          resetProject(next);
+          lastSavedProjectRef.current = null;
+          projectRef.current = next;
+          pendingProjectHistoryRef.current = null;
+          setSelectedLayerIds([next.layers.find(layer => layer.type === "qr")?.id ?? next.layers[0]?.id ?? ""].filter(Boolean));
+          setSelectedRecordIndex(0); setZoom(1); setActiveTool("select"); setChooserOpen(false);
+        }} /> : null}
       <header className="topbar">
         <div className="brand">
           <ScanQrCode size={24} />
@@ -992,6 +1064,7 @@ export function App() {
             <Focus size={17} />
           </button>
           <span className="toolbar-divider" />
+          <button className="tool-button" title="New project" aria-label="New project" disabled={isExportLocked} onClick={() => setChooserOpen(true)}><FilePlus2 size={17} /></button>
           <button
             className="tool-button"
             title="Open project"
@@ -1003,6 +1076,8 @@ export function App() {
           <button className="tool-button" title="Save project" onClick={saveProjectFile} disabled={isExportLocked}>
             <Save size={17} />
           </button>
+          <button className="compact-panel-button" aria-pressed={compactPanel === "document"} onClick={() => { setPanelsVisible(true); setCompactPanel(current => current === "document" ? null : "document"); }}>Document & job</button>
+          <button className="compact-panel-button" aria-pressed={compactPanel === "inspector"} onClick={() => { setPanelsVisible(true); setCompactPanel(current => current === "inspector" ? null : "inspector"); }}>Inspector</button>
           <input
             ref={projectInputRef}
             type="file"
@@ -1027,13 +1102,13 @@ export function App() {
           />
         </nav>
         <div className="topbar-status">
-          <span>{records.length.toLocaleString()} records</span>
+          <span aria-live="polite">{jobSummary(project)}</span>
           <strong>{currentRecord.serial}</strong>
         </div>
       </header>
 
       <div
-        className={`workspace ${panelsVisible ? "" : "panels-hidden"} ${
+        className={`workspace ${compactPanel ? `compact-${compactPanel}` : ""} ${panelsVisible ? "" : "panels-hidden"} ${
           isExportLocked ? "export-locked" : ""
         }`}
         aria-busy={isExportLocked}
@@ -1048,6 +1123,13 @@ export function App() {
             onUpdateDataGroupFixed={updateDataGroupFixed}
             onUpdateDataGroupMode={updateDataGroupMode}
             onUpdateDocument={updateDocument}
+            onUpdateProduction={(copies) => {
+              try {
+                positiveInteger(copies, "Copies per record");
+                if (copies * records.length > 100000) return;
+                updateProject(current => ({ ...current, production: { copiesPerRecord: copies } }));
+              } catch { /* Keep the last valid quantity while editing. */ }
+            }}
             onBeginProjectChange={beginProjectChangeTransaction}
             onCommitProjectChange={commitProjectChangeTransaction}
             onUseColor={rememberColor}
@@ -1085,6 +1167,9 @@ export function App() {
             selectedLayerCount={selectedLayerIds.length}
             project={project}
             dataGroups={project.data.groups}
+            onChangeQrMode={changeQrContentMode}
+            onChangeFixed={updateDataGroupFixed}
+            onMakeQrIndependent={makeQrIndependent}
             onUpdateLayer={updateLayer}
             onExportPng={exportPngTemplate}
             onUseColor={rememberColor}

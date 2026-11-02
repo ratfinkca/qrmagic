@@ -58,6 +58,10 @@ Before the first deploy, open the repository on GitHub, go to **Settings > Pages
 
 Current prototype capabilities include:
 
+* A new-project chooser for numbered decals, posters, repeated stickers, and blank designs, plus opening saved files.
+* Finished-size documents with physical outside bleed, saved cut geometry, safe-area guides, and separate copies per record.
+* Version 1 project migration that preserves artwork placement, record ordering, and exported size.
+* Bleed-inclusive raster output and PDFs with finished-size TrimBox and external BleedBox metadata.
 * Visual canvas editor with select, pan, zoom, lasso, and multi-select.
 * DPI-aware document setup with page color, transparency, trim, bleed, and safe-area guides.
 * Layer management for shape/color, image, QR, and text layers.
@@ -72,6 +76,7 @@ Current prototype capabilities include:
 
 Known prototype limits:
 
+* Cut geometry is saved and previewed; machine spot-color cutting separations, PDF/X validation, color conversion, and roll/sheet imposition are future phases. Mimaki is the first target for print-and-cut validation.
 * Layered/vector/design-tool exports are planned but not implemented.
 * CSV import and manifest export are still planned.
 * The production build currently emits a large-bundle warning because canvas, QR, ZIP, and export libraries are all loaded in the main client bundle.

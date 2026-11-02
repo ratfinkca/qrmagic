@@ -14,6 +14,7 @@ import {
   Trash2,
   Type,
 } from "lucide-react";
+import { isRepeatedJob, usesRecordIndex, jobSummary } from "../lib/production";
 import { ColorControl } from "./ColorControl";
 import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
 import type { DataGroup, ProjectLayer, QrMagicProject } from "../types";
@@ -33,6 +34,7 @@ type SidebarProps = {
     patch: Partial<QrMagicProject["document"]>,
     options?: { recordHistory?: boolean },
   ) => void;
+  onUpdateProduction: (copies: number) => void;
   onBeginProjectChange: () => void;
   onCommitProjectChange: () => void;
   onUseColor: (color: string) => void;
@@ -40,7 +42,7 @@ type SidebarProps = {
   onRemoveColor: (color: string) => void;
   onAddShapeLayer: () => void;
   onAddTextLayer: () => void;
-  onAddQrLayer: () => void;
+  onAddQrLayer: (mode?: DataGroup["mode"], includeLabel?: boolean) => void;
   onAddImageLayer: () => void;
   onToggleLayerVisibility: (layerId: string) => void;
   onDeleteLayer: (layerId: string) => void;
@@ -58,6 +60,7 @@ export function Sidebar({
   onUpdateDataGroupFixed,
   onUpdateDataGroupMode,
   onUpdateDocument,
+  onUpdateProduction,
   onBeginProjectChange,
   onCommitProjectChange,
   onUseColor,
@@ -73,13 +76,15 @@ export function Sidebar({
 }: SidebarProps) {
   const [openPanels, setOpenPanels] = useState<Record<OpenPanel, boolean>>({
     document: true,
-    guides: true,
+    guides: false,
     data: true,
     layers: true,
   });
   const layersTopFirst = [...project.layers].reverse();
   const selectedLayerSet = new Set(selectedLayerIds);
-  const hasSerialGroup = project.data.groups.some((group) => group.mode === "serial");
+  const repeated = isRepeatedJob(project);
+  const indexed = usesRecordIndex(project);
+  const serialGroup = project.data.groups.find(group => group.mode === "serial");
   const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null);
   const [dragOverLayerId, setDragOverLayerId] = useState<string | null>(null);
 
@@ -93,7 +98,9 @@ export function Sidebar({
   function handleAddLayer(value: string) {
     if (value === "shape") onAddShapeLayer();
     if (value === "text") onAddTextLayer();
-    if (value === "qr") onAddQrLayer();
+    if (value === "qr") onAddQrLayer("fixed");
+    if (value === "qr-serial") onAddQrLayer("serial");
+    if (value === "qr-label") onAddQrLayer("serial", true);
     if (value === "image") onAddImageLayer();
   }
 
@@ -158,7 +165,7 @@ export function Sidebar({
             </label>
             <div className="field-grid">
               <label>
-                Width
+                Finished width
                 <input
                   type="number"
                   value={project.document.width}
@@ -166,7 +173,7 @@ export function Sidebar({
                 />
               </label>
               <label>
-                Height
+                Finished height
                 <input
                   type="number"
                   value={project.document.height}
@@ -190,14 +197,7 @@ export function Sidebar({
                   <option value="px">px</option>
                 </select>
               </label>
-              <label>
-                DPI
-                <input
-                  type="number"
-                  value={project.document.dpi}
-                  onChange={(event) => onUpdateDocument({ dpi: Number(event.target.value) })}
-                />
-              </label>
+
             </div>
             <div className="document-color-field">
               <div className="field-grid">
@@ -231,13 +231,175 @@ export function Sidebar({
                 </label>
               </div>
             </div>
-            <div className="guide-controls">
-              <button className="subpanel-heading" onClick={() => togglePanel("guides")}>
-                <span>Guides</span>
-                {openPanels.guides ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-              </button>
-              {openPanels.guides ? (
-                <>
+                  <label>
+                    Cut shape
+                    <select
+                      aria-label="Cut shape"
+                      value={project.document.shape.shape}
+                      onChange={(event) =>
+                        onUpdateDocument({
+                          shape: {
+                            ...presetShapeGeometry(
+                              event.target.value as QrMagicProject["document"]["shape"]["shape"],
+                            ),
+                          },
+                        })
+                      }
+                    >
+                      {SHAPE_OPTIONS.map((option) => (
+                        <option value={option.value} key={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {project.document.shape.shape === "rectangle" ? (
+                    <label>
+                      Cut corner radius (mm)
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={Number((project.document.shape.cornerRadius / project.document.dpi * 25.4).toFixed(3))}
+                        onChange={(event) =>
+                          onUpdateDocument({
+                            shape: {
+                              ...project.document.shape,
+                              cornerRadius: Math.max(0, Number(event.target.value)) / 25.4 * project.document.dpi,
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                  ) : null}
+                  {!["rectangle", "ellipse", "pill"].includes(project.document.shape.shape) ? <details className="shape-customize">
+                    <summary>Customize outline</summary>
+                    <div className="field-grid">
+                      {project.document.shape.shape !== "diamond" ? <label>
+                        Points
+                        <input
+                          type="number"
+                          min="3"
+                          max="12"
+                          value={project.document.shape.vertices}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                vertices: Math.max(3, Math.min(12, Number(event.target.value))),
+                              },
+                            })
+                          }
+                        />
+                      </label> : null}
+                      <label>
+                        Inner radius ({Math.round(project.document.shape.vertexInset * 100)}%)
+                        <input
+                          type="range"
+                          min="0.1"
+                          max="1"
+                          step="0.05"
+                          value={project.document.shape.vertexInset}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                vertexInset: Number(event.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                    <div className="field-grid">
+                      <label>
+                        Corner rounding ({Math.round(project.document.shape.vertexRadius * 100)}%)
+                        <input
+                          type="range"
+                          min="0"
+                          max="0.45"
+                          step="0.01"
+                          value={project.document.shape.vertexRadius}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                vertexRadius: Number(event.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Side curve ({project.document.shape.sideDeflection.toFixed(2)})
+                        <input
+                          type="range"
+                          min="-1"
+                          max="1"
+                          step="0.05"
+                          value={project.document.shape.sideDeflection}
+                          onChange={(event) =>
+                            onUpdateDocument({
+                              shape: {
+                                ...project.document.shape,
+                                sideDeflection: Number(event.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  </details> : null}
+          </>
+        ) : null}
+      </section>
+
+      <section className="panel">
+        <button className="panel-heading" onClick={() => togglePanel("guides")} aria-expanded={openPanels.guides}>
+          <span>Print setup</span>{openPanels.guides ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </button>
+        {openPanels.guides ? <>
+              <label>
+                DPI
+                <input
+                  type="number"
+                  value={project.document.dpi}
+                  onChange={(event) => onUpdateDocument({ dpi: Number(event.target.value) })}
+                />
+              </label>                  <div className="field-grid">
+                    <label>
+                      Bleed outside cut (mm)
+                      <input
+                        aria-describedby="document-bleed-tip"
+                        type="number"
+                        min="0"
+                        max="25"
+                        step="0.25"
+                        value={project.document.bleedMm}
+                        onChange={(event) =>
+                          onUpdateDocument({
+                            bleedMm: Number(event.target.value),
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      Safe inset (mm)
+                      <input
+                        type="number"
+                        min="0"
+                        max="40"
+                        step="0.5"
+                        value={project.document.safeAreaMm}
+                        onChange={(event) =>
+                          onUpdateDocument({
+                            safeAreaMm: Number(event.target.value),
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <p className="chooser-hint" id="document-bleed-tip">Bleed is extra artwork beyond the cut edge. Extend backgrounds into it to prevent white edges when trimming. Use your print shop’s required amount, or 0 for no bleed.</p>
                   <label className="checkbox-row">
                     <input
                       type="checkbox"
@@ -297,178 +459,35 @@ export function Sidebar({
                       Safe
                     </label>
                   </div>
-                  <label>
-                    Guide shape
-                    <select
-                      value={project.document.shape.shape}
-                      onChange={(event) =>
-                        onUpdateDocument({
-                          shape: {
-                            ...presetShapeGeometry(
-                              event.target.value as QrMagicProject["document"]["shape"]["shape"],
-                            ),
-                          },
-                        })
-                      }
-                    >
-                      {SHAPE_OPTIONS.map((option) => (
-                        <option value={option.value} key={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {project.document.shape.shape === "rectangle" ? (
-                    <label>
-                      Guide corner radius
-                      <input
-                        type="number"
-                        min="0"
-                        value={project.document.shape.cornerRadius}
-                        onChange={(event) =>
-                          onUpdateDocument({
-                            shape: {
-                              ...project.document.shape,
-                              cornerRadius: Math.max(0, Number(event.target.value)),
-                            },
-                          })
-                        }
-                      />
-                    </label>
-                  ) : null}
-                  <details className="shape-customize">
-                    <summary>Customize shape</summary>
-                    <div className="field-grid">
-                      <label>
-                        Vertices
-                        <input
-                          type="number"
-                          min="3"
-                          max="12"
-                          value={project.document.shape.vertices}
-                          onChange={(event) =>
-                            onUpdateDocument({
-                              shape: {
-                                ...project.document.shape,
-                                vertices: Math.max(3, Math.min(12, Number(event.target.value))),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                      <label>
-                        Vertex inset
-                        <input
-                          type="range"
-                          min="0.1"
-                          max="1"
-                          step="0.05"
-                          value={project.document.shape.vertexInset}
-                          onChange={(event) =>
-                            onUpdateDocument({
-                              shape: {
-                                ...project.document.shape,
-                                vertexInset: Number(event.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                    <div className="field-grid">
-                      <label>
-                        Vertex radius
-                        <input
-                          type="range"
-                          min="0"
-                          max="0.45"
-                          step="0.01"
-                          value={project.document.shape.vertexRadius}
-                          onChange={(event) =>
-                            onUpdateDocument({
-                              shape: {
-                                ...project.document.shape,
-                                vertexRadius: Number(event.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                      <label>
-                        Side deflection
-                        <input
-                          type="range"
-                          min="-1"
-                          max="1"
-                          step="0.05"
-                          value={project.document.shape.sideDeflection}
-                          onChange={(event) =>
-                            onUpdateDocument({
-                              shape: {
-                                ...project.document.shape,
-                                sideDeflection: Number(event.target.value),
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-                  </details>
-                  <div className="field-grid">
-                    <label>
-                      Bleed %
-                      <input
-                        type="number"
-                        min="0"
-                        max="20"
-                        step="0.25"
-                        value={Number((project.document.guides.bleedRatio * 100).toFixed(2))}
-                        onChange={(event) =>
-                          onUpdateDocument({
-                            guides: {
-                              ...project.document.guides,
-                              bleedRatio: Number(event.target.value) / 100,
-                            },
-                          })
-                        }
-                      />
-                    </label>
-                    <label>
-                      Safe %
-                      <input
-                        type="number"
-                        min="0"
-                        max="40"
-                        step="0.5"
-                        value={Number((project.document.guides.safeAreaRatio * 100).toFixed(2))}
-                        onChange={(event) =>
-                          onUpdateDocument({
-                            guides: {
-                              ...project.document.guides,
-                              safeAreaRatio: Number(event.target.value) / 100,
-                            },
-                          })
-                        }
-                      />
-                    </label>
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </>
-        ) : null}
+        </> : null}
       </section>
 
       <section className="panel">
         <button className="panel-heading" onClick={() => togglePanel("data")}>
           <span className="panel-title">
             <Database size={16} />
-            <span>Data</span>
+            <span>Job</span>
           </span>
           {openPanels.data ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
         </button>
         {openPanels.data ? (
           <>
+            <label>{repeated ? "Quantity" : "Copies of each"}
+              <input type="number" min="1" max="100000" step="1" value={project.production.copiesPerRecord}
+                onChange={event => onUpdateProduction(Number(event.target.value))} />
+            </label>
+            <p className="chooser-hint" aria-live="polite">{jobSummary(project)}</p>
+            {serialGroup?.mode === "serial" ? <>
+              <label>Number of serials<input type="number" min="1" max="100000" value={serialGroup.serial.quantity}
+                onChange={event => onUpdateDataGroupSerial(serialGroup.id, { quantity: Number(event.target.value) })} /></label>
+              <div className="field-grid">
+                <label>Prefix<input value={serialGroup.serial.prefix} onChange={event => onUpdateDataGroupSerial(serialGroup.id, { prefix: event.target.value })} /></label>
+                <label>Start<input type="number" value={serialGroup.serial.start} onChange={event => onUpdateDataGroupSerial(serialGroup.id, { start: Number(event.target.value) })} /></label>
+              </div>
+            </> : null}
+            <details className="editor-disclosure">
+              <summary>Advanced content sources</summary>
+              <p className="chooser-hint">Sources can be shared by QR and text layers. Fixed values stay present on every item. Numbered sources advance with the job.</p>
             <div className="data-group-list">
               {project.data.groups.map((group) => (
                 <div className="data-group-editor" key={group.id}>
@@ -539,7 +558,7 @@ export function Sidebar({
                   </div>
                   <div className="field-grid">
                     <label>
-                      Quantity
+                      Unique records
                       <input
                         type="number"
                         min="1"
@@ -577,30 +596,25 @@ export function Sidebar({
                           }
                         />
                       </label>
-                      <label>
-                        Quantity
+                      {indexed ? <label>
+                        Indexed variations
                         <input
                           type="number"
                           min="1"
                           value={group.fixed.quantity}
-                          disabled={hasSerialGroup}
-                          title={
-                            hasSerialGroup
-                              ? "Serial data groups control quantity when present."
-                              : "Fixed-only jobs repeat this value for the set quantity."
-                          }
                           onChange={(event) =>
                             onUpdateDataGroupFixed(group.id, {
                               quantity: Math.max(1, Number(event.target.value)),
                             })
                           }
                         />
-                      </label>
+                      </label> : null}
                     </>
                   )}
                 </div>
               ))}
             </div>
+            </details>
           </>
         ) : null}
       </section>
@@ -618,6 +632,7 @@ export function Sidebar({
             <label>
               Add layer
               <select
+                aria-label="Add layer"
                 value=""
                 onChange={(event) => {
                   handleAddLayer(event.target.value);
@@ -630,7 +645,9 @@ export function Sidebar({
                 <option value="image">Image from file</option>
                 <option value="shape">Color / shape</option>
                 <option value="text">Text</option>
-                <option value="qr">QR code</option>
+                <option value="qr">QR code · same on every item</option>
+                <option value="qr-serial">QR code · numbered</option>
+                <option value="qr-label">Numbered QR + serial label</option>
               </select>
             </label>
             <div className="layer-list">
