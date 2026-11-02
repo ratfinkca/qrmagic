@@ -1,4 +1,5 @@
 import Konva from "konva";
+import { SceneCanvas } from "konva/lib/Canvas";
 import { colorWithOpacity, layerShadowProps, shapeFillProps, shapeGeometryProps, textLayerProps } from "./layerRendering";
 import {
   PDFDict,
@@ -18,6 +19,8 @@ type RenderOptions = {
 };
 export type GuideExportLayer = "bleed" | "trim" | "safeArea";
 export type RasterExportFormat = "png" | "jpg";
+
+const renderCanvases = new WeakMap<CanvasRenderingContext2D, { scene: SceneCanvas; buffer: SceneCanvas }>();
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>();
 
@@ -76,8 +79,9 @@ function drawLayerFrame(
 
 function paintNode(context: CanvasRenderingContext2D, node: Konva.Node) {
   try {
-    const canvas = node.toCanvas({ x: 0, y: 0, width: context.canvas.width, height: context.canvas.height, pixelRatio: 1 });
-    context.drawImage(canvas, 0, 0);
+    // Draw into the final surface to avoid a second alpha-compositing round trip.
+    const target = renderCanvases.get(context)!;
+    node.drawScene(target.scene, undefined, target.buffer);
   } finally { node.destroy(); }
 }
 
@@ -246,13 +250,14 @@ async function renderProjectCanvas(
   await document.fonts?.ready;
 
   const size = documentPixelSize(project);
-  const canvas = document.createElement("canvas");
-  canvas.width = size.width;
-  canvas.height = size.height;
+  const scene = new SceneCanvas({ ...size, pixelRatio: 1 });
+  const canvas = scene._canvas;
   const context = canvas.getContext("2d");
   if (!context) {
     throw new Error("Could not create export canvas.");
   }
+
+  renderCanvases.set(context, { scene, buffer: new SceneCanvas({ ...size, pixelRatio: 1 }) });
 
   if (!project.document.transparentBackground) {
     context.fillStyle = colorWithOpacity(project.document.backgroundColor, project.document.backgroundOpacity);
