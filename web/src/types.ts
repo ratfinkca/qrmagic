@@ -154,9 +154,16 @@ export type FixedDataGroup = {
 
 export type DataGroup = SerialDataGroup | FixedDataGroup;
 
+export type PrintLayoutSettings = {
+  media: "roll" | "sheet"; units: "mm" | "in";
+  widthMm: number; heightMm: number;
+  marginTop: number; marginRight: number; marginBottom: number; marginLeft: number;
+  gapX: number; gapY: number; orientation: "best" | "original" | "rotated";
+};
+
 export type QrMagicProject = {
   version: 1 | 2;
-  production: { copiesPerRecord: number };
+  production: { copiesPerRecord: number; layout?: PrintLayoutSettings };
   colors: {
     recent: string[];
     palette: string[];

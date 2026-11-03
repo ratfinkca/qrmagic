@@ -1,6 +1,6 @@
 # Print Layout: roll and sheet production
 
-Status: proposed design for review. The production PDF foundation is committed separately as `b1553ca`; no layout product code has been added yet.
+Status: approved, implemented and reviewed by the user on 2026-11-03, then authorized for release. The production PDF foundation is committed separately as `b1553ca`.
 
 ## Intent
 

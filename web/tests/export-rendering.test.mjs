@@ -16,6 +16,186 @@ let initialProject;
 let fixtureIndex = 0;
 const pageErrors = [];
 
+test("generated QR previews release source images while imported artwork remains reusable",async()=>{
+  const result=await page.evaluate(async()=>{
+    const {renderProjectPngBlob}=await import("/qrmagic/src/lib/exportRenderer.ts");
+    const {createStarterProject}=await import("/qrmagic/src/lib/templates.ts");
+    const {createDataRecords}=await import("/qrmagic/src/lib/serial.ts");
+    const {defaultLayerShadow}=await import("/qrmagic/src/lib/project.ts");
+    const {renderStyledQrDataUrl}=await import("/qrmagic/src/lib/qrStyling.ts");
+    const project=createStarterProject("stickers",{width:25.4,height:25.4,payload:`https://example.com/cache/${Date.now()}`});
+    project.layers=project.layers.filter(layer=>layer.type==="qr");
+    const record=createDataRecords(project.data.groups)[0],Original=window.Image;
+    const qrSource=await renderStyledQrDataUrl(project.layers[0],record);
+    const canvas=document.createElement("canvas");canvas.width=2;canvas.height=2;canvas.getContext("2d").fillRect(0,0,2,2);
+    const asset=canvas.toDataURL();let generated=0,imported=0;
+    window.Image=class extends Original{
+      set src(value){if(value===qrSource)generated++;if(value===asset)imported++;super.src=value;}
+      get src(){return super.src;}
+    };
+    try{
+      await renderProjectPngBlob(project,record,{includeGuides:false});
+      await renderProjectPngBlob(project,record,{includeGuides:false});
+      project.layers=[{...project.layers[0],...defaultLayerShadow,id:"image-reuse",type:"image",src:asset,assetId:"asset",fit:"stretch"}];
+      await renderProjectPngBlob(project,record,{includeGuides:false});
+      await renderProjectPngBlob(project,record,{includeGuides:false});
+      return {generated,imported};
+    }finally{window.Image=Original;}
+  });
+  assert.equal(result.generated,2,"ephemeral QR images must not be retained in the permanent image cache");
+  assert.equal(result.imported,1,"imported artwork keeps its reusable image cache");
+});
+
+test("layout PDF panels preserve rotated serial/fixed QR artwork, counts, cut references and cancellation", async () => {
+  const result=await page.evaluate(async()=>{
+    const { exportLayoutPackage }=await import("/qrmagic/src/lib/printLayoutExport.ts");
+    const { defaultLayoutSettings,calculateLayout,layoutPanel }=await import("/qrmagic/src/lib/printLayout.ts");
+    const { createStarterProject }=await import("/qrmagic/src/lib/templates.ts");
+    const { initialProject }=await import("/qrmagic/src/lib/project.ts");
+    const { getDocument,decodeQr,JSZip }=await import("/qrmagic/tests/pdf-fixture.ts");
+    const project=createStarterProject("stickers",{width:50.8,height:76.2,copies:2});
+    const serial=structuredClone(initialProject.data.groups[0]); serial.serial.quantity=3;
+    project.data.groups=[serial,{id:"fixed",name:"Static",mode:"fixed",fixed:{quantity:1,value:"https://example.com/static"}}];
+    const qr=project.layers.find(l=>l.type==="qr"); qr.dataGroupId=serial.id;
+    project.layers.push({...qr,id:"static-qr",dataGroupId:"fixed",width:200,height:200,x:350,y:650,margin:25});
+    const title=project.layers.find(l=>l.type==="text"); title.textTemplate="Item {{serial}}";title.dataGroupId=serial.id; title.fontSize=30;
+    const settings={...defaultLayoutSettings(),media:"sheet",widthMm:190,heightMm:140,gapX:4,gapY:4,orientation:"rotated"};
+    const progress=[];
+    const blob=await exportLayoutPackage(project,settings,{onProgress:p=>progress.push(p)});
+    const zip=await JSZip.loadAsync(blob);
+    const bytes=await zip.file("artwork.pdf").async("uint8array");
+    const loading=getDocument({data:bytes.slice()}),pdf=await loading.promise;
+    const plan=calculateLayout(project,settings),pages=[];
+    for(let index=0;index<plan.panelCount;index++) {
+      const panel=layoutPanel(plan,index),pdfPage=await pdf.getPage(index+1);
+      const viewport=pdfPage.getViewport({scale:300/72}),canvas=document.createElement("canvas");canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
+      const ctx=canvas.getContext("2d"); await pdfPage.render({canvas,canvasContext:ctx,viewport}).promise;
+      const decoded=[];
+      for(const placement of panel.placements) {
+        // Decode each QR in its own rotated source rectangle to avoid finding just
+        // the first symbol when an item deliberately contains two independent QRs.
+        const codes=[];
+        for(const layer of project.layers.filter(l=>l.type==="qr")) {
+          const scale=25.4/project.document.dpi;
+          const x=(placement.xMm+plan.itemHeightMm-project.document.bleedMm-(layer.y+layer.height)*scale)*300/25.4;
+          const y=(placement.yMm+project.document.bleedMm+layer.x*scale)*300/25.4;
+          const image=ctx.getImageData(Math.round(x),Math.round(y),Math.round(layer.height),Math.round(layer.width));
+          codes.push(decodeQr(image.data,image.width,image.height)?.data);
+        }
+        decoded.push(codes);
+      }
+      pages.push({decoded,text:(await pdfPage.getTextContent()).items.map(i=>i.str).join(" ")});
+    }
+    await loading.destroy();
+    const abort=new AbortController(); let aborted=false;
+    try {await exportLayoutPackage(project,settings,{signal:abort.signal,onProgress:p=>{if(p.stage==="panels")abort.abort();}});}catch(e){aborted=e.name==="AbortError";}
+    return {bytes:[...bytes],pages,progress,aborted,job:JSON.parse(await zip.file("job.json").async("string")),
+      csv:await zip.file("placements.csv").async("string"),svg:await zip.file("cut-reference/panel-0002.svg").async("string"),
+      preflight:JSON.parse(await zip.file("preflight.json").async("string"))};
+  });
+  const pdf=await PDFDocument.load(Uint8Array.from(result.bytes));
+  assert.equal(pdf.getPageCount(),2);
+  assert.ok(Math.abs(pdf.getPage(0).getWidth()-190/25.4*72)<0.001);
+  assert.ok(Math.abs(pdf.getPage(0).getHeight()-140/25.4*72)<0.001);
+  assert.deepEqual(result.pages.flatMap(p=>p.decoded),[1,1,2,2,3,3].map(i=>[`PARK-000${i}`,"https://example.com/static"]));
+  assert.match(result.pages.at(-1).text,/PARK-0003/);
+  assert.equal(result.job.quantity.total,6); assert.equal(result.preflight.stats.uniqueRecords,3);
+  assert.equal(result.csv.trim().split(/\r?\n/).length,7);
+  assert.equal((result.svg.match(/data-item=/g)||[]).length,2);
+  assert.match(result.svg,/rotate\(90\)/); assert.equal(result.aborted,true);
+  assert.ok(result.progress.some(p=>p.stage==="panels"&&p.completed===2));
+});
+
+test("print layout workspace validates, navigates, saves settings and works on narrow screens",async()=>{
+  await page.reload(); await page.getByRole("button",{name:"Close new project",exact:true}).click();
+  await page.getByRole("button",{name:"Print layout",exact:true}).click();
+  await page.getByRole("heading",{name:"Print layout",exact:true}).waitFor();
+  await page.setViewportSize({width:1280,height:720});
+  assert.equal(await page.getByRole("button",{name:"Download layout package",exact:true}).evaluate(element=>element.getBoundingClientRect().bottom<=window.innerHeight),true,"download action remains visible on a laptop screen");
+  await page.setViewportSize({width:1600,height:1000});
+  await page.getByLabel("Roll width",{exact:true}).fill("80");
+  await page.getByRole("alert").filter({hasText:/do not fit/}).waitFor();
+  assert.equal(await page.getByRole("button",{name:"Download layout package",exact:true}).isDisabled(),true);
+  await page.getByRole("button",{name:"Reset layout",exact:true}).click();
+  await page.getByLabel("Maximum panel length",{exact:true}).fill("120");
+  await page.getByRole("button",{name:"Next panel",exact:true}).click();
+  assert.match(await page.getByTestId("layout-page-label").innerText(),/Panel 2/);
+  await page.getByRole("button",{name:"Zoom in",exact:true}).click();
+  await page.getByRole("button",{name:"Fit layout",exact:true}).click();
+  await page.getByLabel("Layout units",{exact:true}).selectOption("in");
+  assert.equal(await page.getByLabel("Roll width",{exact:true}).inputValue(),"24");
+  await page.getByRole("button",{name:"Download layout package",exact:true}).click();
+  await page.getByRole("button",{name:"Cancel export",exact:true}).click();
+  await page.getByText("Export cancelled. Your layout settings are kept.",{exact:true}).waitFor();
+  assert.equal(await page.getByLabel("Roll width",{exact:true}).isEnabled(),true);
+  const layoutDownload=page.waitForEvent("download");
+  await page.getByRole("button",{name:"Download layout package",exact:true}).click();
+  const layoutZip=await JSZip.loadAsync(await readFile(await(await layoutDownload).path()));
+  assert.equal(JSON.parse(await layoutZip.file("job.json").async("string")).quantity.total,10);
+  await page.getByRole("button",{name:"Back to design",exact:true}).click();
+  const downloading=page.waitForEvent("download"); await page.getByTitle("Save project",{exact:true}).click();
+  const saved=JSON.parse((await readFile(await(await downloading).path())).toString());
+  assert.equal(saved.project.production.layout.heightMm,120);
+  await page.locator('input[type="file"][accept=".qrmagic.json,application/json"]').setInputFiles({name:"saved.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(saved))});
+  await page.getByRole("button",{name:"Print layout",exact:true}).click();
+  assert.equal(await page.getByLabel("Layout units",{exact:true}).inputValue(),"in");
+  await page.setViewportSize({width:790,height:900});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+  await page.getByRole("button",{name:"Back to design",exact:true}).click();
+  saved.project.production.layout.widthMm=null;
+  await page.locator('input[type="file"][accept=".qrmagic.json,application/json"]').setInputFiles({name:"invalid-layout.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(saved))});
+  await page.getByRole("button",{name:"Inspector",exact:true}).click();
+  await page.getByRole("button",{name:"Print layout",exact:true}).click();
+  await page.getByRole("alert").filter({hasText:/Media dimensions/}).waitFor();
+  await page.getByRole("button",{name:"Reset layout",exact:true}).click();
+  assert.equal(await page.getByRole("button",{name:"Download layout package",exact:true}).isEnabled(),true);
+  await page.getByRole("button",{name:"Back to design",exact:true}).click();
+  await page.setViewportSize({width:1600,height:1000}); await page.reload();
+});
+
+test("layout clips overflowing vector artwork, preserves fallback effects, and leaves gaps/unused slots empty",async()=>{
+  const result=await page.evaluate(async()=>{
+    const {exportLayoutPackage}=await import("/qrmagic/src/lib/printLayoutExport.ts");
+    const {defaultLayoutSettings}=await import("/qrmagic/src/lib/printLayout.ts");
+    const {createStarterProject}=await import("/qrmagic/src/lib/templates.ts");
+    const {initialProject}=await import("/qrmagic/src/lib/project.ts");
+    const {getDocument,JSZip}=await import("/qrmagic/tests/pdf-fixture.ts");
+    const p=createStarterProject("blank",{width:25.4,height:25.4,bleedMm:0,copies:3});
+    const base=initialProject.layers.find(l=>l.type==="shape");
+    p.document.shape.shape="ellipse";
+    p.layers=[{...base,id:"overflow",x:-60,y:-60,width:600,height:600,fill:"#ff0000",opacity:.6,cornerRadius:0},
+      {...base,id:"gradient",x:90,y:90,width:120,height:120,fillMode:"linear-gradient",shadowEnabled:true,cornerRadius:0}];
+    const settings={...defaultLayoutSettings(),media:"sheet",widthMm:80,heightMm:80,marginTop:5,marginBottom:5,marginLeft:5,marginRight:5,gapX:5,gapY:5};
+    const zip=await JSZip.loadAsync(await exportLayoutPackage(p,settings));
+    const loading=getDocument({data:await zip.file("artwork.pdf").async("uint8array")}),pdf=await loading.promise,pdfPage=await pdf.getPage(1);
+    const canvas=document.createElement("canvas"),viewport=pdfPage.getViewport({scale:150/72});canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);const ctx=canvas.getContext("2d");
+    await pdfPage.render({canvas,canvasContext:ctx,viewport}).promise;
+    const sample=(x,y)=>[...ctx.getImageData(Math.round(x*150/25.4),Math.round(y*150/25.4),1,1).data];
+    const samples={margin:sample(2,2),gap:sample(33,15),empty:sample(50,50),filled:sample(10,10)};
+    await loading.destroy();
+    const report=JSON.parse(await zip.file("preflight.json").async("string"));
+    const svg=await zip.file("cut-reference/panel-0001.svg").async("string");
+    // Exercise the requested 5,000-copy scale with one unique source render.
+    const many=createStarterProject("stickers",{width:50.8,height:50.8,copies:5000,payload:"https://example.com/batch"});
+    const large=await JSZip.loadAsync(await exportLayoutPackage(many,defaultLayoutSettings()));
+    const largeReport=JSON.parse(await large.file("preflight.json").async("string"));
+    const job=JSON.parse(await large.file("job.json").async("string"));
+    const abortZip=new AbortController();
+    const cancelled=exportLayoutPackage(many,defaultLayoutSettings(),{signal:abortZip.signal,onProgress:p=>{if(p.stage==="package"&&p.completed>10)abortZip.abort();}})
+      .then(()=>false,e=>e.name==="AbortError");
+    const zipAborted=await Promise.race([cancelled,new Promise(resolve=>setTimeout(()=>resolve(false),3000))]);
+    return {samples,report,svg,largeReport,job,zipAborted};
+  });
+  for(const key of ["margin","gap","empty"])assert.deepEqual(result.samples[key],[255,255,255,255],key);
+  assert.ok(result.samples.filled[0]>240&&result.samples.filled[1]<150);
+  assert.equal(result.report.stats.rasterLayers,1);
+  assert.match(result.svg,/A 12\.7 12\.7/);
+  assert.equal(result.largeReport.stats.uniqueRecords,1);
+  assert.equal(result.job.panelCount,35);
+  assert.equal(result.job.pages.at(-1).itemCount,104);
+  assert.equal(result.zipAborted,true,"cancellation during ZIP packaging rejects cleanly");
+});
+
 test("production PDF preserves vectors, embedded text, exact page boxes, and serialized QR copies", async () => {
   const result = await page.evaluate(async () => {
     const { renderProductionPdf } = await import("/qrmagic/src/lib/productionPdf.ts");

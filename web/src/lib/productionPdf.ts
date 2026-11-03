@@ -13,6 +13,7 @@ import { renderStyledQrSvg } from "./qrStyling";
 import { textLayerProps } from "./layerRendering";
 import { productionFontUrls, loadProductionFonts } from "./fonts";
 import { productionPreflight, rasterReason, outlinePath, cutOutlineSvg, type ProductionIssue } from "./productionPdfModel";
+import { exportYield, type ExportControl } from "./exportControl";
 
 function color(value: string) {
   return rgb(parseInt(value.slice(1, 3), 16) / 255, parseInt(value.slice(3, 5), 16) / 255, parseInt(value.slice(5, 7), 16) / 255);
@@ -88,7 +89,8 @@ function layerTransform(page: PDFPage, layer: ProjectLayer, project: QrMagicProj
   ));
 }
 
-export async function renderProductionPdf(project: QrMagicProject, records: RenderRecord[]) {
+export async function renderProductionPdf(project: QrMagicProject, records: RenderRecord[], control:ExportControl = {}) {
+  control.signal?.throwIfAborted();
   const issues = productionPreflight(project);
   const errors = issues.filter(issue => issue.severity === "error");
   if (errors.length) throw new Error(errors.map(issue => issue.message).join("\n"));
@@ -176,6 +178,8 @@ export async function renderProductionPdf(project: QrMagicProject, records: Rend
   }
 
   for (const record of records) {
+    control.onProgress?.({stage:"artwork",completed:doc.getPageCount(),total:records.length});
+    await exportYield(control.signal);
     const page = doc.addPage([geometry.points.width, geometry.points.height]);
     page.setBleedBox(0, 0, geometry.points.width, geometry.points.height);
     page.setTrimBox(geometry.bleedPoints, geometry.bleedPoints, geometry.trimPoints.width, geometry.trimPoints.height);
@@ -192,6 +196,7 @@ export async function renderProductionPdf(project: QrMagicProject, records: Rend
         color: color(project.document.backgroundColor), opacity: project.document.backgroundOpacity });
     }
     for (const layer of project.layers.filter(layer => layer.visible && layer.opacity > 0)) {
+      control.signal?.throwIfAborted();
       if (layer.type === "text" && (layer.fill === "transparent" || layer.fillOpacity === 0) && !layer.shadowEnabled) continue;
       if (rasterReason(layer)) { await rasterLayer(page, layer, record); continue; }
       let qr: Awaited<ReturnType<typeof qrPaths>> | undefined;
@@ -243,6 +248,8 @@ export async function renderProductionPdf(project: QrMagicProject, records: Rend
     repeats.set(record, { page });
   }
   const bytes = await doc.save();
+  control.signal?.throwIfAborted();
+  control.onProgress?.({stage:"artwork",completed:records.length,total:records.length});
   const buffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(buffer).set(bytes);
   const distinctIssues = issues.filter((issue, index) => issues.findIndex(candidate =>

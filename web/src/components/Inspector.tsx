@@ -49,6 +49,7 @@ type InspectorProps = {
   onRemoveColor: (color: string) => void;
   onExportPng: () => void;
   onExportBatch: () => void;
+  onPrintLayout: () => void;
   onUpdateExport: (patch: Partial<QrMagicProject["export"]>) => void;
   exportStatus: "template" | "set" | null;
   exportSetFormat: ExportSetFormat;
@@ -80,6 +81,7 @@ export function Inspector({
   onRemoveColor,
   onExportPng,
   onExportBatch,
+  onPrintLayout,
   onUpdateExport,
   exportStatus,
   exportSetFormat,
@@ -1133,6 +1135,7 @@ export function Inspector({
           </details> : <p>Ready to export. A final rendering report is included in the ZIP.</p>}
         </div>}
         <p className="chooser-hint">The job includes every copy. The proof package contains one item and separate guide overlays.</p>
+        <button className="secondary-action" disabled={isExporting} onClick={onPrintLayout}>Print layout</button>
         <button className="primary-action" onClick={onExportPng} disabled={isExporting}>
           <Download size={16} />
           {exportStatus === "template" ? "Exporting template..." : "Download proof package"}

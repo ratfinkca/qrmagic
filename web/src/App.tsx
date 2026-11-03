@@ -18,6 +18,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { ProjectChooser } from "./components/ProjectChooser";
+import { PrintLayout } from "./components/PrintLayout";
 import { createPrintRecords, productionCount, productionGeometry, positiveInteger, normalizeFixedJob, jobSummary, isRepeatedJob } from "./lib/production";
 import { EditorCanvas } from "./components/EditorCanvas";
 import { Inspector } from "./components/Inspector";
@@ -84,6 +85,7 @@ function normalizeHexColor(color: string) {
 }
 
 export function App() {
+  const [layoutOpen,setLayoutOpen]=useState(false);
   const [chooserOpen, setChooserOpen] = useState(true);
   const [project, setProject] = useState<QrMagicProject>(initialProject);
   const [projectHistory, setProjectHistory] = useState<ProjectHistory>({ past: [], future: [] });
@@ -220,6 +222,7 @@ export function App() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      if(layoutOpen) return;
       const target = event.target as HTMLElement | null;
       const isEditableTarget =
         target?.tagName === "INPUT" ||
@@ -242,7 +245,7 @@ export function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [redoProjectChange, undoProjectChange]);
+  }, [redoProjectChange, undoProjectChange, layoutOpen]);
 
   function updateLayer(
     layerId: string,
@@ -997,6 +1000,9 @@ export function App() {
     reader.readAsDataURL(file);
   }
 
+  if(layoutOpen) return <PrintLayout project={project} onBack={()=>setLayoutOpen(false)} onSave={saveProjectFile}
+    onChange={layout=>updateProject(current=>({...current,production:{...current.production,layout}}))}/>;
+
   return (
     <main className="app-shell">
       {chooserOpen ? <ProjectChooser onClose={() => setChooserOpen(false)}
@@ -1133,7 +1139,7 @@ export function App() {
               try {
                 positiveInteger(copies, "Copies per record");
                 if (copies * records.length > 100000) return;
-                updateProject(current => ({ ...current, production: { copiesPerRecord: copies } }));
+                updateProject(current => ({ ...current, production: { ...current.production, copiesPerRecord: copies } }));
               } catch { /* Keep the last valid quantity while editing. */ }
             }}
             onBeginProjectChange={beginProjectChangeTransaction}
@@ -1182,6 +1188,7 @@ export function App() {
             onSaveColor={savePaletteColor}
             onRemoveColor={removePaletteColor}
             onExportBatch={exportBatchPngs}
+            onPrintLayout={()=>setLayoutOpen(true)}
             onUpdateExport={updateExport}
             exportStatus={exportStatus}
             exportSetFormat={exportSetFormat}

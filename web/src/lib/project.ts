@@ -12,6 +12,7 @@ import type {
 } from "../types";
 import { productionGeometry, productionCount, positiveInteger, normalizeFixedJob } from "./production";
 import { formatSerial } from "./serial";
+import { normalizeLayoutSettings } from "./printLayout";
 import { normalizedShapeGeometry, presetShapeGeometry } from "./shapeGeometry";
 
 export const DEFAULT_DATA_GROUP_ID = "group_primary";
@@ -431,7 +432,8 @@ export function normalizeProject(project: QrMagicProject | LegacyProject): QrMag
   const normalized: QrMagicProject = {
     ...project,
     version: 2,
-    production: { copiesPerRecord: positiveInteger(project.production?.copiesPerRecord ?? 1, "Copies per record") },
+    production: { copiesPerRecord: positiveInteger(project.production?.copiesPerRecord ?? 1, "Copies per record"),
+      ...(project.production?.layout === undefined ? {} : { layout: normalizeLayoutSettings(project.production.layout) }) },
     colors: {
       recent: normalizeColorList(project.colors?.recent),
       palette: normalizeColorList(project.colors?.palette, DEFAULT_COLOR_PALETTE),

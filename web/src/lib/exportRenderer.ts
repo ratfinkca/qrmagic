@@ -25,8 +25,8 @@ const renderCanvases = new WeakMap<CanvasRenderingContext2D, { scene: SceneCanva
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>();
 
-function loadImage(src: string) {
-  const cachedImage = imageCache.get(src);
+function loadImage(src: string, cache = true) {
+  const cachedImage = cache ? imageCache.get(src) : undefined;
   if (cachedImage) return cachedImage;
 
   const imagePromise = new Promise<HTMLImageElement>((resolve, reject) => {
@@ -35,7 +35,7 @@ function loadImage(src: string) {
     image.onerror = () => reject(new Error("Could not load image layer asset."));
     image.src = src;
   });
-  imageCache.set(src, imagePromise);
+  if (cache) imageCache.set(src, imagePromise);
   return imagePromise;
 }
 
@@ -132,7 +132,9 @@ async function drawQrLayer(
   if (layer.type !== "qr") return;
 
   const dataUrl = await renderStyledQrDataUrl(layer, record);
-  const qrImage = await loadImage(dataUrl);
+  // Generated serial QR PNGs are ephemeral; retaining them here would bypass
+  // the layout preview's bounded thumbnail cache and survive workspace closure.
+  const qrImage = await loadImage(dataUrl, false);
 
   const group = new Konva.Group({ x: layer.x, y: layer.y, rotation: layer.rotation, opacity: layer.opacity });
   group.add(new Konva.Rect({ width: layer.width, height: layer.height, fill: layer.background, cornerRadius: 6, ...layerShadowProps(layer) }));
