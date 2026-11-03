@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { QrContentEditor } from "./QrContentEditor";
 import { productionCount } from "../lib/production";
+import { productionPreflight } from "../lib/productionPdfModel";
 import { ColorControl } from "./ColorControl";
 import { guideSnapRect } from "../lib/project";
 import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
@@ -27,7 +28,7 @@ import type {
 
 type Alignment = "left" | "center-x" | "right" | "top" | "center-y" | "bottom";
 type AlignTarget = GuideSnapTarget | "selection";
-type ExportSetFormat = "png" | "jpg" | "pdf";
+type ExportSetFormat = "png" | "jpg" | "pdf" | "production-pdf";
 
 type InspectorProps = {
   selectedLayer: ProjectLayer | undefined;
@@ -96,6 +97,8 @@ export function Inspector({
   const effectiveAlignTarget: AlignTarget =
     selectedLayerCount > 1 || alignTarget !== "selection" ? alignTarget : "page";
   const isExporting = exportStatus !== null;
+  const productionIssues = exportSetFormat === "production-pdf" ? productionPreflight(project) : [];
+  const productionErrors = productionIssues.filter(issue => issue.severity === "error");
   const pixelsPerUnit = project.document.unit === "px" ? 1
     : project.document.unit === "mm" ? project.document.dpi / 25.4 : project.document.dpi;
   const displayLength = (pixels: number) => Number((pixels / pixelsPerUnit).toFixed(3));
@@ -1090,7 +1093,7 @@ export function Inspector({
         </div>
         <div className="export-summary">
           <strong>{productionCount(project).total.toLocaleString()} items</strong>
-          <span>{exportSetFormat.toUpperCase()}</span>
+          <span>{exportSetFormat === "production-pdf" ? "PRODUCTION PDF" : exportSetFormat.toUpperCase()}</span>
         </div>
         <label>
           Set format
@@ -1106,10 +1109,11 @@ export function Inspector({
           >
             <option value="png">PNG zip</option>
             <option value="jpg">JPG zip</option>
-            <option value="pdf">PDF</option>
+            <option value="pdf">Image PDF</option>
+            <option value="production-pdf">Production PDF package</option>
           </select>
         </label>
-        <label className="checkbox-row">
+        {exportSetFormat !== "production-pdf" ? <label className="checkbox-row">
           <input
             type="checkbox"
             checked={project.export.includeGuides}
@@ -1117,7 +1121,17 @@ export function Inspector({
             onChange={(event) => onUpdateExport({ includeGuides: event.target.checked })}
           />
           Print guides on artwork (proofing only)
-        </label>
+        </label> : <div className="production-preflight" aria-live="polite">
+          <strong>Print handoff</strong>
+          <p>Actual-size PDF with bleed, vector artwork where supported, a cut-outline reference and job report. One item per page, including every copy.</p>
+          <p>RGB artwork. Your print shop sets color and media in its RIP. Machine cut setup, registration marks and roll layout are still handled there.</p>
+          {productionIssues.length ? <details open={productionErrors.length > 0}>
+            <summary>{productionErrors.length ? `${productionErrors.length} issue(s) to fix` : `${productionIssues.length} note(s) to review`}</summary>
+            <ul>{productionIssues.map((issue, index) => <li key={`${issue.code}-${issue.layerId}-${index}`}>
+              <strong>{issue.severity === "error" ? "Fix: " : "Note: "}</strong>{issue.message}
+            </li>)}</ul>
+          </details> : <p>Ready to export. A final rendering report is included in the ZIP.</p>}
+        </div>}
         <p className="chooser-hint">The job includes every copy. The proof package contains one item and separate guide overlays.</p>
         <button className="primary-action" onClick={onExportPng} disabled={isExporting}>
           <Download size={16} />
@@ -1126,11 +1140,13 @@ export function Inspector({
         <button
           className="secondary-action"
           onClick={onExportBatch}
-          disabled={isExporting}
+          disabled={isExporting || productionErrors.length > 0}
         >
           <Download size={16} />
           {exportStatus === "set"
             ? "Exporting set..."
+            : exportSetFormat === "production-pdf"
+              ? "Download production package"
             : exportSetFormat === "pdf"
               ? "Download job PDF"
               : `Download job ${exportSetFormat.toUpperCase()} ZIP`}

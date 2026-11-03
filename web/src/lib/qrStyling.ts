@@ -54,3 +54,10 @@ export async function renderStyledQrDataUrl(layer: QrLayer, record: RenderRecord
   if (!blob || !(blob instanceof Blob)) return "";
   return blobToDataUrl(blob);
 }
+
+export async function renderStyledQrSvg(layer: QrLayer, record: RenderRecord) {
+  const qr = new QRCodeStyling({ ...qrStylingOptions(layer, record), type: "svg" });
+  const blob = await qr.getRawData("svg");
+  if (!(blob instanceof Blob)) throw new Error("Could not create vector QR artwork.");
+  return blob.text();
+}

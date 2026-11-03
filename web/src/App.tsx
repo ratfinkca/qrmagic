@@ -65,10 +65,10 @@ type ZoomCommand = {
 type ProjectUpdateOptions = {
   recordHistory?: boolean;
 };
-type ExportSetFormat = "png" | "jpg" | "pdf";
+type ExportSetFormat = "png" | "jpg" | "pdf" | "production-pdf";
 
 const MAX_HISTORY_STEPS = 80;
-const EXPORT_SET_FORMATS: ExportSetFormat[] = ["png", "jpg", "pdf"];
+const EXPORT_SET_FORMATS: ExportSetFormat[] = ["png", "jpg", "pdf", "production-pdf"];
 
 function getExportSetFormat(project: QrMagicProject): ExportSetFormat {
   const [format] = project.export.formats;
@@ -678,6 +678,12 @@ export function App() {
     setExportStatus("set");
 
     try {
+      if (format === "production-pdf") {
+        const { productionPackage } = await import("./lib/productionPackage");
+        const blob = await productionPackage(projectSnapshot, recordSnapshot);
+        downloadBlob(blob, `${sanitizeFilename(projectSnapshot.document.name)}-production.zip`);
+        return;
+      }
       if (format === "pdf") {
         const blob = await renderProjectPdfBlob(projectSnapshot, recordSnapshot, {
           includeGuides: projectSnapshot.export.includeGuides,
@@ -1190,7 +1196,7 @@ export function App() {
         {isExportLocked ? (
           <div className="export-lock-overlay" role="status" aria-live="polite">
             {exportStatus === "set"
-              ? `Exporting ${exportSetFormat.toUpperCase()} set...`
+              ? exportSetFormat === "production-pdf" ? "Preparing production package..." : `Exporting ${exportSetFormat.toUpperCase()} set...`
               : "Exporting template..."}
           </div>
         ) : null}

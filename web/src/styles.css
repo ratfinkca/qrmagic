@@ -842,6 +842,11 @@ select:focus {
 .qr-content-preview small { color: #475569; }
 .qr-content-preview output { font-size: 13px; font-weight: 600; }
 .qr-content-preview a { color: #0f766e; font-size: 13px; }
+.production-preflight { padding: 12px; margin-top: 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #f0fdfa; color: #334155; font-size: 12px; line-height: 1.5; }
+.production-preflight p { margin: 8px 0; }
+.production-preflight summary { cursor: pointer; font-weight: 700; }
+.production-preflight ul { padding-left: 18px; }
+.production-preflight li { margin: 8px 0; overflow-wrap: anywhere; }
 .preview-toggle, .compact-panel-button { padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; color: #334155; background: #fff; font-size: 12px; }
 .preview-toggle[aria-pressed="true"], .compact-panel-button[aria-pressed="true"] { color: #0f766e; border-color: #0f766e; background: #ecfdf5; }
 .compact-panel-button { display: none; }

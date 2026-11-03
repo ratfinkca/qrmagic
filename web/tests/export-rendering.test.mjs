@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { PDFDocument } from "pdf-lib";
+import JSZip from "jszip";
 import { after, before, test } from "node:test";
 import { chromium } from "playwright";
 import { createServer } from "vite";
 
-// Browser plugin not available: exercise the actual editor and exported pixels
-// in Playwright. Set PLAYWRIGHT_CHANNEL=msedge to use an installed Edge browser.
+// Executable browser regressions exercise the actual editor and exported pixels
+// locally and in CI. PLAYWRIGHT_CHANNEL=msedge uses an installed Edge browser.
 let server;
 let browser;
 let page;
@@ -14,9 +16,199 @@ let initialProject;
 let fixtureIndex = 0;
 const pageErrors = [];
 
+test("production PDF preserves vectors, embedded text, exact page boxes, and serialized QR copies", async () => {
+  const result = await page.evaluate(async () => {
+    const { renderProductionPdf } = await import("/qrmagic/src/lib/productionPdf.ts");
+    const { createStarterProject } = await import("/qrmagic/src/lib/templates.ts");
+    const { createPrintRecords } = await import("/qrmagic/src/lib/production.ts");
+    const { getDocument, OPS, decodeQr } = await import("/qrmagic/tests/pdf-fixture.ts");
+    const project = createStarterProject("decals", { records: 2, copies: 2 });
+    const result = await renderProductionPdf(project, createPrintRecords(project));
+    const bytes = new Uint8Array(await result.blob.arrayBuffer());
+    const loadingTask = getDocument({ data: bytes.slice() });
+    const pdf = await loadingTask.promise;
+    const pages = [];
+    let preview;
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const canvas = document.createElement("canvas");
+      const viewport = page.getViewport({ scale: 300 / 72 });
+      canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
+      const context = canvas.getContext("2d");
+      await page.render({ canvasContext: context, canvas, viewport }).promise;
+      if (i === 1) preview = canvas.toDataURL();
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      const operators = await page.getOperatorList();
+      pages.push({ qr: decodeQr(pixels.data, canvas.width, canvas.height)?.data,
+        text: (await page.getTextContent()).items.map(item => item.str).join(" "),
+        images: operators.fnArray.filter(op => op === OPS.paintImageXObject || op === OPS.paintInlineImageXObject).length,
+        paths: operators.fnArray.filter(op => op === OPS.constructPath).length });
+    }
+    await loadingTask.destroy();
+    return { pages, preview, bytes: [...bytes], issues: result.issues, stats: result.stats };
+  });
+  if (process.env.QRMAGIC_REVIEW_DIR) await writeFile(join(process.env.QRMAGIC_REVIEW_DIR, "production-pdf-preview.png"), Buffer.from(result.preview.split(",")[1], "base64"));
+  assert.deepEqual(result.issues, []);
+  assert.equal(result.stats.rasterLayers, 0);
+  assert.equal(result.stats.uniqueRecords, 2);
+  const pdf = await PDFDocument.load(Uint8Array.from(result.bytes));
+  assert.equal(pdf.getPageCount(), 4);
+  assert.ok(Math.abs(pdf.getPage(0).getTrimBox().width - 288) < 0.001);
+  assert.ok(Math.abs(pdf.getPage(0).getBleedBox().width - 107.6 / 25.4 * 72) < 0.001);
+  assert.ok(pdf.context.enumerateIndirectObjects().some(([, obj]) => obj.toString().includes("/FontFile2")), "font bytes embedded");
+  assert.deepEqual(result.pages.map(page => page.qr), ["PARK-0001", "PARK-0001", "PARK-0002", "PARK-0002"]);
+  for (const page of result.pages) {
+    assert.equal(page.images, 0);
+    assert.ok(page.paths > 0);
+    assert.match(page.text, /PARK-000[12]/);
+  }
+});
+
+test("production package download contains artwork, reference cut geometry, job and preflight reports", async () => {
+  await page.getByRole("button", { name: /Repeated stickers/ }).click();
+  await page.getByLabel("QR content", { exact: true }).fill("https://example.com/print");
+  await page.getByRole("button", { name: "Create project", exact: true }).click();
+  await page.getByLabel("Set format", { exact: true }).selectOption("production-pdf");
+  await page.getByText(/RGB artwork/).waitFor();
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download production package", exact: true }).click();
+  const downloaded = await downloading;
+  const zip = await JSZip.loadAsync(await readFile(await downloaded.path()));
+  const pdf = await PDFDocument.load(await zip.file("artwork.pdf").async("uint8array"));
+  assert.equal(pdf.getPageCount(), 1);
+  assert.match(await zip.file("cut-outline.svg").async("string"), /reference geometry/);
+  const job = JSON.parse(await zip.file("job.json").async("string"));
+  assert.equal(job.quantity.total, 1);
+  const report = JSON.parse(await zip.file("preflight.json").async("string"));
+  assert.equal(report.stats.rasterLayers, 0);
+  assert.equal(report.colorSpace, "RGB");
+  assert.equal(report.machineProfile, null);
+  assert.match(await zip.file("README.txt").async("string"), /100%/);
+  if (process.env.QRMAGIC_REVIEW_DIR) await page.screenshot({ path: join(process.env.QRMAGIC_REVIEW_DIR, "production-export-editor.png") });
+  // Start the next editor flow with a fresh project and selection.
+  await page.reload();
+});
+
+test("production preflight blocks empty content and reports runtime glyph fallback once per layer", async () => {
+  const result = await page.evaluate(async () => {
+    const { renderProductionPdf } = await import("/qrmagic/src/lib/productionPdf.ts");
+    const { createStarterProject } = await import("/qrmagic/src/lib/templates.ts");
+    const { createPrintRecords } = await import("/qrmagic/src/lib/production.ts");
+    const project = createStarterProject("stickers", { payload: "https://example.com" });
+    project.layers.find(layer => layer.type === "text").textTemplate = "Print 中文";
+    project.data.groups[0].fixed.quantity = 2;
+    const result = await renderProductionPdf(project, createPrintRecords(project));
+    project.data.groups[0].fixed.value = "";
+    let error;
+    try { await renderProductionPdf(project, createPrintRecords(project)); } catch (cause) { error = cause.message; }
+    return { issues: result.issues, stats: result.stats, error };
+  });
+  assert.equal(result.issues.filter(issue => issue.code === "raster-glyphs").length, 1);
+  assert.equal(result.stats.rasterLayers, 2);
+  assert.match(result.error, /QR content is empty/);
+});
+
+test("production PDF matches rendered artwork across shapes, text, transparency and fallback effects", async () => {
+  const results = await page.evaluate(async () => {
+    const { renderProductionPdf } = await import("/qrmagic/src/lib/productionPdf.ts");
+    const { renderProjectPngBlob } = await import("/qrmagic/src/lib/exportRenderer.ts");
+    const { initialProject } = await import("/qrmagic/src/lib/project.ts");
+    const { createDataRecords } = await import("/qrmagic/src/lib/serial.ts");
+    const { presetShapeGeometry, SHAPE_OPTIONS } = await import("/qrmagic/src/lib/shapeGeometry.ts");
+    const { getDocument } = await import("/qrmagic/tests/pdf-fixture.ts");
+    const results = [];
+    const shape = initialProject.layers.find(layer => layer.type === "shape");
+    const text = initialProject.layers.find(layer => layer.type === "text");
+    const qr = initialProject.layers.find(layer => layer.type === "qr");
+    const fixtures = SHAPE_OPTIONS.map(({ value }) => ({ ...shape, ...presetShapeGeometry(value),
+      x: 70, y: 65, width: 130, height: 90, rotation: 17, strokeWidth: 3,
+      fill: "#fc1260", stroke: "#234567" }));
+    fixtures.push({ ...shape, x: 30, y: 30, width: 150, height: 100, stroke: "transparent", strokeWidth: 18 });
+    fixtures.push(...["left", "center", "right"].map(align => ({ ...text, align, x: 20, y: 30, width: 200, height: 100,
+      fontSize: 24, textTemplate: "AV office\nPrint 123", rotation: 7, fillOpacity: 0.6 })));
+    fixtures.push({ ...text, x: 10, y: 50, width: 240, height: 100, fontSize: 28, fontWeight: 400,
+      textTemplate: "AVAVAVAVAVAV", align: "left" });
+    fixtures.push({ ...shape, x: 30, y: 30, width: 150, height: 90, fillMode: "linear-gradient", shadowEnabled: true });
+    fixtures.push({ ...text, x: 30, y: 30, width: 150, height: 90, fill: "transparent" });
+    fixtures.push({ ...qr, x: 40, y: 30, width: 140, height: 140, margin: 14, opacity: 0.5 });
+    for (const layer of fixtures) {
+      const project = structuredClone(initialProject);
+      project.document = { ...project.document, unit: "px", width: 260, height: 210, bleedMm: 0,
+        backgroundColor: "#abcdef", backgroundOpacity: 0.3 };
+      project.layers = [layer];
+      const records = createDataRecords(project.data.groups).slice(0, 1);
+      const result = await renderProductionPdf(project, records);
+      const loadingTask = getDocument({ data: new Uint8Array(await result.blob.arrayBuffer()) });
+      const pdfPage = await (await loadingTask.promise).getPage(1);
+      const canvas = document.createElement("canvas"); canvas.width = 260; canvas.height = 210;
+      const context = canvas.getContext("2d");
+      await pdfPage.render({ canvasContext: context, canvas, viewport: pdfPage.getViewport({ scale: 300 / 72 }) }).promise;
+      const actual = context.getImageData(0, 0, 260, 210).data;
+      const image = await createImageBitmap(await renderProjectPngBlob(project, records[0], { includeGuides: false }));
+      context.fillStyle = "white"; context.fillRect(0, 0, 260, 210); context.drawImage(image, 0, 0); image.close();
+      const expected = context.getImageData(0, 0, 260, 210).data;
+      let totalDifference = 0, differentPixels = 0;
+      for (let i = 0; i < actual.length; i += 4) {
+        const delta = Math.max(...[0, 1, 2].map(channel => Math.abs(actual[i + channel] - expected[i + channel])));
+        totalDifference += delta;
+        if (delta > 35) differentPixels++;
+      }
+      results.push({ type: `${layer.type} ${layer.shape || layer.align || ""} ${layer.fillMode || ""} ${layer.fill}`,
+        mean: totalDifference / (260 * 210), fraction: differentPixels / (260 * 210), stats: result.stats,
+        samples: [[0,0], [50,50], [70,70], [90,90], [110,110]].map(([x,y]) => ({ x,y, actual: [...actual.slice((y*260+x)*4,(y*260+x)*4+3)], expected: [...expected.slice((y*260+x)*4,(y*260+x)*4+3)] })) });
+      await loadingTask.destroy();
+    }
+    return results;
+  });
+  for (const result of results) {
+    assert.ok(result.mean < 3 && result.fraction < 0.025, JSON.stringify(result));
+  }
+  // PDF/canvas color rounding differs by one channel value on the page background.
+  assert.ok(results.at(-1).mean < 1.2, `QR opacity: ${JSON.stringify(results.at(-1))}`);
+  for (const sample of results.at(-1).samples) assert.ok(sample.actual.every((value, index) =>
+    Math.abs(value - sample.expected[index]) <= 2), JSON.stringify(sample));
+  assert.equal(results.at(-3).stats.rasterLayers, 1, "gradient/shadow fallback is reported");
+});
+
+test("production QR style variants remain vectors and decode after PDF rendering", async () => {
+  const results = await page.evaluate(async () => {
+    const { renderProductionPdf } = await import("/qrmagic/src/lib/productionPdf.ts");
+    const { createStarterProject } = await import("/qrmagic/src/lib/templates.ts");
+    const { createPrintRecords } = await import("/qrmagic/src/lib/production.ts");
+    const { getDocument, decodeQr } = await import("/qrmagic/tests/pdf-fixture.ts");
+    const styles = ["square", "dots", "rounded", "classy", "classy-rounded", "extra-rounded"];
+    const results = [];
+    for (const dotStyle of styles) {
+      const project = createStarterProject("stickers", { width: 76.2, height: 76.2, payload: "https://example.com/vector" });
+      const qr = project.layers.find(layer => layer.type === "qr");
+      qr.dotStyle = dotStyle; qr.cornerSquareStyle = "extra-rounded"; qr.cornerDotStyle = "dot";
+      qr.x = 150; qr.y = 230; qr.width = qr.height = 500; qr.margin = 50;
+      qr.rotation = 7; qr.opacity = 0.9;
+      const result = await renderProductionPdf(project, createPrintRecords(project));
+      const task = getDocument({ data: new Uint8Array(await result.blob.arrayBuffer()) });
+      const pdfPage = await (await task.promise).getPage(1);
+      const viewport = pdfPage.getViewport({ scale: 300 / 72 });
+      const canvas = document.createElement("canvas"); canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
+      const context = canvas.getContext("2d");
+      await pdfPage.render({ canvas, canvasContext: context, viewport }).promise;
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      results.push({ dotStyle, payload: decodeQr(pixels.data, canvas.width, canvas.height)?.data, stats: result.stats });
+      await task.destroy();
+    }
+    return results;
+  });
+  for (const result of results) {
+    assert.equal(result.stats.rasterLayers, 0, JSON.stringify(result));
+    assert.equal(result.payload, "https://example.com/vector", JSON.stringify(result));
+  }
+});
+
 before(async () => {
   server = await createServer({
-    server: { host: "127.0.0.1", port: 0 }, optimizeDeps: { include: ["konva"] },
+    // A concurrent local editor must not share optimizer files with this server.
+    cacheDir: "node_modules/.vite-export-tests",
+    server: { host: "127.0.0.1", port: 0 },
+    optimizeDeps: { include: ["konva", "@pdf-lib/fontkit", "pdfjs-dist/build/pdf.mjs", "jsqr"] },
   });
   await server.listen();
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });

@@ -26,7 +26,11 @@ Preview and raster output include the outside bleed envelope. An opaque document
 
 PDF MediaBox and BleedBox include bleed. TrimBox describes the original finished size and its offset inside the page. Physical PDF dimensions use exact millimetre-to-point conversion; raster dimensions round to whole pixels, with each bleed allowance rounded once. PNG/JPG file dimensions include bleed; their embedded resolution metadata is not a production sizing contract. Use the PDF for physical page sizing.
 
-PDF artwork is still flattened raster. This phase stores and previews cut geometry; it does not emit a machine spot-color cutting separation, PDF/X, registration marks, imposition, or ICC conversion. Parametric custom shapes are supported; imported arbitrary vector paths and true geometric contour offsets are future work.
+Image PDF remains a flattened raster export. The optional **Production PDF package** preserves solid shapes, styled QR geometry, and supported text as PDF vectors. Inter regular, bold and extra-bold are bundled for preview and embedded as subsets in the PDF. Other font families/weights, characters absent from the bundled Latin font, gradients, shadows, imported images and QR logos use a transparent raster fallback at document DPI. Preflight notes identify expected fallbacks; the final report also identifies fallbacks discovered while rendering. Fonts are loaded before canvas layout so local installations do not change Inter measurements. This may change text appearance on machines that previously used a system fallback.
+
+The production ZIP includes `artwork.pdf`, `cut-outline.svg`, `job.json`, `preflight.json`, and a handoff README. Each PDF page contains one item; all copies are included and repeated artwork is reused as a PDF form. The SVG has the same physical page and trim offset, and contains only the finished cut outline. It is reference geometry, not a cutter command file or a PDF cutting separation. Rounded rectangle and pill contours use circular arcs. Job metadata includes source record values and page order, so treat the package with the same care as the original project.
+
+Production artwork is RGB with live transparency where designed. It has no ICC conversion/output intent or PDF/X certification. The shop must configure RIP color management, media, cutting, registration and nesting. No machine spot-color separation, registration marks, or roll imposition is generated yet. Parametric custom shapes are supported; imported arbitrary vector paths and true geometric contour offsets are future work. Bundled Inter is licensed under the SIL Open Font License; see `web/public/fonts/inter-OFL.txt`.
 
 ## Migration and limits
 
@@ -36,6 +40,6 @@ Jobs are limited to 100,000 finished items. Raster export surfaces are limited t
 
 ## Mimaki first
 
-Mimaki RasterLink7 supports named spot-color cut paths and documents FineCut/ID-cut workflows. The next print-and-cut exporter should be validated with the internal Mimaki printer/cutter and RIP before claiming equipment compatibility. Cut naming, marks, and cutting conditions belong to the supported shop profile, not to artwork styling. Roland and other RIP profiles can share this physical document model.
+Mimaki RasterLink7 supports named spot-color cut paths and documents FineCut/ID-cut workflows. The generic production package must be validated with the internal Mimaki printer/cutter and RIP before claiming equipment compatibility. Cut naming, marks, and cutting conditions belong to the supported shop profile, not to artwork styling. Roland and other RIP profiles can share this physical document model.
 
 Reference: [Mimaki RasterLink7 manuals](https://mimaki.com/product/software/rip/raster-link7/download-manual.html).

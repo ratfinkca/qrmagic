@@ -189,7 +189,7 @@ export type QrMagicProject = {
   };
   export: {
     filenameTemplate: string;
-    formats: Array<"png" | "jpg" | "pdf" | "svg" | "eps" | "bmp">;
+    formats: Array<"png" | "jpg" | "pdf" | "production-pdf" | "svg" | "eps" | "bmp">;
     renderMode: "flattened" | "layered";
     includeGuides: boolean;
   };
