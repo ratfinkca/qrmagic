@@ -12,7 +12,7 @@ import { renderProjectPngBlob } from "./exportRenderer";
 import { renderStyledQrSvg } from "./qrStyling";
 import { textLayerProps } from "./layerRendering";
 import { productionFontUrls, loadProductionFonts } from "./fonts";
-import { productionPreflight, rasterReason, outlinePath, cutOutlineSvg, type ProductionIssue } from "./productionPdfModel";
+import { productionPreflight, rasterReason, outlinePath, cutOutlineSvg, canvasGlyphOrigins, type ProductionIssue } from "./productionPdfModel";
 import { exportYield, type ExportControl } from "./exportControl";
 
 function color(value: string) {
@@ -158,21 +158,24 @@ export async function renderProductionPdf(project: QrMagicProject, records: Rend
         y: -(top + index * layer.fontSize + baseline),
       }));
       if (lines.some(line => [...line.text].some(character => !characterSet.has(character.codePointAt(0)!)))) return undefined;
-      const shaped = lines.map(line => {
-        // pdf-lib encodes shaped glyph IDs but drops their positioning. Retain
-        // fontkit's advances/offsets so kerning and ligatures match canvas text.
+      const shaped: {code:PDFHexString;x:number;y:number}[][]=[];
+      for (const line of lines) {
+        // Keep embedded/subset glyph IDs, but position them using the same canvas
+        // metrics as the editor. Native hinting can change advances by platform.
         const run = shaper.layout(line.text);
+        const origins=canvasGlyphOrigins(line.text,run.glyphs.map(glyph=>glyph.codePoints),text=>node.measureSize(text).width);
+        if(!origins)return undefined;
         const encoded = font.encodeText(line.text).asString();
         if (encoded.length !== run.positions.length * 4) throw new Error("Unexpected production font encoding.");
-        let x = line.x, y = line.y;
+        let y = line.y;
         const scale = layer.fontSize / shaper.unitsPerEm;
-        return run.positions.map((position, index) => {
+        shaped.push(run.positions.map((position, index) => {
           const glyph = { code: PDFHexString.of(encoded.slice(index * 4, index * 4 + 4)),
-            x: x + position.xOffset * scale, y: y + position.yOffset * scale };
-          x += position.xAdvance * scale; y += position.yAdvance * scale;
+            x: line.x + origins[index] + position.xOffset * scale, y: y + position.yOffset * scale };
+          y += position.yAdvance * scale;
           return glyph;
-        });
-      });
+        }));
+      }
       return { lines: shaped, font };
     } finally { node.destroy(); }
   }
@@ -211,7 +214,7 @@ export async function renderProductionPdf(project: QrMagicProject, records: Rend
       if (layer.type === "text") {
         text = await textLines(layer, record);
         if (!text) {
-          issues.push({ severity: "warning", code: "raster-glyphs", layerId: layer.id, message: `${layer.name}: characters outside the bundled font were preserved as an image.` });
+          issues.push({ severity: "warning", code: "raster-glyphs", layerId: layer.id, message: `${layer.name}: unsupported characters or text shaping were preserved as an image.` });
           await rasterLayer(page, layer, record); continue;
         }
       }

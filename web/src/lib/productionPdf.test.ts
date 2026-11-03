@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { createStarterProject } from "./templates";
-import { productionPreflight, cutOutlineSvg, outlinePath, rasterReason } from "./productionPdfModel";
+import { productionPreflight, cutOutlineSvg, outlinePath, rasterReason, canvasGlyphOrigins } from "./productionPdfModel";
 
 describe("production PDF planning", () => {
+  it("places vector glyphs using the browser's hinted advances, including pair kerning", () => {
+    const widths:Record<string,number>={A:19,V:19,AV:34,AVA:52};
+    expect(canvasGlyphOrigins("AVA",[[65],[86],[65]],text=>widths[text])).toEqual([0,15,33]);
+  });
+  it("keeps ligature clusters together and declines inconsistent shaping maps", () => {
+    const widths:Record<string,number>={o:12,ffi:18,offi:29};
+    expect(canvasGlyphOrigins("offi",[[111],[102,102,105]],text=>widths[text])).toEqual([0,11]);
+    expect(canvasGlyphOrigins("offi",[[111],[102]],()=>0)).toBeUndefined();
+  });
   it("keeps ordinary QR, text, and solid shapes eligible for vector output", () => {
     const project = createStarterProject("decals");
     expect(project.layers.map(rasterReason).filter(Boolean)).toEqual([]);

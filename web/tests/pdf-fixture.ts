@@ -5,3 +5,4 @@ import decodeQr from "jsqr";
 GlobalWorkerOptions.workerSrc = workerUrl;
 export { getDocument, OPS, decodeQr };
 export { default as JSZip } from "jszip";
+export { default as fontkit } from "@pdf-lib/fontkit";

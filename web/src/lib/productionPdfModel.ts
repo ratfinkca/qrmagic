@@ -5,6 +5,18 @@ import { polygonPath } from "./shapeGeometry";
 
 export type ProductionIssue = { severity: "error" | "warning"; code: string; message: string; layerId?: string };
 
+export function canvasGlyphOrigins(text:string,clusters:readonly (readonly number[])[],measure:(text:string)=>number):number[]|undefined {
+  const characters=Array.from(text);
+  if(clusters.some(cluster=>cluster.length===0)||clusters.reduce((sum,cluster)=>sum+cluster.length,0)!==characters.length)return undefined;
+  let consumed=0;
+  return clusters.map(cluster=>{
+    const start=consumed;consumed+=cluster.length;
+    // Prefix measurement includes kerning against the preceding cluster and the
+    // browser's platform-specific hinted advances. Keep a ligature as one glyph.
+    return measure(characters.slice(0,consumed).join(""))-measure(characters.slice(start,consumed).join(""));
+  });
+}
+
 export function rasterReason(layer: ProjectLayer): string | undefined {
   if (layer.shadowEnabled) return "shadow effects";
   if (layer.type === "image") return "imported image artwork";

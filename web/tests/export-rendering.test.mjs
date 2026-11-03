@@ -295,7 +295,8 @@ test("production PDF matches rendered artwork across shapes, text, transparency 
     const { initialProject } = await import("/qrmagic/src/lib/project.ts");
     const { createDataRecords } = await import("/qrmagic/src/lib/serial.ts");
     const { presetShapeGeometry, SHAPE_OPTIONS } = await import("/qrmagic/src/lib/shapeGeometry.ts");
-    const { getDocument } = await import("/qrmagic/tests/pdf-fixture.ts");
+    const { getDocument, fontkit } = await import("/qrmagic/tests/pdf-fixture.ts");
+    const { productionFontUrls } = await import("/qrmagic/src/lib/fonts.ts");
     const results = [];
     const shape = initialProject.layers.find(layer => layer.type === "shape");
     const text = initialProject.layers.find(layer => layer.type === "text");
@@ -333,7 +334,15 @@ test("production PDF matches rendered artwork across shapes, text, transparency 
         totalDifference += delta;
         if (delta > 35) differentPixels++;
       }
-      results.push({ type: `${layer.type} ${layer.shape || layer.align || ""} ${layer.fillMode || ""} ${layer.fill}`,
+      let textMetrics;
+      if(layer.type==="text") {
+        context.font=`${layer.fontWeight} ${layer.fontSize}px ${layer.fontFamily}`;
+        const font=fontkit.create(new Uint8Array(await(await fetch(productionFontUrls[layer.fontWeight])).arrayBuffer()));
+        textMetrics={text:layer.textTemplate,fontSize:layer.fontSize,weight:layer.fontWeight,
+          canvas:context.measureText(layer.textTemplate).width,
+          shaped:font.layout(layer.textTemplate).positions.reduce((width,p)=>width+p.xAdvance,0)*layer.fontSize/font.unitsPerEm};
+      }
+      results.push({ type: `${layer.type} ${layer.shape || layer.align || ""} ${layer.fillMode || ""} ${layer.fill}`, textMetrics,
         mean: totalDifference / (260 * 210), fraction: differentPixels / (260 * 210), stats: result.stats,
         samples: [[0,0], [50,50], [70,70], [90,90], [110,110]].map(([x,y]) => ({ x,y, actual: [...actual.slice((y*260+x)*4,(y*260+x)*4+3)], expected: [...expected.slice((y*260+x)*4,(y*260+x)*4+3)] })) });
       await loadingTask.destroy();
