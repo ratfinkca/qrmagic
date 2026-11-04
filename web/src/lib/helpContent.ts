@@ -1,0 +1,122 @@
+export const helpArticles = [
+  {
+    id:"getting-started",title:"Make your first QR design",summary:"From a blank idea to a saved project and a useful download.",keywords:["start","beginner","wizard","walkthrough","poster","sticker","decal"],
+    sections:[
+      {title:"1. Choose what you are making",paragraphs:["Choose Poster or sign for one QR destination, Repeated stickers for many copies of the same design, or Numbered decals for a different serial on each item. Blank canvas starts with no artwork. Open project file brings back a design you saved earlier."]},
+      {title:"2. Set the finished size",paragraphs:["Enter the size you want after cutting, then create the project. You can change the size in Document. Print setup holds bleed, safe-area guides and DPI; your print shop can tell you which settings it needs."]},
+      {title:"3. Give the QR its content",paragraphs:["Select the QR in the canvas or Layers list. In the Inspector, paste a website address or enter text. Use https:// for a website. The first-item preview shows exactly what the QR will contain."]},
+      {title:"4. Make it yours and save",paragraphs:["Add text, images and shapes from Add layer. Select a layer to change its appearance and position. Use Save project to download an editable .qrmagic.json file before closing the browser."]},
+      {title:"5. Check and download",paragraphs:["Review the quantity in Job. Use a proof package to check one item, or Print layout to arrange the whole job on sheets or a roll. Scan a sample on your phone and check a physical print at the finished size before printing the batch."]},
+    ],
+  },
+  {
+    id:"qr-content",title:"QR content & destinations",summary:"Choose a website, plain text or a different serial for each item.",keywords:["QR","code","payload","link","URL","facebook","redirect","disable","invalidate","analytics","tracking","static","fixed"],
+    sections:[
+      {title:"Same on every item",paragraphs:["Use Same on every item for a poster, sign or repeated sticker. Enter a full website address such as https://example.com, or plain text such as PARK-0001. A serial or other plain text does not automatically open a website."]},
+      {title:"A different serial on each item",paragraphs:["Choose A different serial on each item and set the count and numbering in Job. Copies of an item keep the same serial. You can also put a numbered QR and an independent fixed QR on the same design."]},
+      {title:"What happens after printing?",paragraphs:["Current QR links go directly to the address you enter. QR Magic does not provide managed redirects or scan tracking. Changing a project later does not change an already printed code. Use a redirect URL you control if you need to change or disable its destination later.","Test destination opens the resolved website in a new tab. It is a useful link check; also scan the actual printed QR with your phone."]},
+      {title:"Advanced content",paragraphs:["A content source supplies a value to one or more layers. The template {{serial}} uses the selected source; {{index}} uses the variation number, starting at 1. Copies keep both values. Literal text can appear beside the template, for example https://example.com/pass/{{serial}}."]},
+    ],
+  },
+  {
+    id:"quantities",title:"Quantity, serials & copies",summary:"Understand how many different items you have and how many to print.",keywords:["quantity","batch","records","unique","numbering","serial","copies","fixed","same"],
+    sections:[
+      {title:"One design, many copies",paragraphs:["For a fixed QR job, Quantity is the total number of identical items. One record with 5,000 copies gives 5,000 matching stickers, all with the same QR content."]},
+      {title:"Different serials, repeated copies",paragraphs:["Number of serials controls how many numbered records are created. Copies of each controls how many times each one is printed. For example, 200 serials with 3 copies each makes 600 finished items.","Copies stay together: 0001, 0001, 0001, then 0002, 0002, 0002. Copying an item does not create a new serial or increase {{index}}."]},
+      {title:"More than one content source",paragraphs:["Advanced content sources supports several values in one design. Fixed content stays present on every item; serial sources can have their own numbering. Check the resolved content and export preflight if sources have different record counts."]},
+    ],
+  },
+  {
+    id:"artwork",title:"Artwork, layers & shared sources",summary:"Build your design without losing the more powerful controls.",keywords:["image","text","shape","inspector","layers","background","shared","independent","template","payload","undo","redo"],
+    sections:[
+      {title:"Work with layers",paragraphs:["Add layer creates text, shapes, an imported image or a QR. Choose a layer on the canvas or in the Layers list to edit it in the Inspector. Higher layers cover the artwork below them; drag the layer handles to reorder them. The eye control hides a layer from both preview and export.","Use Undo and Redo to step through design changes. Ctrl/Cmd+Z undoes; Ctrl/Cmd+Shift+Z redoes. Position and size, alignment and other precise controls remain available in the Inspector."]},
+      {title:"Keep shared values intentional",paragraphs:["Two layers can use the same content source, such as a QR and its visible serial label. Editing that source updates both. Make independent gives a QR its own source when you want to change its content separately. Advanced QR content holds source selection and custom templates."]},
+      {title:"Check the finished result",paragraphs:["Finished preview shows the intended cut shape without editing guides. Exported artwork still includes the bleed envelope for production. Keep important text and the whole QR comfortably inside the cut edge."]},
+    ],
+  },
+  {
+    id:"print-setup",title:"Finished size, bleed & safe area",summary:"A few print terms, explained in ordinary language.",keywords:["trim","cut","size","width","height","bleed","edges","DPI","resolution","safe","inset","margin","opacity"],
+    sections:[
+      {title:"Finished size and cut shape",paragraphs:["Finished width and height describe the item after cutting. The cut shape fits within those dimensions. It describes the intended outline; an artwork shape layer is a separate part of your design."]},
+      {title:"Bleed prevents white edges",paragraphs:["Bleed is extra artwork beyond the cut edge. It gives the cutter a little room to vary without exposing an unprinted edge. Use your shop’s required amount, or 0 when bleed is not needed.","Extend backgrounds and edge-to-edge images into the bleed area. Increasing the bleed allowance adds space; it does not stretch an imported image or invent missing artwork."]},
+      {title:"The safe area protects important content",paragraphs:["The safe inset is a guide inside the cut edge. Keep QR codes and important text inside it. On a curved cut, the guide is a composition aid; also check the actual contour in Finished preview."]},
+      {title:"DPI, units and opacity",paragraphs:["DPI describes raster image resolution at the physical size. A higher number can preserve more image detail but uses more memory. New projects start at 300 DPI. PDF page dimensions carry the physical sizing contract; print them at 100% / actual size.","Page opacity controls the background color, while each layer has its own opacity. PNG and PDF can preserve transparency. JPG places the artwork on white."]},
+    ],
+  },
+  {
+    id:"exporting",title:"Choose the right export",summary:"Proof one item, download images, or prepare a production handoff.",keywords:["export","download","PDF","PNG","JPG","proof","vector","raster","guides","font","shadow","gradient"],
+    sections:[
+      {title:"Check one item first",paragraphs:["Download proof package contains the currently selected item, artwork/guide previews and a layered proof PDF. Use it to check appearance and placement. It is not the whole printed batch."]},
+      {title:"Images and one-item PDF pages",paragraphs:["PNG ZIP and JPG ZIP contain the whole job, including copies. PNG preserves transparency; JPG uses white behind transparent areas. Image PDF contains one finished item per page, with artwork flattened to an image.","Production PDF package also has one item per page. It keeps supported QR codes, text and solid shapes as vectors, embeds supported fonts, and includes a cut-outline reference and reports. Images and effects such as gradients or shadows use a documented raster fallback. Read the included preflight notes."]},
+      {title:"Arrange several items on a page",paragraphs:["Choose Print layout for a sheet or roll job with multiple items per page. Its layout package already includes every requested copy, so do not add the quantity again in the print shop’s RIP.","Preview guides help you design. Print guides on artwork is for proofing; keep it off for clean artwork. Print Layout never includes its preview guide overlays in artwork.pdf."]},
+      {title:"Handing files to the shop",paragraphs:["These production packages are generic RGB handoffs with vector cut references. They do not add machine-specific cutting commands, registration marks, ICC conversion or PDF/X certification. The print shop sets color, media and cutting in its RIP. Ask the shop to validate a small sample on its own equipment first."]},
+    ],
+  },
+  {
+    id:"print-layout",title:"Arrange a roll or sheet job",summary:"Fit copies at their real size, with margins and clear space around bleed.",keywords:["layout","roll","sheet","panel","spacing","gap","rotation","best fit","material","Mimaki","Roland","RIP"],
+    sections:[
+      {title:"Choose the media",paragraphs:["In Print layout, choose Roll or Sheet and enter the media dimensions. Sheet presets are starting points, not printer profiles. A roll’s Maximum panel length splits a long job into manageable PDF pages. Each roll panel uses only the length needed for its occupied rows and margins."]},
+      {title:"Margins and spacing",paragraphs:["Margins leave space at the edges of every panel or sheet. Use Set each edge separately if your shop needs a larger leading or trailing margin. Horizontal and vertical gaps are measured between full bleed areas. With 3 mm bleed on both items and a 3 mm gap, their finished cut edges are 9 mm apart."]},
+      {title:"Fit without resizing",paragraphs:["Best fit compares the original orientation with one uniform 90-degree rotation and chooses lower material use. It never shrinks the finished design. If the job does not fit, adjust media size, margins or orientation. Use Fit, zoom and panel navigation to inspect the result.","Estimated material use includes the entered margins on each panel. Add any extra feed, registration space and testing allowance your shop needs; those are not automatically included."]},
+      {title:"What the package contains",paragraphs:["The layout ZIP includes an actual-size artwork PDF, a matching cut-reference SVG for every page, a placement CSV, job metadata and preflight notes. Cuts and artwork use the same placement and rotation. The final panel contains only the remaining items; unused positions stay empty. Print at 100% / actual size, with fit-to-page and extra RIP copies disabled."]},
+    ],
+  },
+  {
+    id:"saving",title:"Save, open & share projects",summary:"Keep an editable copy and make a clear handoff to someone else.",keywords:["save","open","file","project","share","cloud","autosave","backup","browser","local","privacy"],
+    sections:[
+      {title:"Save the editable project",paragraphs:["Save project downloads a .qrmagic.json file containing the design, artwork, content sources, quantities and saved layout settings. Download it before closing the tab, and save again after important changes. An exported PDF or image does not replace the editable project file."]},
+      {title:"Open or share it later",paragraphs:["Use Open project in the toolbar or Open project file in the chooser. The app asks before replacing an unsaved design. You can share the project file with a print shop so it can open the design and choose its own layout settings.","Project files include artwork and QR content, so share them with the people who need that information. The web app currently has no cloud project library or automatic cloud backup. Keep your own saved copy."]},
+    ],
+  },
+  {
+    id:"scanning",title:"My QR will not scan",summary:"Start with clear space, strong contrast and a real-size sample.",keywords:["scan","phone","camera","quiet zone","margin","contrast","logo","small","test","troubleshooting"],
+    sections:[
+      {title:"Give the code breathing room",paragraphs:["Keep a clear, plain border around the QR. Nearby artwork, a cut edge or an oversized logo can make it difficult to read. Start with a simple square QR, a light background and dark foreground, then test styling changes one at a time."]},
+      {title:"Check size and content",paragraphs:["A code that looks fine while zoomed in may be too small after printing. Scan a physical sample at its finished size using more than one phone when possible. Long payloads make denser patterns, so give them more room.","Check First item contains for the intended website or serial. A successfully scanned serial is plain text; it will not open a website unless the content is a web address. For a website, also test the destination itself."]},
+    ],
+  },
+] as const;
+
+export function searchHelpArticles(query:string) {
+  const words=query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  return helpArticles.filter(article=>{
+    const text=[article.title,article.summary,...article.keywords,...article.sections.flatMap(section=>[section.title,...section.paragraphs])].join(" ").toLocaleLowerCase();
+    return words.every(word=>text.includes(word));
+  });
+}
+
+export const helpTips={
+  finished:{label:"finished size",text:"The width and height after cutting. Bleed adds artwork space outside this size; it does not make the finished item bigger."},
+  bleed:{label:"bleed",text:"Bleed is extra artwork beyond the cut edge to help prevent white edges after trimming. Extend backgrounds into it and use your print shop’s required amount."},
+  safe:{label:"safe area",text:"A guide inside the cut edge. Keep important text and the whole QR inside it, and check the real outline for curved cuts."},
+  dpi:{label:"DPI",text:"Raster image detail at the printed size. New projects use 300 DPI. More detail uses more memory; PDF dimensions keep the physical size explicit."},
+  quantities:{label:"quantity and copies",text:"Fixed QR: Quantity is the total number of identical items. Numbered QR: number of serials × copies of each = total items. Copies keep the same serial."},
+  qr:{label:"QR content",text:"Choose the same website or text for every item, or a different serial for each record. A plain serial is text, not a website link."},
+  sources:{label:"shared sources",text:"Layers sharing a source use the same value. A QR and its serial label can stay linked. Make independent gives a QR its own source."},
+  exports:{label:"export formats",text:"Proof checks one item. Image/PDF job exports include all copies, one item at a time. Print layout arranges the job on sheets or roll panels."},
+  spacing:{label:"print spacing",text:"Gaps are clear space between full bleed areas. With 3 mm bleed on both items and a 3 mm gap, finished cut edges are 9 mm apart."},
+  orientation:{label:"best fit",text:"Compares two uniform orientations for the actual quantity and chooses lower material use. Your artwork stays at 100% of its finished size."},
+} as const;
+export type HelpTipTopic=keyof typeof helpTips;
+
+export const tourSteps=[
+  {target:"document",title:"Start with the finished size",body:"Document sets the size after cutting. Choose a cut shape here, and find bleed, safe area and DPI in Print setup.",tip:"New to bleed? It is just extra background beyond the cut edge."},
+  {target:"qr",title:"Tell the QR what to contain",body:"Select a QR and use the Inspector to enter a full website address or plain text. The first-item preview shows the result.",tip:"One QR destination works well for posters and repeated stickers."},
+  {target:"job",title:"Choose how many to make",body:"Job holds quantity and numbering. Different serials create different records; copies repeat each record’s content.",tip:"200 serials × 3 copies each makes 600 finished items."},
+  {target:"layers",title:"Build your design with layers",body:"Add text, images, shapes and more QR codes. Select a layer to edit it in the Inspector. Advanced controls are there when you need them.",tip:"Use the eye control to hide a layer, or drag its handle to change the stacking order."},
+  {target:"save",title:"Keep an editable copy",body:"Save project downloads a .qrmagic.json file you can open again or share with your print shop. Save after important changes and before closing the tab.",tip:"A PDF or PNG is an output file. Keep the project file for future edits."},
+  {target:"export",title:"Proof it, then print it",body:"The proof package checks one selected item. Print layout arranges the whole job on a roll or sheet. Its export includes every requested copy.",tip:"Scan a phone test and check a physical sample at 100% / actual size before printing the batch."},
+] as const;
+export type TourTarget=typeof tourSteps[number]["target"];
+export const TOUR_STORAGE_KEY="qrmagic.tour.v1";
+type PreferenceStorage=Pick<Storage,"getItem"|"setItem">;
+export function readTourCompleted(storage?:PreferenceStorage) {
+  try{return (storage??globalThis.localStorage)?.getItem(TOUR_STORAGE_KEY)==="complete";}catch{return false;}
+}
+export function markTourCompleted(storage?:PreferenceStorage) {
+  try{const target=storage??globalThis.localStorage;if(!target)return false;target.setItem(TOUR_STORAGE_KEY,"complete");return true;}catch{return false;}
+}
+export function helpMarkdown() {
+  return ["# QR Magic user guide","Create a design, give its QR useful content, save an editable project, and prepare a print handoff. Open Help in the app for search and an optional quick tour.",
+    ...helpArticles.map(article=>[`## ${article.title}`,article.summary,...article.sections.map(section=>[`### ${section.title}`,...section.paragraphs].join("\n\n"))].join("\n\n"))].join("\n\n")+"\n";
+}

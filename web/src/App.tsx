@@ -3,6 +3,7 @@ import type Konva from "konva";
 import JSZip from "jszip";
 import {
   Focus,
+  CircleHelp,
   FilePlus2,
   FolderOpen,
   Hand,
@@ -19,6 +20,9 @@ import {
 } from "lucide-react";
 import { ProjectChooser } from "./components/ProjectChooser";
 import { PrintLayout } from "./components/PrintLayout";
+import { HelpCenter } from "./components/HelpCenter";
+import { Walkthrough } from "./components/Walkthrough";
+import { markTourCompleted, tourSteps } from "./lib/helpContent";
 import { createPrintRecords, productionCount, productionGeometry, positiveInteger, normalizeFixedJob, jobSummary, isRepeatedJob } from "./lib/production";
 import { EditorCanvas } from "./components/EditorCanvas";
 import { Inspector } from "./components/Inspector";
@@ -87,6 +91,9 @@ function normalizeHexColor(color: string) {
 export function App() {
   const [layoutOpen,setLayoutOpen]=useState(false);
   const [chooserOpen, setChooserOpen] = useState(true);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [tourStep, setTourStep] = useState<number | null>(null);
+  const tourSnapshot = useRef<{ selectedLayerIds:string[]; panelsVisible:boolean; compactPanel:"document"|"inspector"|null } | null>(null);
   const [project, setProject] = useState<QrMagicProject>(initialProject);
   const [projectHistory, setProjectHistory] = useState<ProjectHistory>({ past: [], future: [] });
   const [selectedLayerIds, setSelectedLayerIds] = useState([initialProject.layers[0].id]);
@@ -118,6 +125,26 @@ export function App() {
   const canRedo = projectHistory.future.length > 0;
   const isExportLocked = exportStatus !== null;
   const exportSetFormat = getExportSetFormat(project);
+
+  function startTour() {
+    tourSnapshot.current = { selectedLayerIds, panelsVisible, compactPanel };
+    setHelpOpen(false); setChooserOpen(false); setLayoutOpen(false); setTourStep(0);
+  }
+  function endTour(complete:boolean) {
+    if (complete) markTourCompleted();
+    const snapshot = tourSnapshot.current;
+    if (snapshot) { setSelectedLayerIds(snapshot.selectedLayerIds); setPanelsVisible(snapshot.panelsVisible); setCompactPanel(snapshot.compactPanel); }
+    tourSnapshot.current = null; setTourStep(null);
+    requestAnimationFrame(() => document.querySelector<HTMLButtonElement>("[data-help-launcher]")?.focus());
+  }
+  useEffect(() => {
+    if (tourStep === null) return;
+    const target = tourSteps[tourStep].target;
+    const qr = project.layers.find(layer => layer.type === "qr");
+    setPanelsVisible(true);
+    setCompactPanel(target === "export" || (target === "qr" && qr) ? "inspector" : "document");
+    if (target === "qr" && qr) setSelectedLayerIds([qr.id]);
+  }, [tourStep, project.layers]);
 
   useEffect(() => {
     projectRef.current = project;
@@ -222,7 +249,7 @@ export function App() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if(layoutOpen) return;
+      if(layoutOpen || helpOpen || tourStep !== null) return;
       const target = event.target as HTMLElement | null;
       const isEditableTarget =
         target?.tagName === "INPUT" ||
@@ -245,7 +272,7 @@ export function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [redoProjectChange, undoProjectChange, layoutOpen]);
+  }, [redoProjectChange, undoProjectChange, layoutOpen, helpOpen, tourStep]);
 
   function updateLayer(
     layerId: string,
@@ -1000,12 +1027,14 @@ export function App() {
     reader.readAsDataURL(file);
   }
 
-  if(layoutOpen) return <PrintLayout project={project} onBack={()=>setLayoutOpen(false)} onSave={saveProjectFile}
-    onChange={layout=>updateProject(current=>({...current,production:{...current.production,layout}}))}/>;
+  const helpSurfaces = <>{helpOpen ? <HelpCenter onClose={() => setHelpOpen(false)} onStartTour={startTour} fromLayout={layoutOpen}/> : null}
+    {tourStep !== null ? <Walkthrough step={tourStep} hasQr={project.layers.some(layer => layer.type === "qr")} onStep={setTourStep} onEnd={endTour}/> : null}</>;
+  if(layoutOpen) return <><PrintLayout project={project} onBack={()=>setLayoutOpen(false)} onSave={saveProjectFile} onHelp={() => setHelpOpen(true)}
+    onChange={layout=>updateProject(current=>({...current,production:{...current.production,layout}}))}/>{helpSurfaces}</>;
 
   return (
     <main className="app-shell">
-      {chooserOpen ? <ProjectChooser onClose={() => setChooserOpen(false)}
+      {chooserOpen ? <ProjectChooser onClose={() => setChooserOpen(false)} onHelp={() => setHelpOpen(true)}
         onOpen={() => projectInputRef.current?.click()}
         onCreate={next => {
           if (!canReplaceProject()) return;
@@ -1085,9 +1114,10 @@ export function App() {
           >
             <FolderOpen size={17} />
           </button>
-          <button className="tool-button" title="Save project" onClick={saveProjectFile} disabled={isExportLocked}>
+          <button className="tool-button" title="Save project" data-guide="save" onClick={saveProjectFile} disabled={isExportLocked}>
             <Save size={17} />
           </button>
+          <button className="tool-button help-toolbar-button" aria-label="Help" title="Help & getting started" data-help-launcher disabled={isExportLocked} onClick={() => setHelpOpen(true)}><CircleHelp size={17}/><span>Help</span></button>
           <button className="compact-panel-button" aria-pressed={compactPanel === "document"} onClick={() => { setPanelsVisible(true); setCompactPanel(current => current === "document" ? null : "document"); }}>Document & job</button>
           <button className="compact-panel-button" aria-pressed={compactPanel === "inspector"} onClick={() => { setPanelsVisible(true); setCompactPanel(current => current === "inspector" ? null : "inspector"); }}>Inspector</button>
           <input
@@ -1127,6 +1157,7 @@ export function App() {
       >
         {panelsVisible ? (
           <Sidebar
+            tourTarget={tourStep === null ? null : tourSteps[tourStep].target}
             project={project}
             selectedLayerIds={selectedLayerIds}
             onSelectLayers={(layerIds) => setSelectedLayerIds(layerIds)}
@@ -1208,6 +1239,7 @@ export function App() {
           </div>
         ) : null}
       </div>
+      {helpSurfaces}
     </main>
   );
 }

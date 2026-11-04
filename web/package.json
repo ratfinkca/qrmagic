@@ -9,6 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run src",
     "test:export": "node --test tests/export-rendering.test.mjs",
+    "docs:help": "node --experimental-strip-types scripts/generate-help.mjs",
     "preview": "vite preview"
   },
   "pnpm": {

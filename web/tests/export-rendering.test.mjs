@@ -16,6 +16,108 @@ let initialProject;
 let fixtureIndex = 0;
 const pageErrors = [];
 
+test("help opens from the chooser, searches terms and handles empty results",async()=>{
+  await page.getByRole("button",{name:"Help & getting started",exact:true}).click();
+  const help=page.getByRole("dialog",{name:"Help & getting started",exact:true});
+  await help.getByRole("heading",{name:"Make your first QR design",exact:true}).waitFor();
+  await help.getByLabel("Search help",{exact:true}).fill("bleed");
+  await help.getByRole("button",{name:"Finished size, bleed & safe area",exact:true}).click();
+  await help.getByText(/extra artwork beyond the cut edge/).first().waitFor();
+  await help.getByLabel("Search help",{exact:true}).fill("nothing-matches-123");
+  await help.getByText("No matching topics",{exact:true}).waitFor();
+  await page.keyboard.press("Escape");
+  await page.getByRole("heading",{name:"What are you making?",exact:true}).waitFor();
+  assert.equal(await page.getByRole("button",{name:"Help & getting started",exact:true}).evaluate(el=>el===document.activeElement),true);
+});
+
+test("the optional tour completes, restarts and skips without changing the project",async()=>{
+  await page.getByRole("button",{name:"Close new project",exact:true}).click();
+  await page.getByLabel("Name",{exact:true}).fill("Tour keeps my edits");
+  const save=async()=>{const download=page.waitForEvent("download");await page.getByTitle("Save project",{exact:true}).click();return JSON.parse((await readFile(await(await download).path())).toString()).project;};
+  const before=await save();
+  await page.getByRole("button",{name:"Help",exact:true}).click();
+  await page.getByRole("button",{name:"Close help",exact:true}).focus();
+  await page.keyboard.press("Control+z");
+  await page.getByRole("button",{name:"Take a quick tour",exact:true}).click();
+  const tour=page.getByRole("dialog",{name:"Quick tour",exact:true});
+  const expectHighlight=async(target)=>page.waitForFunction(target=>{
+    const highlighted=document.querySelector(".tour-shade.has-highlight")?.getBoundingClientRect();
+    const control=document.querySelector(`[data-guide="${target}"]`)?.getBoundingClientRect();
+    return highlighted&&control&&highlighted.width>0&&highlighted.height>0&&Math.abs(highlighted.left-Math.max(6,control.left-4))<2;
+  },target);
+  await tour.getByText("Step 1 of 6",{exact:true}).waitFor();
+  await expectHighlight("document");
+  await page.keyboard.press("Control+z");
+  for(let step=1;step<6;step++){
+    await tour.getByRole("button",{name:"Next",exact:true}).click();
+    await tour.getByText(`Step ${step+1} of 6`,{exact:true}).waitFor();
+    await expectHighlight(["document","qr","job","layers","save","export"][step]);
+  }
+  await tour.getByRole("button",{name:"Finish tour",exact:true}).click();
+  assert.equal(await page.getByRole("button",{name:"Help",exact:true}).evaluate(el=>el===document.activeElement),true);
+  assert.deepEqual(await save(),before);
+  await page.getByRole("button",{name:"Help",exact:true}).click();
+  await page.getByRole("button",{name:"Restart quick tour",exact:true}).click();
+  await page.keyboard.press("Escape");
+  assert.equal(await tour.count(),0);
+  assert.deepEqual(await save(),before);
+  await page.getByRole("button",{name:"New project",exact:true}).click();
+  await page.getByRole("button",{name:/^Blank canvas/}).click();
+  await page.getByRole("button",{name:"Create project",exact:true}).click();
+  const blank=await save();
+  await page.getByTitle("Hide panels",{exact:true}).click();
+  await page.getByRole("button",{name:"Help",exact:true}).click();
+  await page.getByRole("button",{name:"Restart quick tour",exact:true}).click();
+  await tour.getByRole("button",{name:"Next",exact:true}).click();
+  await tour.getByText(/This blank canvas has no QR yet/).waitFor();
+  await expectHighlight("layers");
+  await tour.getByRole("button",{name:"Back",exact:true}).click();
+  await tour.getByText("Step 1 of 6",{exact:true}).waitFor();
+  await tour.getByRole("button",{name:"Skip tour",exact:true}).click();
+  await page.getByTitle("Show panels",{exact:true}).waitFor();
+  assert.deepEqual(await save(),blank);
+  await page.reload();
+});
+
+test("help tips work with keyboard, hover and click, and the guide fits narrow screens",async()=>{
+  await page.getByRole("button",{name:"Close new project",exact:true}).click();
+  await page.getByRole("button",{name:"Print setup",exact:true}).click();
+  const tip=page.getByRole("button",{name:"About bleed",exact:true});
+  await tip.focus();await page.getByRole("tooltip").filter({hasText:/extra artwork/}).waitFor();
+  await page.keyboard.press("Escape");await page.getByRole("tooltip").waitFor({state:"hidden"});
+  await tip.hover();await page.getByRole("tooltip").waitFor();
+  await tip.click();await page.mouse.move(10,10);await page.getByRole("tooltip").waitFor();
+  await page.keyboard.press("Escape");
+  await tip.click();await page.getByLabel("Bleed outside cut (mm)",{exact:true}).click();
+  await page.getByRole("tooltip").waitFor({state:"hidden"});
+  await page.getByRole("button",{name:"Print layout",exact:true}).click();
+  await page.getByRole("button",{name:"Help",exact:true}).click();
+  await page.setViewportSize({width:390,height:844});
+  const help=page.getByRole("dialog",{name:"Help & getting started",exact:true});
+  assert.equal(await help.evaluate(el=>el.getBoundingClientRect().right<=window.innerWidth&&el.scrollWidth<=el.clientWidth+1),true);
+  await help.getByLabel("Search help",{exact:true}).fill("redirect");
+  await help.getByRole("button",{name:"QR content & destinations",exact:true}).click();
+  await help.getByText(/managed redirects or scan tracking/).waitFor();
+  await page.keyboard.press("Escape");
+  assert.equal(await page.getByRole("button",{name:"Help",exact:true}).evaluate(el=>el===document.activeElement),true);
+  await page.getByRole("button",{name:"Help",exact:true}).click();
+  await help.getByRole("button",{name:"Back to design & start tour",exact:true}).click();
+  const tour=page.getByRole("dialog",{name:"Quick tour",exact:true});
+  for(let step=0;step<6;step++){
+    await tour.getByText(`Step ${step+1} of 6`,{exact:true}).waitFor();
+    await page.waitForFunction(target=>{
+      const highlight=document.querySelector(".tour-shade.has-highlight")?.getBoundingClientRect();
+      const element=document.querySelector(`[data-guide="${target}"]`)?.getBoundingClientRect();
+      return highlight&&element&&highlight.width>0&&highlight.height>0&&element.width>0&&Math.abs(highlight.left-Math.max(6,element.left-4))<2;
+    },["document","qr","job","layers","save","export"][step]);
+    assert.equal(await tour.evaluate(el=>el.getBoundingClientRect().left>=0&&el.getBoundingClientRect().right<=window.innerWidth),true);
+    if(step<5)await tour.getByRole("button",{name:"Next",exact:true}).click();
+  }
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({width:1600,height:1000});
+  await page.reload();
+});
+
 test("generated QR previews release source images while imported artwork remains reusable",async()=>{
   const result=await page.evaluate(async()=>{
     const {renderProjectPngBlob}=await import("/qrmagic/src/lib/exportRenderer.ts");

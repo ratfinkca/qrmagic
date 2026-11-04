@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { HelpTip } from "./HelpTip";
+import type { TourTarget } from "../lib/helpContent";
 import {
   Box,
   ChevronDown,
@@ -20,6 +22,7 @@ import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
 import type { DataGroup, ProjectLayer, QrMagicProject } from "../types";
 
 type SidebarProps = {
+  tourTarget: TourTarget | null;
   project: QrMagicProject;
   selectedLayerIds: string[];
   onSelectLayers: (layerIds: string[]) => void;
@@ -52,6 +55,7 @@ type SidebarProps = {
 type OpenPanel = "document" | "guides" | "data" | "layers";
 
 export function Sidebar({
+  tourTarget,
   project,
   selectedLayerIds,
   onSelectLayers,
@@ -81,6 +85,16 @@ export function Sidebar({
     layers: true,
   });
   const layersTopFirst = [...project.layers].reverse();
+  const tourPanels = useRef<Record<OpenPanel,boolean> | null>(null);
+  useEffect(() => {
+    if (tourTarget) {
+      setOpenPanels(current => {
+        tourPanels.current ??= current;
+        const panel = tourTarget === "job" ? "data" : tourTarget === "qr" ? "layers" : tourTarget === "document" ? "document" : tourTarget === "layers" ? "layers" : null;
+        return panel ? {...current,[panel]:true} : current;
+      });
+    } else if (tourPanels.current) { setOpenPanels(tourPanels.current); tourPanels.current = null; }
+  }, [tourTarget]);
   const selectedLayerSet = new Set(selectedLayerIds);
   const repeated = isRepeatedJob(project);
   const indexed = usesRecordIndex(project);
@@ -146,7 +160,7 @@ export function Sidebar({
 
   return (
     <aside className="sidebar">
-      <section className="panel">
+      <section className="panel" data-guide="document">
         <button className="panel-heading" onClick={() => togglePanel("document")}>
           <span className="panel-title">
             <FileText size={16} />
@@ -199,6 +213,7 @@ export function Sidebar({
               </label>
 
             </div>
+            <div className="help-field-note">Size after cutting <HelpTip topic="finished"/></div>
             <div className="document-color-field">
               <div className="field-grid">
                 <ColorControl
@@ -366,7 +381,7 @@ export function Sidebar({
                   value={project.document.dpi}
                   onChange={(event) => onUpdateDocument({ dpi: Number(event.target.value) })}
                 />
-              </label>                  <div className="field-grid">
+              </label><div className="help-field-note">Printed image detail <HelpTip topic="dpi"/></div><div className="field-grid">
                     <label>
                       Bleed outside cut (mm)
                       <input
@@ -399,6 +414,7 @@ export function Sidebar({
                       />
                     </label>
                   </div>
+                  <div className="help-field-note">Bleed <HelpTip topic="bleed"/> Safe area <HelpTip topic="safe"/></div>
                   <p className="chooser-hint" id="document-bleed-tip">Bleed is extra artwork beyond the cut edge. Extend backgrounds into it to prevent white edges when trimming. Use your print shop’s required amount, or 0 for no bleed.</p>
                   <label className="checkbox-row">
                     <input
@@ -462,7 +478,7 @@ export function Sidebar({
         </> : null}
       </section>
 
-      <section className="panel">
+      <section className="panel" data-guide="job">
         <button className="panel-heading" onClick={() => togglePanel("data")}>
           <span className="panel-title">
             <Database size={16} />
@@ -476,7 +492,7 @@ export function Sidebar({
               <input type="number" min="1" max="100000" step="1" value={project.production.copiesPerRecord}
                 onChange={event => onUpdateProduction(Number(event.target.value))} />
             </label>
-            <p className="chooser-hint" aria-live="polite">{jobSummary(project)}</p>
+            <div className="help-context-row"><p className="chooser-hint" aria-live="polite">{jobSummary(project)}</p><HelpTip topic="quantities"/></div>
             {serialGroup?.mode === "serial" ? <>
               <label>Number of serials<input type="number" min="1" max="100000" value={serialGroup.serial.quantity}
                 onChange={event => onUpdateDataGroupSerial(serialGroup.id, { quantity: Number(event.target.value) })} /></label>
@@ -619,7 +635,7 @@ export function Sidebar({
         ) : null}
       </section>
 
-      <section className="panel">
+      <section className="panel" data-guide="layers">
         <button className="panel-heading" onClick={() => togglePanel("layers")}>
           <span className="panel-title">
             <Layers size={16} />

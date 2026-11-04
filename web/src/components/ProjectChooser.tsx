@@ -10,8 +10,8 @@ const starters = [
   { kind: "blank", title: "Blank canvas", description: "Choose a finished size and start fresh", icon: FilePlus2 },
 ] as const;
 
-export function ProjectChooser({ onCreate, onOpen, onClose }: {
-  onCreate: (project: QrMagicProject) => void; onOpen: () => void; onClose: () => void;
+export function ProjectChooser({ onCreate, onOpen, onClose, onHelp }: {
+  onCreate: (project: QrMagicProject) => void; onOpen: () => void; onClose: () => void; onHelp: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [kind, setKind] = useState<StarterKind>("decals");
@@ -78,6 +78,7 @@ export function ProjectChooser({ onCreate, onOpen, onClose }: {
           <button className="primary-action" type="submit">Create project</button>
         </div>
       </form>
+      <button type="button" className="chooser-help" onClick={onHelp}>Help &amp; getting started</button>
     </dialog>
   );
 }

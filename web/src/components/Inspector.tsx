@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { QrContentEditor } from "./QrContentEditor";
+import { HelpTip } from "./HelpTip";
 import { productionCount } from "../lib/production";
 import { productionPreflight } from "../lib/productionPdfModel";
 import { ColorControl } from "./ColorControl";
@@ -1088,10 +1089,11 @@ export function Inspector({
           </div>
         )}
       </section>
-      <section className="panel">
+      <section className="panel" data-guide="export">
         <div className="panel-title">
           <Download size={16} />
           <span>Export</span>
+          <HelpTip topic="exports"/>
         </div>
         <div className="export-summary">
           <strong>{productionCount(project).total.toLocaleString()} items</strong>

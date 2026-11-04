@@ -1,196 +1,66 @@
-﻿# QR Magic
+# QR Magic
 
-A cross-platform batch QR code generator with a simple GUI, built in Python/Tkinter.
+QR Magic is a browser-based designer for QR posters, numbered decals and repeated stickers. Create artwork, save an editable project, and prepare actual-size files for a print shop.
 
-> Next-edition work is underway on `codex/convert_2_web_00`.
-> The original Python/Tkinter app remains the working reference implementation, while the new `web/` app is a local-first browser prototype for a more flexible visual designer.
+[Open QR Magic](https://ratfinkca.github.io/qrmagic/) · [Read the user guide](docs/user-guide.md)
 
-**Features**
+## Start designing
 
-* Import data from a text/CSV file (optional)
-* Auto-numbering or data-based filenames
-* Customizable prefix, suffix, and zero-padding
-* Live QR preview with adjustable font size, margins, and format (JPG, PNG, PDF)
-* Export individual QR images with embedded labels
-* Stop/cancel processing mid-batch
+1. Choose **Poster or sign**, **Repeated stickers**, **Numbered decals**, or **Blank canvas**.
+2. Set the finished size. Select a QR to enter a website, plain text or serial content in the Inspector.
+3. Set the quantity in **Job**, then use **Save project** to download an editable `.qrmagic.json` file.
+4. Check one item with a proof package, or arrange the whole job in **Print layout** for roll or sheet output.
 
----
+Open **Help** in the editor or Print Layout for searchable guides. **Take a quick tour** shows the main controls without changing your design. The small question-mark buttons explain print terms and advanced features with keyboard, pointer or touch input.
 
-## Getting Started
+Save your project before closing the tab. The app has no cloud project library or automatic cloud backup. QR links currently encode the destination directly; managed redirects and scan tracking are not implemented.
 
-### Web Prototype
+## What it can do
 
-The next-edition web app lives in `web/`.
+- Physical document dimensions, bleed outside the cut, safe-area guides and saved cut geometry.
+- Text, image, shape and styled QR layers with palettes, gradients, shadows, alignment and multi-selection.
+- Independent fixed or numbered QR sources, shared serial labels and custom content templates.
+- Separate counts for unique serials and copies; a fixed job uses one total quantity.
+- Proof packages, PNG/JPG job ZIPs and one-item-per-page image PDFs.
+- Production PDF packages with supported vector text, shapes and QR codes, embedded fonts, cut references and preflight notes. Images and unsupported effects use documented raster fallbacks.
+- Roll/sheet layouts at actual size with margins, spacing, rotation, panel splitting, PDF artwork, cut-reference SVGs and placement reports. Layout output already includes every requested copy.
+- Save/open project files to continue editing or share with a print shop.
 
-```bash
+Production packages are generic RGB handoffs. Machine-specific cut separations, registration marks, color conversion and PDF/X certification are not yet implemented. Mimaki is the first target for equipment validation; ask your print shop to validate a sample in its own RIP before a production run.
+
+## Run locally
+
+Use Node.js 24 and the pnpm version pinned in `web/package.json`.
+
+```sh
 cd web
 pnpm install
 pnpm dev
 ```
 
-Common checks:
+Open the local URL printed by Vite, with `/qrmagic/` as the path.
 
-```bash
+```sh
 pnpm test
+pnpm exec playwright install chromium
+pnpm test:export
 pnpm build
 ```
 
-Browser export regressions compare the editor artwork with exported PNG pixels:
+The browser suite exercises help, onboarding, editor interactions and real exported artwork. On Windows, an installed Edge can be used with `$env:PLAYWRIGHT_CHANNEL="msedge"` before `pnpm test:export`.
 
-```bash
-pnpm exec playwright install chromium
-pnpm test:export
-```
+The in-app articles and repository user guide share one content source: `web/src/lib/helpContent.ts`. After updating the articles, run `pnpm docs:help` from `web/` and include the regenerated guide.
 
-On Windows, an installed Edge can be used with `$env:PLAYWRIGHT_CHANNEL="msedge"` before running `pnpm test:export`.
+## Deployment
 
-### GitHub Pages Demo
+[GitHub Actions](https://github.com/ratfinkca/qrmagic/actions) runs unit tests, Chromium browser tests and the production build on pull requests and pushes to `main`. Pages deploys only after those checks pass on `main`. Pull requests do not deploy. Repository Pages settings must use **GitHub Actions** as the source.
 
-The `web/` app is configured for GitHub Pages at:
+## Development notes
 
-```text
-https://ratfinkca.github.io/qrmagic/
-```
+See [the project model](docs/project-model.md), [engineering guardrails](docs/engineering-guardrails.md) and [the next-edition plan](docs/next-edition-plan.md) for technical background. Some planning documents describe earlier phases; the user guide describes the current interface.
 
-The `.github/workflows/deploy-pages.yml` workflow runs unit tests, browser export tests in Chromium, and the production build on pull requests and pushes to `main`. Pages publishing runs only after all three pass on `main`, including manual runs from the workflow's **Run workflow** button. Pull requests never deploy.
+The original Python/Tkinter files remain in the repository as a legacy reference. Active product development targets the web app.
 
-Before the first deploy, open the repository on GitHub, go to **Settings > Pages**, and set **Build and deployment > Source** to **GitHub Actions**.
+## Contributing and license
 
-Current prototype capabilities include:
-
-* A new-project chooser for numbered decals, posters, repeated stickers, and blank designs, plus opening saved files.
-* Finished-size documents with physical outside bleed, saved cut geometry, safe-area guides, and separate copies per record.
-* Version 1 project migration that preserves artwork placement, record ordering, and exported size.
-* Bleed-inclusive raster output and PDFs with finished-size TrimBox and external BleedBox metadata.
-* Visual canvas editor with select, pan, zoom, lasso, and multi-select.
-* DPI-aware document setup with page color, transparency, trim, bleed, and safe-area guides.
-* Layer management for shape/color, image, QR, and text layers.
-* Shape layers for rectangles, circles/ovals, pills, polygon presets, and custom polygon/star shapes.
-* Layer visibility, deletion, drag ordering, opacity, shadows, solid fills, gradients, palette swatches, and sizing controls.
-* Multiple serial or fixed data groups, with fixed-only jobs able to repeat one value across a set quantity.
-* Styled QR codes with dot/corner styles, quiet-zone control, error correction, and embedded logos.
-* Alignment tools for single layers, selected groups, and document guide targets.
-* Document shape controls shared by trim, bleed, and safe-area guide rendering.
-* Save/open `.qrmagic.json` project files.
-* Flattened PNG export for a single record and zipped PNG batch export.
-
-Known prototype limits:
-
-* Cut geometry is saved and previewed; machine spot-color cutting separations, PDF/X validation, color conversion, and roll/sheet imposition are future phases. Mimaki is the first target for print-and-cut validation.
-* Layered/vector/design-tool exports are planned but not implemented.
-* CSV import and manifest export are still planned.
-* The production build currently emits a large-bundle warning because canvas, QR, ZIP, and export libraries are all loaded in the main client bundle.
-
-See [docs/next-edition-plan.md](docs/next-edition-plan.md), [docs/project-model.md](docs/project-model.md), and [docs/engineering-guardrails.md](docs/engineering-guardrails.md) for the current rewrite direction.
-
-### Prerequisites
-
-* Python 3.8+ (tested on Windows, macOS, Ubuntu)
-* Git (for cloning the repo)
-
-### Installation
-
-```bash
-# Clone this repository
-git clone https://github.com/yourusername/qr-magic.git
-cd qr-magic
-
-# Create & activate a virtual environment
-python -m venv qr_env
-# Windows:
-qr_env\Scripts\activate
-# macOS/Linux:
-# source qr_env/bin/activate
-
-# Install dependencies
-pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt
-```
-
-### Running
-
-```bash
-# With GUI
-python qr_tk.py
-
-# Command-line batch mode (no GUI)
-python qr_batch.py <input.txt> <output_folder> --format JPG
-```
-
----
-
-## Packaging
-
-### Windows (.exe)
-
-```powershell
-pyinstaller --onefile --windowed --icon "qrmagic-64.ico" --name "QR Magic" qr_tk.py
-```
-
-The executable appears in `dist/QR Magic.exe`.
-
-### macOS (.app)
-
-```bash
-pip install py2app
-python setup.py py2app
-```
-
-The bundle appears in `dist/QR Magic.app`.
-
-> **Note:** macOS packaging requires a Mac environment.
-
-### Linux (AppImage)
-
-```bash
-pyinstaller --onefile --windowed --icon "qrmagic-64.ico" --name "qr-magic" qr_tk.py
-# then use appimagetool to create an AppImage from the AppDir
-```
-
----
-
-## Contributing
-
-Pull requests and issues are welcome! Please fork the repository and submit a PR with your enhancements.
-
----
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-## Roadmap
-
-This is a high-level roadmap of upcoming enhancements and features for QR Magic:
-
-#### 1. Responsive UI (In Progress)
-
-* **Two-pane layout** for wide screens: configuration panel on the left, live QR preview (and log) on the right.
-* **Scrollable fallback** for narrow or small viewports (<900×1300), with vertical (and conditional horizontal) scroll bars.
-* **Dynamic resizing**: controls expand horizontally; preview pane scales QR image to fill available space.
-
-#### 2. High-DPI Support (Planned)
-
-* Enable Windows DPI awareness so UI elements and fonts render crisply at 150%+, 200% scaling.
-* Test and tune font sizes, padding, and canvas geometry across common DPI settings.
-
-#### 3. Fullscreen/Minimal Mode (Backlog)
-
-* Toggle F11 to hide panels and show only the QR preview with a floating toolbar.
-* Restore to normal view to access settings and log.
-
-#### 4. Packaging and Distribution
-
-* **Windows:** finalize EXE with PyInstaller, test on clean Windows 10/11 VMs.
-* **macOS:** complete `.app` bundle creation on macOS system, code-sign and notarize.
-* **Linux:** build AppImage for Ubuntu, add desktop integration files (`.desktop`, icons).
-
-#### 5. Advanced Features (Future)
-
-* **Batch QR templates:** allow overlaying logos or custom backgrounds behind the QR.
-* **CSV export:** automatically generate a spreadsheet listing filenames, input data, and any errors.
-* **Localization:** support multiple UI languages via resource files.
-
-Feel free to pick an item and submit a pull request! Contributions are welcome.
+Issues and pull requests are welcome. QR Magic uses the [MIT license](LICENSE).

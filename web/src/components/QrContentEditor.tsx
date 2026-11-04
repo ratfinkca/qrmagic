@@ -1,5 +1,6 @@
 import type { DataGroup, ProjectLayer, QrLayer, QrMagicProject } from "../types";
 import { createDataRecords, renderTemplate } from "../lib/serial";
+import { HelpTip } from "./HelpTip";
 
 export function QrContentEditor({ layer, project, onUpdateLayer, onChangeMode, onChangeFixed, onMakeIndependent }: {
   layer: QrLayer;
@@ -15,8 +16,8 @@ export function QrContentEditor({ layer, project, onUpdateLayer, onChangeMode, o
   const value = renderTemplate(layer.payloadTemplate, createDataRecords(project.data.groups)[0], layer.dataGroupId);
   const url = /^https?:\/\//i.test(value) ? value : undefined;
 
-  return <section className="qr-content-editor" aria-label="QR content">
-    <h3>What should this QR contain?</h3>
+  return <section className="qr-content-editor" aria-label="QR content" data-guide="qr">
+    <div className="help-context-row"><h3>What should this QR contain?</h3><HelpTip topic="qr"/></div>
     <label>Content type
       <select aria-label="Content type" value={custom ? "custom" : group?.mode ?? "fixed"}
         onChange={event => onChangeMode(layer.id, event.target.value as DataGroup["mode"])}>
@@ -40,6 +41,7 @@ export function QrContentEditor({ layer, project, onUpdateLayer, onChangeMode, o
     </div> : null}
     <details className="editor-disclosure" open={custom || undefined}>
       <summary>Advanced QR content</summary>
+      <div className="help-field-note">Keep shared content in sync <HelpTip topic="sources"/></div>
       <label>Shared content source<select aria-label="Shared content source" value={layer.dataGroupId}
         onChange={event => onUpdateLayer(layer.id, { dataGroupId: event.target.value })}>
         {project.data.groups.map(source => <option key={source.id} value={source.id}>{source.name}</option>)}

@@ -6,12 +6,13 @@ import { productionPreflight } from "../lib/productionPdfModel";
 import type { ExportProgress } from "../lib/exportControl";
 import { PrintLayoutPreview } from "./PrintLayoutPreview";
 import "./print-layout.css";
+import { HelpTip } from "./HelpTip";
 
-type Props={project:QrMagicProject;onChange:(settings:PrintLayoutSettings)=>void;onBack:()=>void;onSave:()=>void};
+type Props={project:QrMagicProject;onChange:(settings:PrintLayoutSettings)=>void;onBack:()=>void;onSave:()=>void;onHelp:()=>void};
 const presets:Record<string,[number,number]>={letter:[215.9,279.4],a4:[210,297],a3:[297,420]};
 type NumericSetting="widthMm"|"heightMm"|"marginTop"|"marginRight"|"marginBottom"|"marginLeft"|"gapX"|"gapY";
 
-export function PrintLayout({project,onChange,onBack,onSave}:Props) {
+export function PrintLayout({project,onChange,onBack,onSave,onHelp}:Props) {
   const settings=useMemo(()=>project.production.layout??defaultLayoutSettings(),[project.production.layout]);
   const [panelIndex,setPanelIndex]=useState(0),[progress,setProgress]=useState<ExportProgress|null>(null),[message,setMessage]=useState("");
   const controller=useRef<AbortController|null>(null);
@@ -45,7 +46,7 @@ export function PrintLayout({project,onChange,onBack,onSave}:Props) {
   }
   const uniform=[settings.marginTop,settings.marginRight,settings.marginBottom].every(v=>v===settings.marginLeft);
   return <main className="print-layout-workspace">
-    <header className="layout-header"><strong>▦ QR Magic</strong><span>Design <b>› Print layout</b> › Download</span><button disabled={busy} onClick={onSave}>Save project</button></header>
+    <header className="layout-header"><strong>▦ QR Magic</strong><span>Design <b>› Print layout</b> › Download</span><div className="layout-header-actions"><button disabled={busy} onClick={onHelp}>Help</button><button disabled={busy} onClick={onSave}>Save project</button></div></header>
     <div className="layout-content"><div className="layout-heading"><div><button aria-label="Back to design" className="layout-back" disabled={busy} onClick={onBack}>← Back to design</button><h1>Print layout</h1><p>Arrange your artwork at its finished size.</p></div>
       <div className="layout-job"><strong>{project.document.name}</strong><span>{count.records.toLocaleString()} {count.records===1?"record":"records"} × {count.copiesPerRecord.toLocaleString()} copies · {count.total.toLocaleString()} items</span></div></div>
     <div className="layout-columns">
@@ -57,7 +58,7 @@ export function PrintLayout({project,onChange,onBack,onSave}:Props) {
         {numeric("widthMm",settings.media==="roll"?"Roll width":"Sheet width")}
         {numeric("heightMm",settings.media==="roll"?"Maximum panel length":"Sheet height")}
         <p className="layout-help">{settings.media==="roll"?"Panels use only the length needed, up to this maximum.":"Every PDF page keeps this sheet size."}</p>
-        <hr/><h2>Clearance</h2>
+        <hr/><div className="help-context-row"><h2>Clearance</h2><HelpTip topic="spacing"/></div>
         <label className="layout-field">Margins · all edges<div className="layout-number"><input aria-label="All margins" type="number" step="any" value={uniform&&Number.isFinite(settings.marginLeft)?Number((settings.marginLeft/unit).toFixed(6)):""} placeholder={uniform?"":"Mixed"}
           onChange={e=>{const v=e.target.value===""?NaN:Number(e.target.value)*unit;patch({marginTop:v,marginRight:v,marginBottom:v,marginLeft:v});}}/><span>{settings.units}</span></div></label>
         <details className="layout-details"><summary>Set each edge separately</summary>{numeric("marginTop","Top margin")}{numeric("marginRight","Right margin")}{numeric("marginBottom","Bottom margin")}{numeric("marginLeft","Left margin")}</details>
@@ -66,6 +67,7 @@ export function PrintLayout({project,onChange,onBack,onSave}:Props) {
         <hr/><label className="layout-field">Orientation<select aria-label="Layout orientation" value={settings.orientation} onChange={e=>patch({orientation:e.target.value as PrintLayoutSettings["orientation"]})}>
           <option value="best">Best fit</option><option value="original">As designed</option><option value="rotated">Rotate 90° clockwise</option></select></label>
         <p className="layout-help">Best fit minimizes material use. Artwork stays at 100% size.</p>
+        <div className="help-field-note">How best fit works <HelpTip topic="orientation"/></div>
         <button className="layout-reset" onClick={()=>{setPanelIndex(0);onChange(defaultLayoutSettings());}}>Reset layout</button>
       </fieldset>
       <div className="layout-preview-column">{calculation.error?<div className="layout-card layout-error" role="alert"><h2>Check the layout</h2><p>{calculation.error}</p></div>:plan?<PrintLayoutPreview project={project} plan={plan} panelIndex={safeIndex} onPanelChange={setPanelIndex}/>:null}</div>
