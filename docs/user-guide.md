@@ -20,7 +20,7 @@ Select the QR in the canvas or Layers list. In the Inspector, paste a website ad
 
 ### 4. Make it yours and save
 
-Add text, images and shapes from Add layer. Select a layer to change its appearance and position. Use Save project to download an editable .qrmagic.json file before closing the browser.
+Add text, images and shapes from Add layer. Select a layer to change its appearance and position. Edits save automatically on this device; wait for Saved on this device. Use Save project to download a separate editable .qrmagic.json backup or sharing copy.
 
 ### 5. Check and download
 
@@ -156,17 +156,29 @@ The layout ZIP includes an actual-size artwork PDF, a matching cut-reference SVG
 
 ## Save, open & share projects
 
-Keep an editable copy and make a clear handoff to someone else.
+Pick up your work again and keep a portable backup.
 
-### Save the editable project
+### Autosave on this device
 
-Save project downloads a .qrmagic.json file containing the design, artwork, content sources, quantities and saved layout settings. Download it before closing the tab, and save again after important changes. An exported PDF or image does not replace the editable project file.
+After an edit, QR Magic saves the project in this browser after a short pause. Saved on this device confirms the local write completed. While changes are waiting or saving, keep the tab open. If a local save fails, use Retry local save or Download backup; you can keep designing.
 
-### Open or share it later
+When you return, choose a project from Recent projects. The app does not open one automatically. Projects in the toolbar opens the same list, and New project opens the templates. Search by name, or use Duplicate to create an independent design. Print Layout settings and embedded artwork are included.
 
-Use Open project in the toolbar or Open project file in the chooser. The app asks before replacing an unsaved design. You can share the project file with a print shop so it can open the design and choose its own layout settings.
+### Keep a separate backup
 
-Project files include artwork and QR content, so share them with the people who need that information. The web app currently has no cloud project library or automatic cloud backup. Keep your own saved copy.
+Save project downloads a .qrmagic.json file containing the design, artwork, content sources, quantities and layout settings. Local identity stays in the browser and is not added to that file. An exported PDF or image does not replace the editable project file.
+
+Local saves are specific to this browser and site. They are not cloud backups and may be lost if site data is cleared or the browser removes stored data. Private browsing may clear them when the private session ends. Download project files for long-term storage or use on another device.
+
+### Open or share a file
+
+Use Open project in the toolbar or Open project file in the chooser. An imported file becomes a new local project. Before switching projects, the app finishes saving current changes. If that fails, it asks before replacing them. Share a project file with a print shop so it can open the design and choose layout settings.
+
+Project files include artwork and QR content, so share them with the people who need that information. There is no cloud project library or automatic cloud backup.
+
+### Editing in two tabs
+
+If another tab saves a newer version of the same local project, your edits are saved as a separate local copy. A message explains this, and both versions appear in Recent projects. A local save does not update a downloaded file or a project already open in another tab.
 
 ## My QR will not scan
 

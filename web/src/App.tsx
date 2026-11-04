@@ -6,6 +6,7 @@ import {
   CircleHelp,
   FilePlus2,
   FolderOpen,
+  FolderClock,
   Hand,
   Maximize2,
   MousePointer2,
@@ -23,6 +24,10 @@ import { PrintLayout } from "./components/PrintLayout";
 import { HelpCenter } from "./components/HelpCenter";
 import { Walkthrough } from "./components/Walkthrough";
 import { markTourCompleted, tourSteps } from "./lib/helpContent";
+import { useLocalProjects } from "./hooks/useLocalProjects";
+import { LocalSaveStatus } from "./components/LocalSaveStatus";
+import type { LocalProject } from "./lib/localProjects";
+import { projectForEditor } from "./lib/projectValidation";
 import { createPrintRecords, productionCount, productionGeometry, positiveInteger, normalizeFixedJob, jobSummary, isRepeatedJob } from "./lib/production";
 import { EditorCanvas } from "./components/EditorCanvas";
 import { Inspector } from "./components/Inspector";
@@ -91,6 +96,9 @@ function normalizeHexColor(color: string) {
 export function App() {
   const [layoutOpen,setLayoutOpen]=useState(false);
   const [chooserOpen, setChooserOpen] = useState(true);
+  const [chooserView,setChooserView]=useState<"new"|"recent"|"auto">("auto");
+  const [openingProject,setOpeningProject]=useState(false);
+  const openingProjectRef=useRef(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [tourStep, setTourStep] = useState<number | null>(null);
   const tourSnapshot = useRef<{ selectedLayerIds:string[]; panelsVisible:boolean; compactPanel:"document"|"inspector"|null } | null>(null);
@@ -123,8 +131,10 @@ export function App() {
   const selectedLayers = project.layers.filter((layer) => selectedLayerIds.includes(layer.id));
   const canUndo = projectHistory.past.length > 0;
   const canRedo = projectHistory.future.length > 0;
-  const isExportLocked = exportStatus !== null;
+  const isExportLocked = exportStatus !== null || openingProject;
   const exportSetFormat = getExportSetFormat(project);
+  const local=useLocalProjects(project,project!==initialProject);
+  useEffect(()=>{if(chooserOpen)void local.refresh();},[chooserOpen,local.refresh]);
 
   function startTour() {
     tourSnapshot.current = { selectedLayerIds, panelsVisible, compactPanel };
@@ -249,7 +259,7 @@ export function App() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if(layoutOpen || helpOpen || tourStep !== null) return;
+      if(layoutOpen || chooserOpen || openingProject || helpOpen || tourStep !== null) return;
       const target = event.target as HTMLElement | null;
       const isEditableTarget =
         target?.tagName === "INPUT" ||
@@ -272,7 +282,7 @@ export function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [redoProjectChange, undoProjectChange, layoutOpen, helpOpen, tourStep]);
+  }, [redoProjectChange, undoProjectChange, layoutOpen, chooserOpen, openingProject, helpOpen, tourStep]);
 
   function updateLayer(
     layerId: string,
@@ -771,10 +781,36 @@ export function App() {
     lastSavedProjectRef.current = project;
   }
 
-  function canReplaceProject() {
-    return projectRef.current === lastSavedProjectRef.current || window.confirm(
-      "Replace the current design? Save a project file first to keep your changes.",
-    );
+  async function canReplaceProject() {
+    try { await local.flush();return true; }
+    catch {
+      if (projectRef.current !== lastSavedProjectRef.current && !window.confirm("Your current changes could not be saved on this device. Download a project file before replacing them. Replace anyway?")) return false;
+      return true;
+    }
+  }
+
+  async function changeDocument(load:()=>Promise<{next:QrMagicProject;stored?:LocalProject;downloaded?:boolean}>) {
+    if(openingProjectRef.current)return;
+    openingProjectRef.current=true;setOpeningProject(true);
+    try {
+      if(!await canReplaceProject())return;
+      const {next,stored,downloaded}=await load();
+      if(local.session.pending)local.session.discardPending();
+      local.activate(stored);resetProject(next);
+      lastSavedProjectRef.current=downloaded?next:null;
+      setSelectedLayerIds([next.layers.find(layer=>layer.type==="qr")?.id??next.layers[0]?.id??""].filter(Boolean));
+      setSelectedRecordIndex(0);setZoom(1);setActiveTool("select");setChooserOpen(false);
+    } catch(error) { window.alert(error instanceof Error?error.message:"Could not open the project."); }
+    finally { openingProjectRef.current=false;setOpeningProject(false); }
+  }
+
+  function openRecentProject(id:string,duplicate:boolean) {
+    void changeDocument(async()=>{
+      const stored=await local.read(id);
+      if(!duplicate)return {next:stored.project,stored};
+      const next=structuredClone(stored.project);next.document.name=`${next.document.name} (copy)`;
+      return {next};
+    });
   }
 
   function isProject(value: unknown): value is QrMagicProject {
@@ -799,26 +835,13 @@ export function App() {
   }
 
   function openProjectFile(file: File) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const loadedProject = projectFromFile(JSON.parse(String(reader.result)));
-        if (!loadedProject) {
-          window.alert("That file does not look like a QR Magic project.");
-          return;
-        }
-        if (!canReplaceProject()) return;
-        resetProject(loadedProject);
-        setChooserOpen(false);
-        setSelectedLayerIds([loadedProject.layers[0]?.id ?? ""].filter(Boolean));
-        setSelectedRecordIndex(0);
-        setZoom(1);
-        setActiveTool("select");
-      } catch {
-        window.alert("QR Magic could not read that project file.");
-      }
-    };
-    reader.readAsText(file);
+    void changeDocument(async()=>{
+      let loadedProject:QrMagicProject|null;
+      try { loadedProject=projectFromFile(JSON.parse(await file.text())); }
+      catch { throw new Error("QR Magic could not read that project file."); }
+      if(!loadedProject)throw new Error("That file does not look like a QR Magic project.");
+      return {next:projectForEditor(loadedProject),downloaded:true};
+    });
   }
 
   function snapSelectedLayerToTarget(target: GuideSnapTarget) {
@@ -1029,22 +1052,17 @@ export function App() {
 
   const helpSurfaces = <>{helpOpen ? <HelpCenter onClose={() => setHelpOpen(false)} onStartTour={startTour} fromLayout={layoutOpen}/> : null}
     {tourStep !== null ? <Walkthrough step={tourStep} hasQr={project.layers.some(layer => layer.type === "qr")} onStep={setTourStep} onEnd={endTour}/> : null}</>;
-  if(layoutOpen) return <><PrintLayout project={project} onBack={()=>setLayoutOpen(false)} onSave={saveProjectFile} onHelp={() => setHelpOpen(true)}
+  const localSaveStatus=<LocalSaveStatus status={local.status} savedAt={local.savedAt} forked={local.session.forked} onRetry={()=>{void local.flush().catch(()=>{});}} onDownload={saveProjectFile}/>;
+  if(layoutOpen) return <><PrintLayout project={project} saveStatus={localSaveStatus} onBack={()=>setLayoutOpen(false)} onSave={saveProjectFile} onHelp={() => setHelpOpen(true)}
     onChange={layout=>updateProject(current=>({...current,production:{...current.production,layout}}))}/>{helpSurfaces}</>;
 
   return (
-    <main className="app-shell">
+    <main className="app-shell local-project-app">
       {chooserOpen ? <ProjectChooser onClose={() => setChooserOpen(false)} onHelp={() => setHelpOpen(true)}
+        recent={local.recent} loading={local.loading} storageError={local.libraryError} busy={openingProject} initialView={chooserView}
+        onRetry={()=>{void local.refresh();}} onRecent={openRecentProject}
         onOpen={() => projectInputRef.current?.click()}
-        onCreate={next => {
-          if (!canReplaceProject()) return;
-          resetProject(next);
-          lastSavedProjectRef.current = null;
-          projectRef.current = next;
-          pendingProjectHistoryRef.current = null;
-          setSelectedLayerIds([next.layers.find(layer => layer.type === "qr")?.id ?? next.layers[0]?.id ?? ""].filter(Boolean));
-          setSelectedRecordIndex(0); setZoom(1); setActiveTool("select"); setChooserOpen(false);
-        }} /> : null}
+        onCreate={next => {void changeDocument(async()=>({next}));}} /> : null}
       <header className="topbar">
         <div className="brand">
           <ScanQrCode size={24} />
@@ -1105,7 +1123,8 @@ export function App() {
             <Focus size={17} />
           </button>
           <span className="toolbar-divider" />
-          <button className="tool-button" title="New project" aria-label="New project" disabled={isExportLocked} onClick={() => setChooserOpen(true)}><FilePlus2 size={17} /></button>
+          <button className="tool-button" title="New project" aria-label="New project" disabled={isExportLocked} onClick={() => {setChooserView("new");setChooserOpen(true);}}><FilePlus2 size={17} /></button>
+          <button className="tool-button" title="Projects" aria-label="Projects" disabled={isExportLocked} onClick={() => {setChooserView("recent");setChooserOpen(true);}}><FolderClock size={17}/></button>
           <button
             className="tool-button"
             title="Open project"
@@ -1143,9 +1162,10 @@ export function App() {
             }}
           />
         </nav>
-        <div className="topbar-status">
+        <div className="topbar-status local-project-status"><div className="local-job-summary">
           <span aria-live="polite">{jobSummary(project)}</span>
           <strong>{currentRecord.serial}</strong>
+          </div>{localSaveStatus}
         </div>
       </header>
 
@@ -1154,6 +1174,7 @@ export function App() {
           isExportLocked ? "export-locked" : ""
         }`}
         aria-busy={isExportLocked}
+        inert={openingProject}
       >
         {panelsVisible ? (
           <Sidebar
@@ -1233,7 +1254,7 @@ export function App() {
         ) : null}
         {isExportLocked ? (
           <div className="export-lock-overlay" role="status" aria-live="polite">
-            {exportStatus === "set"
+            {openingProject ? "Opening project…" : exportStatus === "set"
               ? exportSetFormat === "production-pdf" ? "Preparing production package..." : `Exporting ${exportSetFormat.toUpperCase()} set...`
               : "Exporting template..."}
           </div>

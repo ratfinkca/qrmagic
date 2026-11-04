@@ -13,7 +13,7 @@ QR Magic is a browser-based designer for QR posters, numbered decals and repeate
 
 Open **Help** in the editor or Print Layout for searchable guides. **Take a quick tour** shows the main controls without changing your design. The small question-mark buttons explain print terms and advanced features with keyboard, pointer or touch input.
 
-Save your project before closing the tab. The app has no cloud project library or automatic cloud backup. QR links currently encode the destination directly; managed redirects and scan tracking are not implemented.
+Edits save automatically in this browser; wait for **Saved on this device**. Use **Projects** to reopen recent designs or make an independent copy. Download project files as separate backups: local browser storage can be cleared or evicted, and there is no cloud project library or automatic cloud backup. QR links currently encode the destination directly; managed redirects and scan tracking are not implemented.
 
 ## What it can do
 
@@ -25,6 +25,7 @@ Save your project before closing the tab. The app has no cloud project library o
 - Production PDF packages with supported vector text, shapes and QR codes, embedded fonts, cut references and preflight notes. Images and unsupported effects use documented raster fallbacks.
 - Roll/sheet layouts at actual size with margins, spacing, rotation, panel splitting, PDF artwork, cut-reference SVGs and placement reports. Layout output already includes every requested copy.
 - Save/open project files to continue editing or share with a print shop.
+- Local autosave and recent projects, with independent duplicates, failed-save retry, and separate copies for conflicting edits in different tabs.
 
 Production packages are generic RGB handoffs. Machine-specific cut separations, registration marks, color conversion and PDF/X certification are not yet implemented. Mimaki is the first target for equipment validation; ask your print shop to validate a sample in its own RIP before a production run.
 

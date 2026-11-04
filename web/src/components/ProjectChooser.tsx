@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { FilePlus2, FolderOpen, QrCode, Ticket, X } from "lucide-react";
+import { Copy, FilePlus2, FolderOpen, QrCode, Ticket, X } from "lucide-react";
+import type { RecentProject } from "../lib/localProjects";
+import "./local-projects.css";
 import type { QrMagicProject } from "../types";
 import { createStarterProject, type StarterKind } from "../lib/templates";
 
@@ -10,8 +12,10 @@ const starters = [
   { kind: "blank", title: "Blank canvas", description: "Choose a finished size and start fresh", icon: FilePlus2 },
 ] as const;
 
-export function ProjectChooser({ onCreate, onOpen, onClose, onHelp }: {
+export function ProjectChooser({ onCreate, onOpen, onClose, onHelp, recent, loading, storageError, initialView, busy, onRecent, onRetry }: {
   onCreate: (project: QrMagicProject) => void; onOpen: () => void; onClose: () => void; onHelp: () => void;
+  recent:RecentProject[];loading:boolean;storageError:string;initialView:"new"|"auto"|"recent";busy:boolean;
+  onRecent:(id:string,duplicate:boolean)=>void;onRetry:()=>void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [kind, setKind] = useState<StarterKind>("decals");
@@ -23,7 +27,15 @@ export function ProjectChooser({ onCreate, onOpen, onClose, onHelp }: {
   const [copies, setCopies] = useState(1);
   const [payload, setPayload] = useState("");
   const [error, setError] = useState("");
-  useEffect(() => { dialog.current?.showModal(); }, []);
+  const [view,setView]=useState(initialView);
+  const [query,setQuery]=useState("");
+  const activeView=view==="auto"?(loading||recent.length>0?"recent":"new"):view;
+  const matching=recent.filter(item=>item.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  useEffect(() => {
+    const opener=document.activeElement as HTMLElement|null,modal=dialog.current;
+    modal?.showModal();
+    return()=>{modal?.close();if(opener?.isConnected)opener.focus();};
+  }, []);
 
   function selectStarter(next: StarterKind) {
     setKind(next);
@@ -34,15 +46,29 @@ export function ProjectChooser({ onCreate, onOpen, onClose, onHelp }: {
   }
 
   return (
-    <dialog className="project-chooser" ref={dialog} onCancel={onClose} aria-labelledby="chooser-title">
+    <dialog className="project-chooser" ref={dialog} onCancel={event=>{event.preventDefault();if(!busy)onClose();}} aria-labelledby="chooser-title" aria-busy={busy}>
       <div className="chooser-heading">
-        <div><span className="chooser-eyebrow">QR MAGIC · NEW PROJECT</span><h1 id="chooser-title">What are you making?</h1></div>
-        <button className="tool-button" aria-label="Close new project" onClick={onClose}><X size={20} /></button>
+        <div><span className="chooser-eyebrow">QR MAGIC · YOUR WORKSPACE</span><h1 id="chooser-title">What are you making?</h1></div>
+        <button className="tool-button" aria-label="Close new project" disabled={busy} onClick={onClose}><X size={20} /></button>
       </div>
+      <div className="project-views" role="group" aria-label="Project chooser view"><button type="button" disabled={busy} aria-pressed={activeView==="recent"} onClick={()=>setView("recent")}>Recent projects {recent.length?<span>{recent.length}</span>:null}</button><button type="button" disabled={busy} aria-pressed={activeView==="new"} onClick={()=>setView("new")}>New project</button></div>
+      {storageError?<div className="local-library-error" role="status"><p>{storageError}</p><button type="button" onClick={onRetry}>Retry project storage</button></div>:null}
+      {activeView==="recent"?<section className="recent-projects" aria-label="Recent projects">
+        <div className="recent-heading"><h2>Pick up where you left off</h2><p>Saved automatically in this browser, on this device.</p></div>
+        {loading?<p role="status">Loading local projects…</p>:recent.length?<>
+          <label className="recent-search">Search recent projects<input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Find a design by name…"/></label>
+          <div className="recent-list">{matching.map(item=><article className="recent-card" key={item.id}>
+            <div className="recent-artwork" aria-hidden="true"><QrCode size={25}/></div><div className="recent-description"><h3>{item.name||"Untitled design"}</h3><p id={`local-card-${item.id}`}>{item.width} × {item.height} {item.unit}<span> · </span><time dateTime={new Date(item.updatedAt).toISOString()}>Saved {new Date(item.updatedAt).toLocaleString(undefined,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</time>{item.forkedFrom?<small className="recent-forked">Separate tab copy</small>:null}</p></div>
+            <div className="recent-actions"><button type="button" className="primary-action" disabled={busy} aria-label={`Open ${item.name}`} aria-describedby={`local-card-${item.id}`} onClick={()=>onRecent(item.id,false)}>Open</button><button type="button" className="recent-duplicate" disabled={busy} aria-label={`Duplicate ${item.name}`} aria-describedby={`local-card-${item.id}`} onClick={()=>onRecent(item.id,true)}><Copy size={14}/> Duplicate</button></div>
+          </article>)}</div>{!matching.length?<p role="status">No projects match that name.</p>:null}
+        </>:<div className="recent-empty"><FolderOpen size={34}/><h3>Your next design starts here</h3><p>Create a project or open a project file. Edits will be saved here automatically when local storage is available.</p><button type="button" className="primary-action" onClick={()=>setView("new")}>Start a new project</button></div>}
+        <p className="local-storage-note">Local saves are not cloud backups. Download a project file to keep a separate copy or share it. Clearing this site’s browser data removes local projects.</p>
+        <button type="button" className="secondary-action" disabled={busy} onClick={onOpen}><FolderOpen size={17}/> Open project file</button>
+      </section>:<>
       <div className="starter-grid" role="group" aria-label="Project templates">
         {starters.map(({ kind: option, title, description, icon: Icon }) => (
           <button key={option} className={`starter-card ${kind === option ? "active" : ""}`}
-            aria-pressed={kind === option} onClick={() => selectStarter(option)}>
+            disabled={busy} aria-pressed={kind === option} onClick={() => selectStarter(option)}>
             <Icon size={26} /><strong>{title}</strong><span>{description}</span>
           </button>
         ))}
@@ -53,6 +79,7 @@ export function ProjectChooser({ onCreate, onOpen, onClose, onHelp }: {
           onCreate(createStarterProject(kind, { name, width, height, bleedMm, records, copies, payload }));
         } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not create project."); }
       }}>
+        <fieldset className="chooser-form-fields" disabled={busy}>
         <label>Project name<input value={name} placeholder={starters.find(starter => starter.kind === kind)?.title}
           onChange={event => setName(event.target.value)} /></label>
         <div className="chooser-fields chooser-size-fields">
@@ -77,8 +104,11 @@ export function ProjectChooser({ onCreate, onOpen, onClose, onHelp }: {
           <button type="button" className="secondary-action" onClick={onOpen}><FolderOpen size={17} /> Open project file</button>
           <button className="primary-action" type="submit">Create project</button>
         </div>
+        </fieldset>
       </form>
-      <button type="button" className="chooser-help" onClick={onHelp}>Help &amp; getting started</button>
+      </>}
+      {busy?<p role="status">Saving your current work and opening the project…</p>:null}
+      <button type="button" className="chooser-help" disabled={busy} onClick={onHelp}>Help &amp; getting started</button>
     </dialog>
   );
 }

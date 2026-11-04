@@ -16,6 +16,120 @@ let initialProject;
 let fixtureIndex = 0;
 const pageErrors = [];
 
+test("local autosave reopens artwork and layout settings after refresh, and duplicates stay independent",async()=>{
+  const context=await browser.newContext({viewport:{width:1600,height:1000}}),tab=await context.newPage();
+  tab.on("dialog",dialog=>dialog.accept());tab.on("pageerror",error=>pageErrors.push(error.message));
+  try {
+    await tab.goto(page.url());await tab.getByRole("button",{name:"Close new project",exact:true}).click();
+    const fixture=structuredClone(initialProject);fixture.document.name="Recovery artwork";
+    fixture.production.layout={media:"sheet",units:"mm",widthMm:210,heightMm:297,marginTop:8,marginRight:8,marginBottom:8,marginLeft:8,gapX:5,gapY:6,orientation:"rotated"};
+    fixture.layers.push({...fixture.layers[0],type:"image",id:"saved-image",name:"Embedded artwork",src:"data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="5" height="5"><rect width="5" height="5" fill="red"/></svg>'),assetId:"local-image",fit:"stretch"});
+    await tab.locator('input[accept=".qrmagic.json,application/json"]').setInputFiles({name:"recovery.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify({format:"qrmagic.project",project:fixture}))});
+    await tab.getByText("Saved on this device",{exact:true}).waitFor();
+    const save=async()=>{const download=tab.waitForEvent("download");await tab.getByTitle("Save project",{exact:true}).click();return JSON.parse(await readFile(await(await download).path(),"utf8")).project;};
+    const before=await save();await tab.reload();
+    await tab.getByRole("button",{name:"Open Recovery artwork",exact:true}).click();
+    await tab.getByRole("dialog").waitFor({state:"hidden"});
+    await tab.getByLabel("Name",{exact:true}).waitFor();assert.deepEqual(await save(),before);
+    await tab.getByRole("button",{name:"Projects",exact:true}).click();
+    await tab.getByRole("button",{name:"Duplicate Recovery artwork",exact:true}).click();
+    await tab.getByRole("dialog").waitFor({state:"hidden"});
+    await tab.getByLabel("Name",{exact:true}).fill("Independent copy");await tab.getByText("Saved on this device",{exact:true}).waitFor();
+    await tab.getByRole("button",{name:"Projects",exact:true}).click();
+    await tab.getByRole("button",{name:"Open Recovery artwork",exact:true}).click();await tab.getByRole("dialog").waitFor({state:"hidden"});assert.deepEqual(await save(),before);
+    await tab.getByRole("button",{name:"Projects",exact:true}).click();await tab.getByLabel("Search recent projects",{exact:true}).fill("Independent");
+    assert.equal(await tab.getByRole("button",{name:"Open Recovery artwork",exact:true}).count(),0);
+    await tab.getByRole("button",{name:"Open Independent copy",exact:true}).waitFor();
+    await tab.setViewportSize({width:390,height:844});
+    assert.equal(await tab.getByRole("dialog").evaluate(el=>el.getBoundingClientRect().right<=innerWidth&&el.scrollWidth<=el.clientWidth+1),true);
+  }finally {await context.close();}
+});
+
+test("failed local transactions keep the last snapshot and Retry saves newer edits",async()=>{
+  const context=await browser.newContext({viewport:{width:1600,height:1000}}),tab=await context.newPage();
+  tab.on("dialog",dialog=>dialog.accept());tab.on("pageerror",error=>pageErrors.push(error.message));
+  try {
+    await tab.goto(page.url());await tab.getByRole("button",{name:"Close new project",exact:true}).click();
+    await tab.getByLabel("Name",{exact:true}).fill("Last good save");await tab.getByText("Saved on this device",{exact:true}).waitFor();
+    await tab.evaluate(()=>{window.originalProjectPut=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(...args){const result=window.originalProjectPut.apply(this,args);if(this.name==="recent")this.transaction.abort();return result;};});
+    await tab.getByLabel("Name",{exact:true}).fill("Latest unsaved edit");await tab.getByText("Local save failed",{exact:true}).waitFor();
+    const stored=await tab.evaluate(async()=>{const {localProjectRepository}=await import("/qrmagic/src/lib/localProjects.ts");const entries=await localProjectRepository.list();return(await localProjectRepository.read(entries[0].id)).project.document.name;});
+    assert.equal(stored,"Last good save");
+    await tab.evaluate(()=>{IDBObjectStore.prototype.put=window.originalProjectPut;});
+    await tab.getByRole("button",{name:"Retry local save",exact:true}).click();await tab.getByText("Saved on this device",{exact:true}).waitFor();
+    await tab.reload();await tab.getByRole("button",{name:"Open Latest unsaved edit",exact:true}).click();
+    await tab.getByRole("dialog").waitFor({state:"hidden"});
+    assert.equal(await tab.getByLabel("Name",{exact:true}).inputValue(),"Latest unsaved edit");
+  }finally {await context.close();}
+});
+
+test("two tabs preserve conflicting edits and opening the current project flushes queued changes",async()=>{
+  const context=await browser.newContext({viewport:{width:1600,height:1000}}),first=await context.newPage(),second=await context.newPage();
+  for(const tab of [first,second]){tab.on("dialog",dialog=>dialog.accept());tab.on("pageerror",error=>pageErrors.push(error.message));}
+  try {
+    await first.goto(page.url());await first.getByRole("button",{name:"Close new project",exact:true}).click();
+    await first.getByLabel("Name",{exact:true}).fill("Shared starting point");await first.getByText("Saved on this device",{exact:true}).waitFor();
+    await second.goto(page.url());await second.getByRole("button",{name:"Open Shared starting point",exact:true}).click();await second.getByRole("dialog").waitFor({state:"hidden"});
+    await first.getByLabel("Name",{exact:true}).fill("First tab version");await first.getByText("Saved on this device",{exact:true}).waitFor();
+    await second.getByLabel("Name",{exact:true}).fill("Second tab version");await second.getByText("Saved on this device",{exact:true}).waitFor();
+    await second.getByText(/Saved as a separate local copy/).waitFor();await second.getByRole("button",{name:"Projects",exact:true}).click();
+    await second.getByRole("button",{name:"Open First tab version",exact:true}).waitFor();await second.getByRole("button",{name:"Open Second tab version",exact:true}).waitFor();
+    await first.getByRole("button",{name:"Projects",exact:true}).click();await first.getByRole("button",{name:"Close new project",exact:true}).click();
+    await first.getByLabel("Name",{exact:true}).fill("Queued latest change");await first.getByRole("button",{name:"Projects",exact:true}).click();
+    // Open the still-listed active identity immediately, before its debounce ends.
+    await first.getByRole("button",{name:/^Open (First tab version|Queued latest change)$/}).click();await first.getByRole("dialog").waitFor({state:"hidden"});
+    assert.equal(await first.getByLabel("Name",{exact:true}).inputValue(),"Queued latest change");
+  }finally {await context.close();}
+});
+
+test("unavailable storage still permits designing and downloading an editable backup",async()=>{
+  const context=await browser.newContext({viewport:{width:1600,height:1000}});
+  await context.addInitScript(()=>Object.defineProperty(window,"indexedDB",{get(){throw new DOMException("Storage blocked","SecurityError");}}));
+  const tab=await context.newPage();tab.on("dialog",dialog=>dialog.accept());tab.on("pageerror",error=>pageErrors.push(error.message));
+  try {
+    await tab.goto(page.url());await tab.getByText(/Local projects are unavailable/).waitFor();
+    await tab.getByRole("button",{name:"Close new project",exact:true}).click();await tab.getByLabel("Name",{exact:true}).fill("Download without storage");
+    await tab.getByText("Local save failed",{exact:true}).waitFor();const download=tab.waitForEvent("download");
+    await tab.getByRole("button",{name:"Download backup",exact:true}).click();
+    assert.equal(JSON.parse(await readFile(await(await download).path(),"utf8")).project.document.name,"Download without storage");
+  }finally {await context.close();}
+});
+
+test("undoing the first edit autosaves the original canvas, including before the debounce",async()=>{
+  const context=await browser.newContext({viewport:{width:1600,height:1000}}),tab=await context.newPage();
+  tab.on("dialog",dialog=>dialog.accept());tab.on("pageerror",error=>pageErrors.push(error.message));
+  try {
+    await tab.goto(page.url());await tab.getByRole("button",{name:"Close new project",exact:true}).click();
+    await tab.getByLabel("Name",{exact:true}).fill("First edit");await tab.getByText("Saved on this device",{exact:true}).waitFor();
+    await tab.getByTitle("Undo",{exact:true}).click();await tab.getByText("Saved on this device",{exact:true}).waitFor();
+    await tab.reload();await tab.getByRole("button",{name:"Open Festival Parking Decal",exact:true}).click();await tab.getByRole("dialog").waitFor({state:"hidden"});
+    assert.equal(await tab.getByLabel("Name",{exact:true}).inputValue(),initialProject.document.name);
+    await tab.getByLabel("Name",{exact:true}).fill("Undo before save");await tab.getByTitle("Undo",{exact:true}).click();
+    await tab.getByText("Saved on this device",{exact:true}).waitFor();await tab.reload();await tab.getByRole("button",{name:"Open Festival Parking Decal",exact:true}).waitFor();
+  }finally {await context.close();}
+});
+
+test("a corrupt local snapshot cannot replace or crash the working editor",async()=>{
+  const context=await browser.newContext({viewport:{width:1600,height:1000}}),tab=await context.newPage();
+  let alert="";tab.on("dialog",dialog=>{alert=dialog.message();return dialog.accept();});tab.on("pageerror",error=>pageErrors.push(error.message));
+  try {
+    await tab.goto(page.url());await tab.getByRole("button",{name:"Close new project",exact:true}).click();
+    await tab.getByLabel("Name",{exact:true}).fill("Keep this working design");await tab.getByText("Saved on this device",{exact:true}).waitFor();
+    await tab.evaluate(async()=>{
+      const {LOCAL_PROJECT_DB,localProjectRepository}=await import("/qrmagic/src/lib/localProjects.ts");
+      const current=await localProjectRepository.read((await localProjectRepository.list())[0].id);
+      const broken={...current,id:"corrupt-fixture",project:{...current.project,document:{...current.project.document,name:"Damaged local copy"}}};delete broken.project.export;
+      const db=await new Promise((resolve,reject)=>{const request=indexedDB.open(LOCAL_PROJECT_DB);request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+      await new Promise((resolve,reject)=>{const tx=db.transaction(["projects","recent"],"readwrite");tx.objectStore("projects").put(broken);tx.objectStore("recent").put({...current,id:broken.id,project:undefined,name:"Damaged local copy",width:4,height:3,unit:"in"});tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error);});db.close();
+    });
+    await tab.getByRole("button",{name:"Projects",exact:true}).click();await tab.getByRole("button",{name:"Open Damaged local copy",exact:true}).click();
+    await tab.getByRole("button",{name:"Open Damaged local copy",exact:true}).waitFor({state:"visible"});
+    await tab.waitForFunction(()=>document.querySelector(".project-chooser")?.getAttribute("aria-busy")==="false");
+    assert.match(alert,/local copy could not be read/);await tab.getByRole("button",{name:"Close new project",exact:true}).click();
+    assert.equal(await tab.getByLabel("Name",{exact:true}).inputValue(),"Keep this working design");
+  }finally {await context.close();}
+});
+
 test("help opens from the chooser, searches terms and handles empty results",async()=>{
   await page.getByRole("button",{name:"Help & getting started",exact:true}).click();
   const help=page.getByRole("dialog",{name:"Help & getting started",exact:true});
@@ -347,6 +461,7 @@ test("production PDF preserves vectors, embedded text, exact page boxes, and ser
 });
 
 test("production package download contains artwork, reference cut geometry, job and preflight reports", async () => {
+  await page.getByRole("dialog").getByRole("button",{name:"New project",exact:true}).click();
   await page.getByRole("button", { name: /Repeated stickers/ }).click();
   await page.getByLabel("QR content", { exact: true }).fill("https://example.com/print");
   await page.getByRole("button", { name: "Create project", exact: true }).click();
@@ -547,6 +662,10 @@ async function comparePreviewAndExport(project) {
     name: "fixture.qrmagic.json", mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(project)),
   });
+  await page.waitForFunction(()=>document.querySelector(".workspace")?.getAttribute("aria-busy")==="false");
+  // React Konva commits its canvas tree separately from the editor DOM. Wait
+  // for paint before reading/cloning it after an asynchronous project switch.
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   // Await React's update and async QR/image loading, not an arbitrary timeout.
   await page.waitForFunction(async (expected) => {
     const { Konva } = await import("/qrmagic/tests/rendering-fixture.ts");
@@ -608,7 +727,9 @@ async function comparePreviewAndExport(project) {
         if (samples.length < 5) samples.push({ x: (i/4)%width, y: Math.floor(i/4/width), expected: [...expected.slice(i,i+4)], actual: [...actual.slice(i,i+4)] });
       }
     }
-    return { samples, differentPixels, width: output.width, height: output.height };
+    return { samples, differentPixels, width: output.width, height: output.height,
+      previewIds:Konva.stages[0].find(".design-layer").map(n=>n.id()),expectedIds:project.layers.map(l=>l.id),background:Konva.stages[0].findOne(".document-background").fill(),expectedBackground:project.document.backgroundOpacity,
+      opening:document.querySelector(".workspace")?.getAttribute("aria-busy") };
   }, project);
 }
 
@@ -616,10 +737,11 @@ async function matchesPreview(project) {
   const result = await comparePreviewAndExport(project);
   assert.equal(result.width, 240);
   assert.equal(result.height, 180);
-  assert.equal(result.differentPixels, 0, JSON.stringify(result.samples));
+  assert.equal(result.differentPixels, 0, JSON.stringify(result));
 }
 
 test("new project chooser creates, exports, saves, and reopens a repeated sticker job", async () => {
+  await page.getByRole("dialog").getByRole("button",{name:"New project",exact:true}).click();
   await page.getByRole("button", { name: /Repeated stickers/ }).click();
   await page.getByLabel("QR content", { exact: true }).fill("https://example.com/event");
   await page.getByLabel("Quantity", { exact: true }).first().fill("3");
