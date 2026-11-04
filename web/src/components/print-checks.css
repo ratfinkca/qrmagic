@@ -1,0 +1,106 @@
+.print-checks {
+  border: 1px solid #d6e2dc;
+  border-radius: 9px;
+  padding: 13px;
+  margin: 14px 0;
+  background: #fbfdfb;
+  color: #39594a;
+  font-size: 12px;
+  line-height: 1.6;
+  min-width: 0;
+}
+.print-checks-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.print-checks-heading strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #294f3d;
+  font-size: 13px;
+}
+.print-checks-heading>span {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: #eef3ef;
+  white-space: nowrap;
+}
+.print-checks-heading .checks-warning {
+  color: #7c551c;
+  background: #fff1d6;
+}
+.print-checks-heading .checks-error {
+  color: #973e2f;
+  background: #fff0eb;
+}
+.print-checks p {
+  margin: 6px 0;
+  overflow-wrap: anywhere;
+}
+.print-checks summary {
+  cursor: pointer;
+  font-weight: 650;
+  color: #795c2b;
+}
+.print-checks-list {
+  padding: 0;
+  margin: 10px 0;
+  list-style: none;
+  max-height: 360px;
+  overflow: auto;
+}
+.print-checks-list li {
+  display: flex;
+  align-items: start;
+  gap: 7px;
+  border-top: 1px solid #e4e9df;
+  padding: 10px 0;
+}
+.print-checks-list li>svg {
+  flex-shrink: 0;
+  margin-top: 5px;
+  color: #a77d35;
+}
+.print-checks-list li p {
+  margin: 0 0 5px;
+}
+.print-checks-list li button {
+  border: 0;
+  background: transparent;
+  color: #326f52;
+  font-size: 11px;
+  padding: 2px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.print-checks-list li button:disabled {
+  opacity: .5;
+  cursor: default;
+}
+.print-checks .print-checks-footnote {
+  color: #728175;
+  font-size: 10px;
+  margin-top: 10px;
+  line-height: 1.6;
+}
+.checks-clear {
+  display: flex;
+  gap: 6px;
+  align-items: start;
+  color: #467459;
+}
+.checks-clear svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.print-checks summary:focus-visible,.print-checks button:focus-visible {
+  outline: 2px solid #387856;
+  outline-offset: 3px;
+}

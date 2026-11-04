@@ -13,6 +13,7 @@ import { renderStyledQrSvg } from "./qrStyling";
 import { textLayerProps } from "./layerRendering";
 import { productionFontUrls, loadProductionFonts } from "./fonts";
 import { productionPreflight, rasterReason, outlinePath, cutOutlineSvg, canvasGlyphOrigins, type ProductionIssue } from "./productionPdfModel";
+import { analyzePrintProject } from "./printQuality";
 import { exportYield, type ExportControl } from "./exportControl";
 
 function color(value: string) {
@@ -91,10 +92,10 @@ function layerTransform(page: PDFPage, layer: ProjectLayer, project: QrMagicProj
 
 export async function renderProductionPdf(project: QrMagicProject, records: RenderRecord[], control:ExportControl = {}) {
   control.signal?.throwIfAborted();
-  const issues = productionPreflight(project);
-  const errors = issues.filter(issue => issue.severity === "error");
+  const errors = productionPreflight(project).filter(issue => issue.severity === "error");
   if (errors.length) throw new Error(errors.map(issue => issue.message).join("\n"));
   if (!records.length) throw new Error("The job has no records.");
+  const issues=await analyzePrintProject(project,{signal:control.signal,format:"production-pdf"});
   await loadProductionFonts();
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);

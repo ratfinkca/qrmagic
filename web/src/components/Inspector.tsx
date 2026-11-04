@@ -15,7 +15,8 @@ import {
 import { QrContentEditor } from "./QrContentEditor";
 import { HelpTip } from "./HelpTip";
 import { productionCount } from "../lib/production";
-import { productionPreflight } from "../lib/productionPdfModel";
+import type { PrintCheckState } from "../hooks/usePrintChecks";
+import { PrintChecks } from "./PrintChecks";
 import { ColorControl } from "./ColorControl";
 import { guideSnapRect } from "../lib/project";
 import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
@@ -32,6 +33,8 @@ type AlignTarget = GuideSnapTarget | "selection";
 type ExportSetFormat = "png" | "jpg" | "pdf" | "production-pdf";
 
 type InspectorProps = {
+  printChecks:PrintCheckState;
+  onSelectCheckLayer:(id:string)=>void;
   selectedLayer: ProjectLayer | undefined;
   selectedLayers: ProjectLayer[];
   selectedLayerCount: number;
@@ -68,6 +71,8 @@ type InspectorProps = {
 };
 
 export function Inspector({
+  printChecks,
+  onSelectCheckLayer,
   selectedLayer,
   selectedLayers,
   selectedLayerCount,
@@ -100,7 +105,7 @@ export function Inspector({
   const effectiveAlignTarget: AlignTarget =
     selectedLayerCount > 1 || alignTarget !== "selection" ? alignTarget : "page";
   const isExporting = exportStatus !== null;
-  const productionIssues = exportSetFormat === "production-pdf" ? productionPreflight(project) : [];
+  const productionIssues = exportSetFormat === "production-pdf" ? printChecks.issues.filter(issue=>issue.category!=="quality") : [];
   const productionErrors = productionIssues.filter(issue => issue.severity === "error");
   const pixelsPerUnit = project.document.unit === "px" ? 1
     : project.document.unit === "mm" ? project.document.dpi / 25.4 : project.document.dpi;
@@ -1128,7 +1133,7 @@ export function Inspector({
         </label> : <div className="production-preflight" aria-live="polite">
           <strong>Print handoff</strong>
           <p>Actual-size PDF with bleed, vector artwork where supported, a cut-outline reference and job report. One item per page, including every copy.</p>
-          <p>RGB artwork. Your print shop sets color and media in its RIP. Machine cut setup, registration marks and roll layout are still handled there.</p>
+          <p>RGB artwork. Your print shop sets color, media, machine cuts and registration in its RIP. Use Print layout to arrange sheets or roll panels.</p>
           {productionIssues.length ? <details open={productionErrors.length > 0}>
             <summary>{productionErrors.length ? `${productionErrors.length} issue(s) to fix` : `${productionIssues.length} note(s) to review`}</summary>
             <ul>{productionIssues.map((issue, index) => <li key={`${issue.code}-${issue.layerId}-${index}`}>
@@ -1136,6 +1141,7 @@ export function Inspector({
             </li>)}</ul>
           </details> : <p>Ready to export. A final rendering report is included in the ZIP.</p>}
         </div>}
+        <PrintChecks state={printChecks} locked={isExporting} onSelectLayer={onSelectCheckLayer}/>
         <p className="chooser-hint">The job includes every copy. The proof package contains one item and separate guide overlays.</p>
         <button className="secondary-action" disabled={isExporting} onClick={onPrintLayout}>Print layout</button>
         <button className="primary-action" onClick={onExportPng} disabled={isExporting}>

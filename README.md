@@ -26,6 +26,7 @@ Edits save automatically in this browser; wait for **Saved on this device**. Use
 - Roll/sheet layouts at actual size with margins, spacing, rotation, panel splitting, PDF artwork, cut-reference SVGs and placement reports. Layout output already includes every requested copy.
 - Save/open project files to continue editing or share with a print shop.
 - Local autosave and recent projects, with independent duplicates, failed-save retry, and separate copies for conflicting edits in different tabs.
+- Advisory print checks for QR density/contrast/clear space, placed image detail, and QR/text safe boundaries. Suggestions appear with every export format and in Print Layout, and production handoff reports include check scope and thresholds. Always verify a physical sample.
 
 Production packages are generic RGB handoffs. Machine-specific cut separations, registration marks, color conversion and PDF/X certification are not yet implemented. Mimaki is the first target for equipment validation; ask your print shop to validate a sample in its own RIP before a production run.
 

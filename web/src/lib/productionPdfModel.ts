@@ -1,9 +1,10 @@
-import type { ProjectLayer, QrMagicProject, ShapeGeometry } from "../types";
+import type { ProjectLayer, QrMagicProject } from "../types";
 import { productionGeometry } from "./production";
 import { dataRecordCount, renderTemplate, createDataRecords } from "./serial";
-import { polygonPath } from "./shapeGeometry";
+import { outlinePath } from "./cutGeometry";
+export { outlinePath } from "./cutGeometry";
 
-export type ProductionIssue = { severity: "error" | "warning"; code: string; message: string; layerId?: string };
+export type ProductionIssue = { severity: "error" | "warning"; code: string; message: string; layerId?: string; layerName?:string; category?:"quality" };
 
 export function canvasGlyphOrigins(text:string,clusters:readonly (readonly number[])[],measure:(text:string)=>number):number[]|undefined {
   const characters=Array.from(text);
@@ -67,17 +68,6 @@ export function productionPreflight(project: QrMagicProject): ProductionIssue[] 
       message: `${layer.name}: no clear quiet-zone margin is configured.` });
   }
   return issues;
-}
-
-export function outlinePath(width: number, height: number, shape: ShapeGeometry): string {
-  if (shape.shape === "ellipse") {
-    return `M 0 ${height / 2} A ${width / 2} ${height / 2} 0 1 0 ${width} ${height / 2} A ${width / 2} ${height / 2} 0 1 0 0 ${height / 2} Z`;
-  }
-  if (shape.shape !== "rectangle" && shape.shape !== "pill") return polygonPath(width, height, shape);
-  const radius = shape.shape === "pill" ? Math.min(width, height) / 2 : Math.max(0, Math.min(shape.cornerRadius, width / 2, height / 2));
-  if (!radius) return `M 0 0 H ${width} V ${height} H 0 Z`;
-  const arc = `A ${radius} ${radius} 0 0 1`;
-  return `M ${radius} 0 H ${width - radius} ${arc} ${width} ${radius} V ${height - radius} ${arc} ${width - radius} ${height} H ${radius} ${arc} 0 ${height - radius} V ${radius} ${arc} ${radius} 0 Z`;
 }
 
 export function cutOutlineSvg(project: QrMagicProject) {

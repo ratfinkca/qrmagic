@@ -3,6 +3,7 @@ import type { QrMagicProject, RenderRecord } from "../types";
 import { productionCount, productionGeometry } from "./production";
 import { createDataRecords } from "./serial";
 import { renderProductionPdf } from "./productionPdf";
+import { printCheckScope } from "./printQualityModel";
 
 export async function productionPackage(project: QrMagicProject, records: RenderRecord[]) {
   const result = await renderProductionPdf(project, records);
@@ -19,7 +20,7 @@ export async function productionPackage(project: QrMagicProject, records: Render
   }, null, 2));
   zip.file("preflight.json", JSON.stringify({
     colorSpace: "RGB", machineProfile: null, pdfX: false,
-    stats: result.stats, issues: result.issues,
+    stats: result.stats, issues: result.issues, checks:printCheckScope(project),
     limits: ["No ICC conversion or output intent", "No machine cut separation or registration marks", "One finished item per page; no roll imposition"],
   }, null, 2));
   zip.file("README.txt", [
@@ -35,6 +36,7 @@ export async function productionPackage(project: QrMagicProject, records: Render
     "",
     "JOB: job.json lists dimensions, quantities and source record values. Copies repeat the same QR and serial. Page order is record 1 and all its copies, then record 2 and all its copies, and so on.",
     "Vector/raster layer counts in preflight.json count unique rendered records; repeated copies reuse PDF artwork.",
+    "Print-quality suggestions include sampled QR density/contrast, placed image detail and sampled QR/text safe boundaries. Read preflight.json for scope and thresholds; these checks are guidance, not scan or production certification.",
     "Proof and scan a physical sample at final size before printing the batch. This generic package has not yet been validated with a specific Mimaki/RIP profile.",
   ].join("\n"));
   return zip.generateAsync({ type: "blob" });

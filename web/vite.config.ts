@@ -6,5 +6,5 @@ export default defineConfig({
   plugins: [react()],
   // The exporter is lazy-loaded. Prebundle fontkit before editing starts so its
   // first use cannot trigger Vite's dependency-discovery full-page reload.
-  optimizeDeps: { include: ["@pdf-lib/fontkit"] },
+  optimizeDeps: { include: ["@pdf-lib/fontkit", "qrcode-generator"] },
 });

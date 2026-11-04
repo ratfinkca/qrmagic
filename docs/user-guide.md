@@ -180,6 +180,38 @@ Project files include artwork and QR content, so share them with the people who 
 
 If another tab saves a newer version of the same local project, your edits are saved as a separate local copy. A message explains this, and both versions appear in Recent projects. A local save does not update a downloaded file or a project already open in another tab.
 
+## Check print quality
+
+Understand helpful print suggestions before committing to a whole batch.
+
+### Suggestions, not a certificate
+
+Print checks appears with every editor export format and in Print Layout. Expand its suggestions to see the affected layer and a practical next step. Select layer takes you to that layer in the Inspector. Suggestions do not change your design or block exports; existing invalid-document or empty-QR errors still need attention for production export.
+
+Wait for Checking print details to finish. No issues found in these checks means the available checks found nothing to flag; it does not guarantee print quality or successful scanning. Scan an exported sample and a physical print at actual size before producing the batch.
+
+### QR size and clear space
+
+A module is one tiny square in a QR pattern. Longer content and stronger error correction can produce more squares. The check uses actual QR density and printed dimensions, with 0.25 mm per square as an advisory starting point. Raster exports also check for about four output pixels per square. Your printer, material, scanner and viewing distance may require a larger code.
+
+The border check looks for four modules of clear space on every side. Increase QR margin when needed, then recheck size: more border inside the same frame leaves less room for the code. Density is checked on sampled record values, including endpoints/range transitions, rather than every batch item or every copy.
+
+### QR colors and opacity
+
+Prefer dark marks on a solid light background. Low contrast, light-on-dark colors, transparency or reduced opacity can make reading less reliable. A nominal luminance ratio below 4.5:1 prompts a suggestion; that threshold is an app heuristic, not an ISO barcode quality grade. The app does not inspect every overlaid image, pattern or nearby mark around your QR.
+
+### Image detail at the printed size
+
+PPI is source pixels per printed inch, measured at the size and fit used in your design. Enlarging a small image reduces its effective detail. The app suggests 300 PPI for close viewing and also reports when document DPI caps raster output. Large posters viewed farther away can be acceptable at lower resolution; ask your shop.
+
+Contain, cover, stretch and original fit are accounted for. SVG artwork has no useful intrinsic photo PPI, so it gets a note about rasterization at document DPI and unverified embedded raster content. If an image cannot be read, its resolution is marked unverified instead of being treated as good.
+
+### Keep important content away from the cut
+
+QR and text-box boundaries are checked against the finished cut shape and the configured safe guide, including layer rotation. A crossing-cut suggestion is different from being inside trim but outside the safe guide. Shape and image backgrounds are allowed to extend into bleed.
+
+These are sampled boundary checks, not exact glyph tracing or full overlap detection. Large text boxes can trigger a suggestion even if their visible letters look safe. Review the box, guides and Finished preview. Turning off guide overlays does not turn off the print checks. Production and layout packages include suggestions and sampling/threshold notes in preflight.json.
+
 ## My QR will not scan
 
 Start with clear space, strong contrast and a real-size sample.

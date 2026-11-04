@@ -16,6 +16,92 @@ let initialProject;
 let fixtureIndex = 0;
 const pageErrors = [];
 
+test("friendly print checks appear for every format, identify layers and clear after fixes without changing artwork",async()=>{
+  const context=await browser.newContext({viewport:{width:1600,height:1000}}),tab=await context.newPage();
+  tab.on("dialog",dialog=>dialog.accept());tab.on("pageerror",error=>pageErrors.push(error.message));
+  try {
+    await tab.goto(page.url());
+    const project=await tab.evaluate(async()=>{
+      const {createStarterProject}=await import("/qrmagic/src/lib/templates.ts");
+      const p=createStarterProject("stickers",{width:50.8,height:50.8,payload:"https://example.com/checks"}),qr=p.layers.find(l=>l.type==="qr");
+      Object.assign(qr,{x:0,y:0,width:90,height:90,margin:0,foreground:"#dddddd",background:"#ffffff"});
+      const canvas=document.createElement("canvas");canvas.width=canvas.height=20;canvas.getContext("2d").fillRect(0,0,20,20);
+      p.layers=[{...qr,id:"low-res",name:"Small photo",type:"image",x:0,y:0,width:600,height:600,src:canvas.toDataURL(),assetId:"test",fit:"stretch"},qr];return p;
+    });
+    const open=async p=>{await tab.locator('input[accept=".qrmagic.json,application/json"]').setInputFiles({name:"checks.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(p))});await tab.getByRole("dialog").waitFor({state:"hidden"});};
+    await open(project);
+    const checks=tab.getByRole("region",{name:"Print checks",exact:true});await checks.getByText(/suggestion/).waitFor();await checks.locator("summary").click();
+    for(const code of ["qr-small","qr-contrast","qr-quiet-zone","safe-area","image-resolution"])await checks.locator(`[data-print-code="${code}"]`).waitFor();
+    await checks.getByText(/about 10 PPI/).waitFor();
+    await checks.getByRole("button",{name:"Select Small photo for print check",exact:true}).click();
+    const saved=tab.waitForEvent("download");await tab.getByTitle("Save project",{exact:true}).click();
+    const stored=JSON.parse(await readFile(await(await saved).path(),"utf8")).project;
+    assert.equal(stored.document.width,50.8);assert.equal(stored.layers.find(l=>l.type==="qr").width,90);assert.equal(stored.layers.find(l=>l.type==="qr").foreground,"#dddddd");
+    project.layers=project.layers.filter(l=>l.type==="qr");Object.assign(project.layers[0],{x:50,y:50,width:500,height:500,margin:65,foreground:"#000000"});
+    await open(project);
+    for(const format of ["png","jpg","pdf","production-pdf"]){await tab.getByLabel("Set format",{exact:true}).selectOption(format);await checks.getByText("No issues found in these checks.",{exact:true}).waitFor();}
+    await tab.getByRole("button",{name:"Print layout",exact:true}).click();await tab.getByRole("region",{name:"Print checks",exact:true}).getByText("No issues found in these checks.",{exact:true}).waitFor();
+  }finally{await context.close();}
+});
+
+test("print analysis matches rendered QR density and uses curved cut geometry",async()=>{
+  const result=await page.evaluate(async()=>{
+    const {qrMetricsForPayload}=await import("/qrmagic/src/lib/qrMetrics.ts"),{renderStyledQrDataUrl}=await import("/qrmagic/src/lib/qrStyling.ts");
+    const {createStarterProject}=await import("/qrmagic/src/lib/templates.ts"),{createDataRecords}=await import("/qrmagic/src/lib/serial.ts");
+    const {analyzePrintProject}=await import("/qrmagic/src/lib/printQuality.ts"),{decodeQr}=await import("/qrmagic/tests/pdf-fixture.ts");
+    const p=createStarterProject("stickers",{width:50.8,height:50.8,payload:"test"}),qr=p.layers.find(l=>l.type==="qr");Object.assign(qr,{width:800,height:800,margin:100,foreground:"#000000",background:"#ffffff",dotStyle:"square",cornerSquareStyle:"square",cornerDotStyle:"square"});
+    const versions=[];
+    for(const payload of ["1234567890","PARK-0001","https://example.com/"+"a".repeat(100),"温".repeat(40)]){
+      p.data.groups[0].fixed.value=payload;const metrics=qrMetricsForPayload(qr,payload),src=await renderStyledQrDataUrl(qr,createDataRecords(p.data.groups)[0]);
+      const image=await createImageBitmap(await(await fetch(src)).blob()),canvas=document.createElement("canvas");canvas.width=image.width;canvas.height=image.height;const context=canvas.getContext("2d");context.drawImage(image,0,0);image.close();const pixels=context.getImageData(0,0,canvas.width,canvas.height),decoded=decodeQr(pixels.data,pixels.width,pixels.height);
+      versions.push({measured:metrics.modules,rendered:decoded?decoded.version*4+17:null});
+    }
+    p.layers=[qr];Object.assign(qr,{x:80,y:80,width:80,height:80,rotation:0,margin:12});
+    p.document.shape.shape="rectangle";const rectangular=await analyzePrintProject(p);p.document.shape.shape="ellipse";const curved=await analyzePrintProject(p);
+    qr.visible=false;const hidden=await analyzePrintProject(p);
+    return {versions,rectangular:rectangular.map(i=>i.code),curved:curved.map(i=>i.code),hidden:hidden.filter(i=>i.category==="quality")};
+  });
+  assert.ok(result.versions.every(v=>v.measured===v.rendered),JSON.stringify(result.versions));
+  assert.equal(result.rectangular.includes("outside-cut"),false);assert.equal(result.curved.includes("outside-cut"),true);assert.deepEqual(result.hidden,[]);
+});
+
+test("image checks account for fit/output DPI, distinguish SVG, and never treat unreadable images as checked",async()=>{
+  const result=await page.evaluate(async()=>{
+    const {analyzePrintProject}=await import("/qrmagic/src/lib/printQuality.ts"),{createStarterProject}=await import("/qrmagic/src/lib/templates.ts");
+    const p=createStarterProject("blank",{width:50.8,height:50.8});const canvas=document.createElement("canvas");canvas.width=400;canvas.height=200;canvas.getContext("2d").fillRect(0,0,400,200);
+    const {defaultLayerShadow}=await import("/qrmagic/src/lib/project.ts");
+    const image={...defaultLayerShadow,id:"photo",name:"Photo",type:"image",visible:true,locked:false,x:0,y:0,width:300,height:300,rotation:0,opacity:1,assetId:"test",src:canvas.toDataURL(),fit:"contain"};p.layers=[image];
+    const contain=await analyzePrintProject(p);image.fit="cover";const cover=await analyzePrintProject(p);
+    image.width=image.height=100;p.document.dpi=150;const output=await analyzePrintProject(p);
+    image.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8"/></svg>');const svg=await analyzePrintProject(p);
+    image.src="data:image/png;base64,bm90LWFuLWltYWdl";const unreadable=await analyzePrintProject(p);
+    return {contain:contain.map(i=>i.code),cover:cover.filter(i=>i.code==="image-resolution").map(i=>i.message),output:output.filter(i=>i.code==="image-resolution").map(i=>i.message),svg:svg.map(i=>i.code),unreadable:unreadable.map(i=>i.code)};
+  });
+  assert.equal(result.contain.includes("image-resolution"),false);assert.match(result.cover[0],/about 200 PPI/);assert.match(result.output[0],/capped at 150 DPI/);
+  assert.equal(result.svg.includes("image-resolution"),false);assert.equal(result.svg.includes("image-vector"),true);assert.equal(result.unreadable.includes("image-unverified"),true);
+});
+
+test("a slow image check cannot replace newer project's print results",async()=>{
+  const context=await browser.newContext({viewport:{width:1600,height:1000}}),tab=await context.newPage();
+  tab.on("dialog",dialog=>dialog.accept());tab.on("pageerror",error=>pageErrors.push(error.message));
+  try {
+    await tab.goto(page.url());
+    const {slow,clean}=await tab.evaluate(async()=>{
+      const {createStarterProject}=await import("/qrmagic/src/lib/templates.ts"),{defaultLayerShadow}=await import("/qrmagic/src/lib/project.ts");
+      const canvas=document.createElement("canvas");canvas.width=canvas.height=9;canvas.getContext("2d").fillStyle="#12ab45";canvas.getContext("2d").fillRect(0,0,9,9);window.slowCheckSrc=canvas.toDataURL();window.slowRequests=0;window.slowLoads=0;window.originalCheckImage=window.Image;
+      window.Image=class extends window.originalCheckImage {set src(value){if(value===window.slowCheckSrc){window.slowRequests++;setTimeout(()=>{super.src=value;window.slowLoads++;},1000);}else super.src=value;}get src(){return super.src;}};
+      const slow=createStarterProject("blank",{name:"Slow photo",width:50.8,height:50.8});slow.layers=[{...defaultLayerShadow,id:"slow-photo",name:"Slow photo",type:"image",visible:true,locked:false,x:0,y:0,width:600,height:600,rotation:0,opacity:1,assetId:"slow",src:window.slowCheckSrc,fit:"stretch"}];
+      const clean=createStarterProject("blank",{name:"New design",width:50.8,height:50.8});return {slow,clean};
+    });
+    const open=async project=>{await tab.locator('input[accept=".qrmagic.json,application/json"]').setInputFiles({name:"check.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(project))});await tab.getByRole("dialog").waitFor({state:"hidden"});};
+    await open(slow);await tab.waitForFunction(()=>window.slowRequests>=2);await open(clean);
+    const checks=tab.getByRole("region",{name:"Print checks",exact:true});await checks.getByText("No issues found in these checks.",{exact:true}).waitFor();
+    await tab.waitForFunction(()=>window.slowLoads>=2);assert.equal(await checks.locator('[data-print-code="image-resolution"]').count(),0);
+    await tab.setViewportSize({width:390,height:844});await tab.getByRole("button",{name:"Inspector",exact:true}).click();
+    assert.equal(await checks.evaluate(el=>el.scrollWidth<=el.clientWidth+1),true);
+  }finally{await context.close();}
+});
+
 test("local autosave reopens artwork and layout settings after refresh, and duplicates stay independent",async()=>{
   const context=await browser.newContext({viewport:{width:1600,height:1000}}),tab=await context.newPage();
   tab.on("dialog",dialog=>dialog.accept());tab.on("pageerror",error=>pageErrors.push(error.message));
@@ -444,7 +530,9 @@ test("production PDF preserves vectors, embedded text, exact page boxes, and ser
     return { pages, preview, bytes: [...bytes], issues: result.issues, stats: result.stats };
   });
   if (process.env.QRMAGIC_REVIEW_DIR) await writeFile(join(process.env.QRMAGIC_REVIEW_DIR, "production-pdf-preview.png"), Buffer.from(result.preview.split(",")[1], "base64"));
-  assert.deepEqual(result.issues, []);
+  assert.deepEqual(result.issues.filter(issue=>issue.category!=="quality"), []);
+  assert.deepEqual(result.issues.map(issue=>issue.code),["qr-quiet-zone"]);
+  assert.ok(result.issues.every(issue=>issue.severity==="warning"),"advisory quality checks must not block a decodable vector export");
   assert.equal(result.stats.rasterLayers, 0);
   assert.equal(result.stats.uniqueRecords, 2);
   const pdf = await PDFDocument.load(Uint8Array.from(result.bytes));
@@ -480,6 +568,7 @@ test("production package download contains artwork, reference cut geometry, job 
   assert.equal(report.stats.rasterLayers, 0);
   assert.equal(report.colorSpace, "RGB");
   assert.equal(report.machineProfile, null);
+  assert.equal(report.checks.guidance.imagePpi,300);assert.deepEqual(report.checks.sampleRecordNumbers,[1]);
   assert.match(await zip.file("README.txt").async("string"), /100%/);
   if (process.env.QRMAGIC_REVIEW_DIR) await page.screenshot({ path: join(process.env.QRMAGIC_REVIEW_DIR, "production-export-editor.png") });
   // Start the next editor flow with a fresh project and selection.
@@ -614,7 +703,7 @@ before(async () => {
     // A concurrent local editor must not share optimizer files with this server.
     cacheDir: "node_modules/.vite-export-tests",
     server: { host: "127.0.0.1", port: 0 },
-    optimizeDeps: { include: ["konva", "@pdf-lib/fontkit", "pdfjs-dist/build/pdf.mjs", "jsqr"] },
+    optimizeDeps: { include: ["konva", "@pdf-lib/fontkit", "pdfjs-dist/build/pdf.mjs", "jsqr", "qrcode-generator"] },
   });
   await server.listen();
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });

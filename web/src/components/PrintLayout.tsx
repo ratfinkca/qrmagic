@@ -3,17 +3,18 @@ import type { ReactNode } from "react";
 import type { PrintLayoutSettings, QrMagicProject } from "../types";
 import { calculateLayout, defaultLayoutSettings, layoutPanel } from "../lib/printLayout";
 import { productionCount } from "../lib/production";
-import { productionPreflight } from "../lib/productionPdfModel";
+import type { PrintCheckState } from "../hooks/usePrintChecks";
+import { PrintChecks } from "./PrintChecks";
 import type { ExportProgress } from "../lib/exportControl";
 import { PrintLayoutPreview } from "./PrintLayoutPreview";
 import "./print-layout.css";
 import { HelpTip } from "./HelpTip";
 
-type Props={project:QrMagicProject;saveStatus:ReactNode;onChange:(settings:PrintLayoutSettings)=>void;onBack:()=>void;onSave:()=>void;onHelp:()=>void};
+type Props={project:QrMagicProject;printChecks:PrintCheckState;saveStatus:ReactNode;onChange:(settings:PrintLayoutSettings)=>void;onBack:()=>void;onSave:()=>void;onHelp:()=>void};
 const presets:Record<string,[number,number]>={letter:[215.9,279.4],a4:[210,297],a3:[297,420]};
 type NumericSetting="widthMm"|"heightMm"|"marginTop"|"marginRight"|"marginBottom"|"marginLeft"|"gapX"|"gapY";
 
-export function PrintLayout({project,saveStatus,onChange,onBack,onSave,onHelp}:Props) {
+export function PrintLayout({project,printChecks,saveStatus,onChange,onBack,onSave,onHelp}:Props) {
   const settings=useMemo(()=>project.production.layout??defaultLayoutSettings(),[project.production.layout]);
   const [panelIndex,setPanelIndex]=useState(0),[progress,setProgress]=useState<ExportProgress|null>(null),[message,setMessage]=useState("");
   const controller=useRef<AbortController|null>(null);
@@ -23,7 +24,7 @@ export function PrintLayout({project,saveStatus,onChange,onBack,onSave,onHelp}:P
   const plan=calculation.plan;
   const safeIndex=plan?Math.min(panelIndex,plan.panelCount-1):0;
   const panel=plan?layoutPanel(plan,safeIndex):undefined;
-  const issues=useMemo(()=>productionPreflight(project),[project]);
+  const issues=printChecks.issues;
   const errors=issues.filter(i=>i.severity==="error");
   const count=productionCount(project),unit=settings.units==="in"?25.4:1;
   const patch=(value:Partial<PrintLayoutSettings>)=>{setPanelIndex(0);onChange({...settings,...value});};
@@ -80,7 +81,8 @@ export function PrintLayout({project,saveStatus,onChange,onBack,onSave,onHelp}:P
       </>:<p className="layout-help">Correct the settings to calculate a layout.</p>}
         <hr/><h2>Production package</h2><p className="layout-help">Actual-size layout PDF<br/>Cut-reference SVG per panel<br/>Placement CSV + job report</p>
         <p className="layout-help">Generic RGB handoff. Machine cuts and registration stay in the RIP until your shop profile is validated.</p>
-        {issues.length?<details className="layout-details" open={errors.length>0}><summary>{errors.length?`${errors.length} issue(s) to fix`:`${issues.length} preflight note(s)`}</summary><ul>{issues.map((issue,i)=><li key={i}>{issue.message}</li>)}</ul></details>:null}
+        <PrintChecks state={printChecks} locked={busy}/>
+        {issues.some(issue=>issue.category!=="quality"&&issue.severity==="warning")?<details className="layout-details"><summary>Output notes</summary><ul>{issues.filter(issue=>issue.category!=="quality"&&issue.severity==="warning").map((issue,i)=><li key={i}>{issue.message}</li>)}</ul></details>:null}
         </div><div className="layout-export-actions"><button className="layout-download" disabled={busy||!plan||errors.length>0} onClick={download}>Download layout package</button>
         {progress?<div className="layout-export-progress" role="status"><p>{progress.stage==="artwork"?"Rendering records":progress.stage==="panels"?"Arranging panels":"Preparing ZIP"}: {progress.completed} / {progress.total}</p><progress value={progress.completed} max={progress.total}/><button onClick={()=>controller.current?.abort()}>Cancel export</button></div>:null}
         {message?<p className="layout-feedback" role="status">{message}</p>:null}</div>

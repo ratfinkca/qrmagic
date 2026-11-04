@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { printCheckScope } from "./printQualityModel";
 import { PDFDocument, degrees } from "pdf-lib";
 import type { PrintLayoutSettings, QrMagicProject, RenderRecord } from "../types";
 import { calculateLayout, layoutPanel, csvCell, type LayoutPlan, type LayoutPanel } from "./printLayout";
@@ -57,7 +58,7 @@ export async function exportLayoutPackage(project:QrMagicProject,settings:PrintL
   zip.file("job.json",JSON.stringify({format:"qrmagic.print-layout",version:1,name:project.document.name,
     settings,quantity:productionCount(project),orientationClockwise:plan.rotation,panelCount:plan.panelCount,
     totalLengthMm:plan.totalLengthMm,totalAreaMm2:plan.totalAreaMm2,order:"Left to right, top to bottom; all copies of each record stay consecutive.",pages:pageSizes,records},null,2));
-  zip.file("preflight.json",JSON.stringify({colorSpace:"RGB",machineProfile:null,pdfX:false,issues:source.issues,
+  zip.file("preflight.json",JSON.stringify({colorSpace:"RGB",machineProfile:null,pdfX:false,issues:source.issues,checks:printCheckScope(project),
     stats:{...source.stats,pages:plan.panelCount,finishedItems:plan.total},limits:["No ICC conversion or PDF/X output intent","Reference cut geometry only; configure machine cuts and registration in the RIP"]},null,2));
   zip.file("README.txt",[
     `QR Magic print layout: ${project.document.name}`,

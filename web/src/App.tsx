@@ -25,6 +25,7 @@ import { HelpCenter } from "./components/HelpCenter";
 import { Walkthrough } from "./components/Walkthrough";
 import { markTourCompleted, tourSteps } from "./lib/helpContent";
 import { useLocalProjects } from "./hooks/useLocalProjects";
+import { usePrintChecks } from "./hooks/usePrintChecks";
 import { LocalSaveStatus } from "./components/LocalSaveStatus";
 import type { LocalProject } from "./lib/localProjects";
 import { projectForEditor } from "./lib/projectValidation";
@@ -134,6 +135,7 @@ export function App() {
   const isExportLocked = exportStatus !== null || openingProject;
   const exportSetFormat = getExportSetFormat(project);
   const local=useLocalProjects(project,project!==initialProject);
+  const printChecks=usePrintChecks(project,layoutOpen?"production-pdf":exportSetFormat);
   useEffect(()=>{if(chooserOpen)void local.refresh();},[chooserOpen,local.refresh]);
 
   function startTour() {
@@ -1053,7 +1055,7 @@ export function App() {
   const helpSurfaces = <>{helpOpen ? <HelpCenter onClose={() => setHelpOpen(false)} onStartTour={startTour} fromLayout={layoutOpen}/> : null}
     {tourStep !== null ? <Walkthrough step={tourStep} hasQr={project.layers.some(layer => layer.type === "qr")} onStep={setTourStep} onEnd={endTour}/> : null}</>;
   const localSaveStatus=<LocalSaveStatus status={local.status} savedAt={local.savedAt} forked={local.session.forked} onRetry={()=>{void local.flush().catch(()=>{});}} onDownload={saveProjectFile}/>;
-  if(layoutOpen) return <><PrintLayout project={project} saveStatus={localSaveStatus} onBack={()=>setLayoutOpen(false)} onSave={saveProjectFile} onHelp={() => setHelpOpen(true)}
+  if(layoutOpen) return <><PrintLayout project={project} printChecks={printChecks} saveStatus={localSaveStatus} onBack={()=>setLayoutOpen(false)} onSave={saveProjectFile} onHelp={() => setHelpOpen(true)}
     onChange={layout=>updateProject(current=>({...current,production:{...current.production,layout}}))}/>{helpSurfaces}</>;
 
   return (
@@ -1226,6 +1228,8 @@ export function App() {
         />
         {panelsVisible ? (
           <Inspector
+            printChecks={printChecks}
+            onSelectCheckLayer={id=>{if(isExportLocked)return;setSelectedLayerIds([id]);setPanelsVisible(true);setCompactPanel("inspector");requestAnimationFrame(()=>document.querySelector(".inspector")?.scrollTo({top:0}));}}
             selectedLayer={selectedLayer}
             selectedLayers={selectedLayers}
             selectedLayerCount={selectedLayerIds.length}
