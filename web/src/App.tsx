@@ -4,6 +4,7 @@ import JSZip from "jszip";
 import {
   Focus,
   CircleHelp,
+  Cloud,
   FilePlus2,
   FolderOpen,
   FolderClock,
@@ -56,6 +57,8 @@ import {
 import { dataRecordAt, renderTemplate } from "./lib/serial";
 import { reviewCsvBatch } from "./lib/csvBatch";
 import { CsvBatchDialog } from "./components/CsvBatchDialog";
+import { GoogleDriveDialog } from "./components/GoogleDriveDialog";
+import { saveDriveProject, type DriveFolder, type DriveProject } from "./lib/googleDrive";
 import type {
   DataGroup,
   EditorTool,
@@ -104,6 +107,8 @@ export function App() {
   const openingProjectRef=useRef(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [driveMode, setDriveMode] = useState<"open" | "manage" | null>(null);
+  const [driveFile, setDriveFile] = useState<DriveProject>();
   const [tourStep, setTourStep] = useState<number | null>(null);
   const tourSnapshot = useRef<{ selectedLayerIds:string[]; panelsVisible:boolean; compactPanel:"document"|"inspector"|null } | null>(null);
   const [project, setProject] = useState<QrMagicProject>(initialProject);
@@ -268,7 +273,7 @@ export function App() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if(layoutOpen || chooserOpen || openingProject || helpOpen || csvOpen || tourStep !== null) return;
+      if(layoutOpen || chooserOpen || openingProject || helpOpen || csvOpen || driveMode || tourStep !== null) return;
       const target = event.target as HTMLElement | null;
       const isEditableTarget =
         target?.tagName === "INPUT" ||
@@ -291,7 +296,7 @@ export function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [redoProjectChange, undoProjectChange, layoutOpen, chooserOpen, openingProject, helpOpen, csvOpen, tourStep]);
+  }, [redoProjectChange, undoProjectChange, layoutOpen, chooserOpen, openingProject, helpOpen, csvOpen, driveMode, tourStep]);
 
   function updateLayer(
     layerId: string,
@@ -780,17 +785,26 @@ export function App() {
     }
   }
 
-  function saveProjectFile() {
+  function projectFileBlob(snapshot: QrMagicProject) {
     const projectFile: QrMagicProjectFile = {
       format: "qrmagic.project",
       savedAt: new Date().toISOString(),
-      project,
+      project: snapshot,
     };
-    downloadBlob(
-      new Blob([JSON.stringify(projectFile, null, 2)], { type: "application/json" }),
-      `${sanitizeFilename(project.document.name)}.qrmagic.json`,
-    );
+    return new Blob([JSON.stringify(projectFile, null, 2)], { type: "application/json" });
+  }
+
+  function saveProjectFile() {
+    downloadBlob(projectFileBlob(project), `${sanitizeFilename(project.document.name)}.qrmagic.json`);
     lastSavedProjectRef.current = project;
+  }
+
+  async function saveProjectToDrive(token: string, filename: string, folder?: DriveFolder) {
+    const snapshot = projectRef.current;
+    const file = await saveDriveProject(token, filename, projectFileBlob(snapshot), folder);
+    setDriveFile(file);
+    lastSavedProjectRef.current = snapshot;
+    return file;
   }
 
   async function canReplaceProject() {
@@ -801,18 +815,21 @@ export function App() {
     }
   }
 
-  async function changeDocument(load:()=>Promise<{next:QrMagicProject;stored?:LocalProject;downloaded?:boolean}>) {
-    if(openingProjectRef.current)return;
+  async function changeDocument(load:()=>Promise<{next:QrMagicProject;stored?:LocalProject;downloaded?:boolean;drive?:DriveProject}>) {
+    if(openingProjectRef.current)return false;
     openingProjectRef.current=true;setOpeningProject(true);
     try {
-      if(!await canReplaceProject())return;
-      const {next,stored,downloaded}=await load();
+      if(!await canReplaceProject())return false;
+      const {next,stored,downloaded,drive}=await load();
       if(local.session.pending)local.session.discardPending();
       local.activate(stored);resetProject(next);
       lastSavedProjectRef.current=downloaded?next:null;
+      setDriveFile(drive);
       setSelectedLayerIds([next.layers.find(layer=>layer.type==="qr")?.id??next.layers[0]?.id??""].filter(Boolean));
       setSelectedRecordIndex(0);setZoom(1);setActiveTool("select");setChooserOpen(false);
-    } catch(error) { window.alert(error instanceof Error?error.message:"Could not open the project."); }
+      setLayoutOpen(false);
+      return true;
+    } catch(error) { window.alert(error instanceof Error?error.message:"Could not open the project."); return false; }
     finally { openingProjectRef.current=false;setOpeningProject(false); }
   }
 
@@ -846,14 +863,16 @@ export function App() {
       : null;
   }
 
+  function readProjectFile(content: string) {
+    let loadedProject: QrMagicProject | null;
+    try { loadedProject = projectFromFile(JSON.parse(content)); }
+    catch { throw new Error("QR Magic could not read that project file."); }
+    if (!loadedProject) throw new Error("That file does not look like a QR Magic project.");
+    return projectForEditor(loadedProject);
+  }
+
   function openProjectFile(file: File) {
-    void changeDocument(async()=>{
-      let loadedProject:QrMagicProject|null;
-      try { loadedProject=projectFromFile(JSON.parse(await file.text())); }
-      catch { throw new Error("QR Magic could not read that project file."); }
-      if(!loadedProject)throw new Error("That file does not look like a QR Magic project.");
-      return {next:projectForEditor(loadedProject),downloaded:true};
-    });
+    void changeDocument(async () => ({ next: readProjectFile(await file.text()), downloaded: true }));
   }
 
   function snapSelectedLayerToTarget(target: GuideSnapTarget) {
@@ -1065,15 +1084,21 @@ export function App() {
   const helpSurfaces = <>{helpOpen ? <HelpCenter onClose={() => setHelpOpen(false)} onStartTour={startTour} fromLayout={layoutOpen}/> : null}
     {tourStep !== null ? <Walkthrough step={tourStep} hasQr={project.layers.some(layer => layer.type === "qr")} onStep={setTourStep} onEnd={endTour}/> : null}</>;
   const localSaveStatus=<LocalSaveStatus status={local.status} savedAt={local.savedAt} forked={local.session.forked} onRetry={()=>{void local.flush().catch(()=>{});}} onDownload={saveProjectFile}/>;
+  const driveDialog = driveMode && <GoogleDriveDialog openOnly={driveMode === "open"} file={driveFile}
+    defaultFilename={`${sanitizeFilename(project.document.name)}.qrmagic.json`}
+    onClose={() => setDriveMode(null)} onSave={saveProjectToDrive} onOpen={async (content, drive) => {
+      const next = readProjectFile(content);
+      return changeDocument(async () => ({ next, downloaded: true, drive }));
+    }}/>;
   if(layoutOpen) return <><PrintLayout project={project} printChecks={printChecks} saveStatus={localSaveStatus} onBack={()=>setLayoutOpen(false)} onSave={saveProjectFile} onHelp={() => setHelpOpen(true)}
-    onChange={layout=>updateProject(current=>({...current,production:{...current.production,layout}}))}/>{helpSurfaces}</>;
+    onDrive={() => setDriveMode("manage")} onChange={layout=>updateProject(current=>({...current,production:{...current.production,layout}}))}/>{helpSurfaces}{driveDialog}</>;
 
   return (
     <main className="app-shell local-project-app">
       {chooserOpen ? <ProjectChooser onClose={() => setChooserOpen(false)} onHelp={() => setHelpOpen(true)}
         recent={local.recent} loading={local.loading} storageError={local.libraryError} busy={openingProject} initialView={chooserView}
         onRetry={()=>{void local.refresh();}} onRecent={openRecentProject}
-        onOpen={() => projectInputRef.current?.click()}
+        onOpen={() => projectInputRef.current?.click()} onOpenDrive={() => setDriveMode("open")} suspended={Boolean(driveMode)}
         onCreate={next => {void changeDocument(async()=>({next}));}} /> : null}
       <header className="topbar">
         <div className="brand">
@@ -1148,6 +1173,8 @@ export function App() {
           <button className="tool-button" title="Save project" data-guide="save" onClick={saveProjectFile} disabled={isExportLocked}>
             <Save size={17} />
           </button>
+          <button className="tool-button" title="Google Drive" aria-label="Google Drive" disabled={isExportLocked}
+            onClick={() => setDriveMode("manage")}><Cloud size={17}/></button>
           <button className="tool-button help-toolbar-button" aria-label="Help" title="Help & getting started" data-help-launcher disabled={isExportLocked} onClick={() => setHelpOpen(true)}><CircleHelp size={17}/><span>Help</span></button>
           <button className="compact-panel-button" aria-pressed={compactPanel === "document"} onClick={() => { setPanelsVisible(true); setCompactPanel(current => current === "document" ? null : "document"); }}>Document & job</button>
           <button className="compact-panel-button" aria-pressed={compactPanel === "inspector"} onClick={() => { setPanelsVisible(true); setCompactPanel(current => current === "inspector" ? null : "inspector"); }}>Inspector</button>
@@ -1287,6 +1314,7 @@ export function App() {
           ? { ...current, data: { ...current.data, csv: { ...current.data.csv, allowRepeatedQr } } } : current)}
         onPreview={index => { setSelectedRecordIndex(index); setCsvOpen(false); }}/>}
       {helpSurfaces}
+      {driveDialog}
     </main>
   );
 }

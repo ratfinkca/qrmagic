@@ -5,3 +5,5 @@ web/dist/
 web/.vite/
 web/qa-screenshot.png
 web/*.tsbuildinfo
+web/.env.local
+web/.env.*.local

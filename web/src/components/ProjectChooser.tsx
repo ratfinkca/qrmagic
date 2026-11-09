@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Copy, FilePlus2, FolderOpen, QrCode, Ticket, X } from "lucide-react";
+import { Cloud, Copy, FilePlus2, FolderOpen, QrCode, Ticket, X } from "lucide-react";
 import type { RecentProject } from "../lib/localProjects";
 import "./local-projects.css";
 import type { QrMagicProject } from "../types";
@@ -12,8 +12,9 @@ const starters = [
   { kind: "blank", title: "Blank canvas", description: "Choose a finished size and start fresh", icon: FilePlus2 },
 ] as const;
 
-export function ProjectChooser({ onCreate, onOpen, onClose, onHelp, recent, loading, storageError, initialView, busy, onRecent, onRetry }: {
+export function ProjectChooser({ onCreate, onOpen, onOpenDrive, suspended, onClose, onHelp, recent, loading, storageError, initialView, busy, onRecent, onRetry }: {
   onCreate: (project: QrMagicProject) => void; onOpen: () => void; onClose: () => void; onHelp: () => void;
+  onOpenDrive: () => void; suspended: boolean;
   recent:RecentProject[];loading:boolean;storageError:string;initialView:"new"|"auto"|"recent";busy:boolean;
   onRecent:(id:string,duplicate:boolean)=>void;onRetry:()=>void;
 }) {
@@ -33,9 +34,12 @@ export function ProjectChooser({ onCreate, onOpen, onClose, onHelp, recent, load
   const matching=recent.filter(item=>item.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   useEffect(() => {
     const opener=document.activeElement as HTMLElement|null,modal=dialog.current;
-    modal?.showModal();
     return()=>{modal?.close();if(opener?.isConnected)opener.focus();};
   }, []);
+  useEffect(() => {
+    if (suspended) dialog.current?.close();
+    else dialog.current?.showModal();
+  }, [suspended]);
 
   function selectStarter(next: StarterKind) {
     setKind(next);
@@ -63,7 +67,10 @@ export function ProjectChooser({ onCreate, onOpen, onClose, onHelp, recent, load
           </article>)}</div>{!matching.length?<p role="status">No projects match that name.</p>:null}
         </>:<div className="recent-empty"><FolderOpen size={34}/><h3>Your next design starts here</h3><p>Create a project or open a project file. Edits will be saved here automatically when local storage is available.</p><button type="button" className="primary-action" onClick={()=>setView("new")}>Start a new project</button></div>}
         <p className="local-storage-note">Local saves are not cloud backups. Download a project file to keep a separate copy or share it. Clearing this site’s browser data removes local projects.</p>
-        <button type="button" className="secondary-action" disabled={busy} onClick={onOpen}><FolderOpen size={17}/> Open project file</button>
+        <div className="drive-actions">
+          <button type="button" className="secondary-action" disabled={busy} onClick={onOpen}><FolderOpen size={17}/> Open project file</button>
+          <button type="button" className="secondary-action" disabled={busy} onClick={onOpenDrive}><Cloud size={17}/> Open from Google Drive</button>
+        </div>
       </section>:<>
       <div className="starter-grid" role="group" aria-label="Project templates">
         {starters.map(({ kind: option, title, description, icon: Icon }) => (
@@ -101,7 +108,10 @@ export function ProjectChooser({ onCreate, onOpen, onClose, onHelp, recent, load
         </details>
         {error ? <p role="alert">{error}</p> : null}
         <div className="chooser-actions">
-          <button type="button" className="secondary-action" onClick={onOpen}><FolderOpen size={17} /> Open project file</button>
+          <div className="drive-actions">
+            <button type="button" className="secondary-action" onClick={onOpen}><FolderOpen size={17} /> Open project file</button>
+            <button type="button" className="secondary-action" onClick={onOpenDrive}><Cloud size={17}/> Open from Google Drive</button>
+          </div>
           <button className="primary-action" type="submit">Create project</button>
         </div>
         </fieldset>

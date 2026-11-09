@@ -10,11 +10,11 @@ import { PrintLayoutPreview } from "./PrintLayoutPreview";
 import "./print-layout.css";
 import { HelpTip } from "./HelpTip";
 
-type Props={project:QrMagicProject;printChecks:PrintCheckState;saveStatus:ReactNode;onChange:(settings:PrintLayoutSettings)=>void;onBack:()=>void;onSave:()=>void;onHelp:()=>void};
+type Props={project:QrMagicProject;printChecks:PrintCheckState;saveStatus:ReactNode;onChange:(settings:PrintLayoutSettings)=>void;onBack:()=>void;onSave:()=>void;onHelp:()=>void;onDrive:()=>void};
 const presets:Record<string,[number,number]>={letter:[215.9,279.4],a4:[210,297],a3:[297,420]};
 type NumericSetting="widthMm"|"heightMm"|"marginTop"|"marginRight"|"marginBottom"|"marginLeft"|"gapX"|"gapY";
 
-export function PrintLayout({project,printChecks,saveStatus,onChange,onBack,onSave,onHelp}:Props) {
+export function PrintLayout({project,printChecks,saveStatus,onChange,onBack,onSave,onHelp,onDrive}:Props) {
   const settings=useMemo(()=>project.production.layout??defaultLayoutSettings(),[project.production.layout]);
   const [panelIndex,setPanelIndex]=useState(0),[progress,setProgress]=useState<ExportProgress|null>(null),[message,setMessage]=useState("");
   const controller=useRef<AbortController|null>(null);
@@ -48,7 +48,7 @@ export function PrintLayout({project,printChecks,saveStatus,onChange,onBack,onSa
   }
   const uniform=[settings.marginTop,settings.marginRight,settings.marginBottom].every(v=>v===settings.marginLeft);
   return <main className="print-layout-workspace">
-    <header className="layout-header"><strong>▦ QR Magic</strong><span>Design <b>› Print layout</b> › Download</span><div>{saveStatus}</div><div className="layout-header-actions"><button disabled={busy} onClick={onHelp}>Help</button><button disabled={busy} onClick={onSave}>Save project</button></div></header>
+    <header className="layout-header"><strong>▦ QR Magic</strong><span>Design <b>› Print layout</b> › Download</span><div>{saveStatus}</div><div className="layout-header-actions"><button disabled={busy} onClick={onHelp}>Help</button><button disabled={busy} onClick={onSave}>Save project</button><button disabled={busy} onClick={onDrive}>Google Drive</button></div></header>
     <div className="layout-content"><div className="layout-heading"><div><button aria-label="Back to design" className="layout-back" disabled={busy} onClick={onBack}>← Back to design</button><h1>Print layout</h1><p>Arrange your artwork at its finished size.</p></div>
       <div className="layout-job"><strong>{project.document.name}</strong><span>{count.records.toLocaleString()} {count.records===1?"record":"records"} × {count.copiesPerRecord.toLocaleString()} copies · {count.total.toLocaleString()} items</span></div></div>
     <div className="layout-columns">

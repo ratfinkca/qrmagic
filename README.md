@@ -15,6 +15,8 @@ Open **Help** in the editor or Print Layout for searchable guides. **Take a quic
 
 Edits save automatically in this browser; wait for **Saved on this device**. Use **Projects** to reopen recent designs or make an independent copy. Download project files as separate backups: local browser storage can be cleared or evicted, and there is no cloud project library or automatic cloud backup. QR links currently encode the destination directly; managed redirects and scan tracking are not implemented.
 
+When Google Drive is configured, use **Open from Google Drive** in Projects or the cloud button in the editor. **Drive Projects** lists projects QR Magic has access to. Use **Browse Drive** to select another project. In **Save to Drive**, edit the filename, then save a copy to My Drive or choose a folder. **Share Drive file** opens Google's sharing dialog for the selected or saved file. You can also open the file in Drive and share it there. Drive actions are manual and local autosave continues separately.
+
 ## What it can do
 
 - Physical document dimensions, bleed outside the cut, safe-area guides and saved cut geometry.
@@ -56,6 +58,8 @@ The in-app articles and repository user guide share one content source: `web/src
 ## Deployment
 
 [GitHub Actions](https://github.com/ratfinkca/qrmagic/actions) runs unit tests, Chromium browser tests and the production build on pull requests and pushes to `main`. Pages deploys only after those checks pass on `main`. Pull requests do not deploy. Repository Pages settings must use **GitHub Actions** as the source.
+
+To enable Drive in a local build, copy `web/.env.example` to `web/.env.local` and set its three values from the same Google Cloud project. Enable the **Google Drive API** and **Google Picker API**, configure the OAuth consent screen for the `drive.file` scope, and create a **Web application** OAuth client. Add the exact app origin under Authorized JavaScript origins, such as `http://127.0.0.1:5173` for local review and `https://ratfinkca.github.io` for Pages. Add review accounts as test users if the consent screen is in testing mode. Restrict the browser API key to Google Picker and Drive and allow the app origins and `https://docs.google.com/*` as website referrers. Restart Vite after changing the configuration. A future Pages build can use the same three public variables at build time. Keep OAuth client secrets out of the frontend. [Google Picker setup](https://developers.google.com/workspace/drive/picker/guides/web-picker-sample)
 
 ## Development notes
 

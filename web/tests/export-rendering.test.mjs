@@ -16,6 +16,133 @@ let initialProject;
 let fixtureIndex = 0;
 const pageErrors = [];
 
+test("Google Drive searches and browses projects, saves a named copy in a folder, and launches sharing", async () => {
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+  const tab = await context.newPage();
+  tab.on("pageerror", error => pageErrors.push(error.message));
+  let uploaded;
+  let cloudContent = "invalid project";
+  try {
+    await tab.route("https://accounts.google.com/gsi/client", route => route.fulfill({
+      contentType: "application/javascript",
+      body: `window.google = { accounts: { oauth2: { initTokenClient(config) {
+        window.requestedDriveScope = config.scope;
+        return { requestAccessToken() { config.callback({access_token:"test-token",scope:config.scope,expires_in:3600}); } };
+      } } } };`,
+    }));
+    await tab.route("https://apis.google.com/js/api.js", route => route.fulfill({
+      contentType: "application/javascript",
+      body: `
+        const picker = document.createElement("button");
+        picker.textContent = "Select a Drive project";
+        picker.style = "position:fixed;top:20px;left:20px;z-index:20000";
+        const cancel = document.createElement("button");
+        cancel.textContent = "Cancel file selection";
+        cancel.style = "position:fixed;top:55px;left:20px;z-index:20000";
+        class PickerBuilder {
+          setAppId() { return this; } setDeveloperKey() { return this; }
+          setOAuthToken() { return this; } setOrigin() { return this; }
+          setTitle() { return this; } addView(view) { this.view = view; return this; }
+          setSelectableMimeTypes(types) { this.selectable = types; return this; }
+          setCallback(callback) { this.callback = callback; return this; }
+          build() {
+            const selectingFolder = this.view.folders && this.selectable === "application/vnd.google-apps.folder";
+            picker.textContent = selectingFolder ? "Select a Drive folder" : "Select a Drive project";
+            const selected = selectingFolder ? {id:"test-folder",name:"Print jobs"} : {id:"cloud-file",name:"Cloud project.qrmagic.json"};
+            picker.onclick = () => this.callback({action:"picked",docs:[selected]});
+            cancel.onclick = () => this.callback({action:"cancel"});
+            return {setVisible() { document.body.append(picker, cancel); }, dispose() { picker.remove(); cancel.remove(); }};
+          }
+        }
+        window.google.picker = {
+          PickerBuilder, ViewId:{DOCS:"docs"}, DocsViewMode:{LIST:"list"}, Action:{PICKED:"picked",CANCEL:"cancel"},
+          DocsView: class {setIncludeFolders(){return this;} setSelectFolderEnabled(folders){this.folders=folders;return this;} setMimeTypes(){return this;} setMode(){return this;}}
+        };
+        window.gapi = { load(name, options) { options.callback(); }, drive: { share: { ShareClient: class {
+          setOAuthToken(token) { this.token = token; } setItemIds(ids) { this.ids = ids; }
+          showSettingsDialog() { window.sharedDriveFile = { ids:this.ids, token:this.token, activeModal:!!document.querySelector("dialog[open]") }; }
+        } } } };
+      `,
+    }));
+    await tab.route("https://www.googleapis.com/**", async route => {
+      const request = route.request();
+      const url = new URL(request.url());
+      const headers = { "access-control-allow-origin": "*" };
+      if (request.method() === "POST") {
+        assert.equal(request.headers().authorization, "Bearer test-token");
+        assert.equal(request.postDataJSON().name, "Edited Drive filename.qrmagic.json");
+        assert.deepEqual(request.postDataJSON().parents, ["test-folder"]);
+        await route.fulfill({ headers: { ...headers, location: "https://www.googleapis.com/upload/drive/v3/files?upload_id=test", "access-control-expose-headers": "Location" } });
+      } else if (request.method() === "PUT") {
+        uploaded = request.postDataJSON();
+        await route.fulfill({ headers, json: { id: "saved-copy", name: "Edited Drive filename.qrmagic.json" } });
+      } else if (url.pathname === "/drive/v3/files") {
+        assert.equal(request.headers().authorization, "Bearer test-token");
+        await route.fulfill({ headers, json: { files: [
+          { id: "cloud-file", name: "Cloud project.qrmagic.json", modifiedTime: "2026-01-02T00:00:00Z" },
+          { id: "older-file", name: "Older design.qrmagic.json", modifiedTime: "2026-01-01T00:00:00Z" },
+          { id: "other", name: "Some other file.json" },
+        ] } });
+      } else {
+        assert.equal(url.searchParams.get("alt"), "media");
+        assert.equal(request.headers().authorization, "Bearer test-token");
+        await route.fulfill({ headers, body: cloudContent });
+      }
+    });
+    await tab.goto(page.url());
+    const chooser = tab.getByRole("dialog", { name: "What are you making?" });
+    await chooser.getByRole("button", { name: "Open from Google Drive" }).click();
+    const drive = tab.getByRole("dialog", { name: "Google Drive", exact: true });
+    await drive.getByRole("button", { name: "Browse Drive" }).click();
+    await tab.getByRole("button", { name: "Cancel file selection" }).click();
+    await drive.getByRole("button", { name: "Close Google Drive" }).click();
+    await chooser.getByLabel("Project name", { exact: true }).fill("Local design");
+    await chooser.getByRole("button", { name: "Create project", exact: true }).click();
+    await tab.getByRole("button", { name: "Google Drive", exact: true }).click();
+    await drive.getByRole("button", { name: "Save to Drive", exact: true }).click();
+    assert.equal(await drive.getByLabel("Filename", { exact: true }).inputValue(), "Local design.qrmagic.json");
+    await drive.getByLabel("Filename", { exact: true }).fill("Edited Drive filename");
+    await drive.getByRole("button", { name: "Choose folder" }).click();
+    await tab.getByRole("button", { name: "Cancel file selection" }).click();
+    assert.equal(await drive.getByLabel("Filename", { exact: true }).inputValue(), "Edited Drive filename");
+    await drive.getByRole("button", { name: "Choose folder" }).click();
+    await tab.getByRole("button", { name: "Select a Drive folder" }).click();
+    await drive.getByText("Print jobs", { exact: false }).waitFor();
+    await drive.getByRole("button", { name: "Save a copy", exact: true }).click();
+    await drive.getByText("Project copy saved in Print jobs.").waitFor();
+    assert.equal(uploaded.format, "qrmagic.project");
+    assert.equal(uploaded.project.document.name, "Local design");
+    assert.equal(await drive.getByRole("link", { name: "Open file in Drive" }).getAttribute("href"), "https://drive.google.com/file/d/saved-copy/view");
+    await drive.getByRole("button", { name: "Share Drive file" }).click();
+    await drive.waitFor({ state: "hidden" });
+    assert.deepEqual(await tab.evaluate(() => window.sharedDriveFile), { ids:["saved-copy"], token:"test-token", activeModal:false });
+    assert.equal(await tab.evaluate(() => window.requestedDriveScope), "https://www.googleapis.com/auth/drive.file");
+    await tab.getByRole("button", { name: "Google Drive", exact: true }).click();
+    await drive.getByRole("button", { name: "Browse Drive" }).click();
+    await tab.getByRole("button", { name: "Select a Drive project" }).click();
+    await drive.getByRole("alert").waitFor();
+    assert.match(await drive.getByRole("alert").innerText(), /could not read that project file/);
+    const cloud = structuredClone(uploaded);
+    cloud.project.document.name = "Cloud design";
+    cloudContent = JSON.stringify(cloud);
+    const search = drive.getByLabel("Search Drive projects", { exact: true });
+    await drive.getByRole("button", { name: /Older design.qrmagic.json/ }).waitFor();
+    assert.equal(await drive.getByText("Some other file.json", { exact: true }).count(), 0);
+    await search.fill("missing");
+    await drive.getByText("No matching Drive projects.", { exact: true }).waitFor();
+    await search.fill("LOUD PROJ");
+    assert.equal(await drive.getByRole("button", { name: /Older design.qrmagic.json/ }).count(), 0);
+    await drive.getByRole("button", { name: /Cloud project.qrmagic.json/ }).click();
+    await drive.waitFor({ state: "hidden" });
+    await tab.getByLabel("Name", { exact: true }).filter({ visible: true }).waitFor();
+    assert.equal(await tab.getByLabel("Name", { exact: true }).inputValue(), "Cloud design");
+    await tab.getByTitle("Projects", { exact: true }).click();
+    await tab.getByRole("button", { name: "Open Local design", exact: true }).waitFor();
+  } finally {
+    await context.close();
+  }
+});
+
 test("CSV mapping flags problems, previews a row, and survives saving and reopening", async () => {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
   const tab = await context.newPage();
@@ -817,6 +944,11 @@ test("production QR style variants remain vectors and decode after PDF rendering
 
 before(async () => {
   server = await createServer({
+    define: {
+      "import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID": JSON.stringify("browser-test.apps.googleusercontent.com"),
+      "import.meta.env.VITE_GOOGLE_DRIVE_PROJECT_NUMBER": JSON.stringify("123456"),
+      "import.meta.env.VITE_GOOGLE_DRIVE_API_KEY": JSON.stringify("browser-test-key"),
+    },
     // A concurrent local editor must not share optimizer files with this server.
     cacheDir: "node_modules/.vite-export-tests",
     server: { host: "127.0.0.1", port: 0 },
