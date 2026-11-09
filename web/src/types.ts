@@ -53,6 +53,7 @@ export type LayerBase = {
 
 export type QrLayer = LayerBase & {
   type: "qr";
+  csvColumn?: string;
   dataGroupId: string;
   payloadTemplate: string;
   foreground: string;
@@ -85,6 +86,7 @@ export type QrLayer = LayerBase & {
 
 export type TextLayer = LayerBase & {
   type: "text";
+  csvColumn?: string;
   dataGroupId?: string;
   textTemplate: string;
   fontFamily: string;
@@ -154,6 +156,13 @@ export type FixedDataGroup = {
 
 export type DataGroup = SerialDataGroup | FixedDataGroup;
 
+export type CsvBatch = {
+  name: string;
+  columns: string[];
+  rows: string[][];
+  allowRepeatedQr?: boolean;
+};
+
 export type PrintLayoutSettings = {
   media: "roll" | "sheet"; units: "mm" | "in";
   widthMm: number; heightMm: number;
@@ -193,6 +202,7 @@ export type QrMagicProject = {
   data: {
     mode: "serial";
     groups: DataGroup[];
+    csv?: CsvBatch;
   };
   export: {
     filenameTemplate: string;
@@ -211,6 +221,7 @@ export type QrMagicProjectFile = {
 export type RenderRecord = {
   index: number;
   serial: string;
+  csv?: Record<string, string>;
   groups: Record<
     string,
     {

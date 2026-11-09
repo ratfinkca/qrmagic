@@ -1,4 +1,4 @@
-import type { DataGroup, RenderRecord, SerialSettings } from "../types";
+import type { CsvBatch, DataGroup, QrLayer, RenderRecord, SerialSettings, TextLayer } from "../types";
 
 export function formatSerial(settings: SerialSettings, index: number): string {
   const value = settings.start + index * settings.step;
@@ -14,7 +14,8 @@ export function createSerialRecords(settings: SerialSettings): RenderRecord[] {
   }));
 }
 
-export function dataRecordCount(groups: DataGroup[]): number {
+export function dataRecordCount(groups: DataGroup[], csv?: CsvBatch): number {
+  if (csv) return csv.rows.length;
   const serialGroups = groups.filter((group) => group.mode === "serial");
   const quantitySourceGroups = serialGroups.length ? serialGroups : groups;
   const quantity = Math.max(
@@ -29,33 +30,30 @@ export function dataRecordCount(groups: DataGroup[]): number {
   return quantity;
 }
 
-export function createDataRecords(groups: DataGroup[]): RenderRecord[] {
-  const quantity = dataRecordCount(groups);
-  return Array.from({ length: quantity }, (_, index) => {
-    const groupValues = Object.fromEntries(
-      groups.map((group) => {
-        const groupQuantity = group.mode === "serial" ? group.serial.quantity : group.fixed.quantity;
-        const value =
-          group.mode === "serial"
-            ? index < groupQuantity
-              ? formatSerial(group.serial, index)
-              : ""
-            : group.fixed.value;
-        return [
-          group.id,
-          {
-            serial: value,
-          },
-        ];
-      }),
-    );
-    const primarySerial = groupValues[groups[0]?.id]?.serial ?? "";
-    return {
-      index,
-      serial: primarySerial,
-      groups: groupValues,
-    };
-  });
+export function dataRecordAt(groups: DataGroup[], index: number, csv?: CsvBatch): RenderRecord {
+  const groupValues = Object.fromEntries(groups.map(group => [group.id, {
+    serial: group.mode === "fixed" ? group.fixed.value
+      : csv || index < group.serial.quantity ? formatSerial(group.serial, index) : "",
+  }]));
+  return {
+    index,
+    serial: groupValues[groups[0]?.id]?.serial ?? "",
+    groups: groupValues,
+    ...(csv ? { csv: Object.fromEntries(csv.columns.map((column, columnIndex) => [column, csv.rows[index][columnIndex]])) } : {}),
+  };
+}
+
+export function createDataRecords(groups: DataGroup[], csv?: CsvBatch): RenderRecord[] {
+  return Array.from({ length: dataRecordCount(groups, csv) }, (_, index) => dataRecordAt(groups, index, csv));
+}
+
+export function renderLayerValue(layer: QrLayer | TextLayer, record: RenderRecord): string {
+  if (layer.csvColumn && record.csv) {
+    const value = Object.hasOwn(record.csv, layer.csvColumn) ? record.csv[layer.csvColumn] : "";
+    return value.trim() ? value : "";
+  }
+  const template = layer.type === "qr" ? layer.payloadTemplate : layer.textTemplate;
+  return renderTemplate(template, record, layer.dataGroupId);
 }
 
 export function renderTemplate(

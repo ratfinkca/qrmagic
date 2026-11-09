@@ -1,10 +1,12 @@
-import type { DataGroup, ProjectLayer, QrLayer, QrMagicProject } from "../types";
-import { createDataRecords, renderTemplate } from "../lib/serial";
+import type { DataGroup, ProjectLayer, QrLayer, QrMagicProject, RenderRecord } from "../types";
+import { renderLayerValue } from "../lib/serial";
 import { HelpTip } from "./HelpTip";
 
-export function QrContentEditor({ layer, project, onUpdateLayer, onChangeMode, onChangeFixed, onMakeIndependent }: {
+export function QrContentEditor({ layer, project, record, onOpenCsv, onUpdateLayer, onChangeMode, onChangeFixed, onMakeIndependent }: {
   layer: QrLayer;
   project: QrMagicProject;
+  record: RenderRecord;
+  onOpenCsv: () => void;
   onUpdateLayer: (id: string, patch: Partial<ProjectLayer>) => void;
   onChangeMode: (layerId: string, mode: DataGroup["mode"]) => void;
   onChangeFixed: (id: string, patch: { value?: string }) => void;
@@ -13,8 +15,19 @@ export function QrContentEditor({ layer, project, onUpdateLayer, onChangeMode, o
   const group = project.data.groups.find(source => source.id === layer.dataGroupId);
   const custom = layer.payloadTemplate !== "{{serial}}";
   const users = project.layers.filter(item => (item.type === "qr" || item.type === "text") && item.dataGroupId === group?.id);
-  const value = renderTemplate(layer.payloadTemplate, createDataRecords(project.data.groups)[0], layer.dataGroupId);
+  const value = renderLayerValue(layer, record);
   const url = /^https?:\/\//i.test(value) ? value : undefined;
+  const preview = <div className="qr-content-preview">
+    <small>{project.data.csv ? `Row ${record.index + 1}${layer.csvColumn ? ` · ${layer.csvColumn}` : ""}` : "First item contains"}</small>
+    <output>{value || "Empty content"}</output>
+    {url ? <a href={url} target="_blank" rel="noopener noreferrer">Test destination</a> : null}
+  </div>;
+
+  if (layer.csvColumn) return <section className="qr-content-editor" aria-label="QR content" data-guide="qr">
+    <h3>QR content from CSV</h3>
+    {preview}
+    <button type="button" className="secondary-action" onClick={onOpenCsv}>Edit CSV mapping</button>
+  </section>;
 
   return <section className="qr-content-editor" aria-label="QR content" data-guide="qr">
     <div className="help-context-row"><h3>What should this QR contain?</h3><HelpTip topic="qr"/></div>
@@ -32,9 +45,7 @@ export function QrContentEditor({ layer, project, onUpdateLayer, onChangeMode, o
       <p className="chooser-hint">Use https:// at the beginning of a website address.</p>
     </> : null}
     {!custom && group?.mode === "serial" ? <p className="chooser-hint">Set the count and numbering in Job. Copies of each item keep the same serial.</p> : null}
-    <div className="qr-content-preview"><small>First item contains</small><output>{value || "Empty content"}</output>
-      {url ? <a href={url} target="_blank" rel="noopener noreferrer">Test destination</a> : null}
-    </div>
+    {preview}
     {users.length > 1 && !custom ? <div className="source-sharing">
       <p className="chooser-hint">Shared with {users.length - 1} other {users.length === 2 ? "layer" : "layers"}. Editing this value updates them too.</p>
       <button className="secondary-action" onClick={() => onMakeIndependent(layer.id)}>Make independent</button>

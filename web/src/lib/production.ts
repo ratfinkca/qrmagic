@@ -40,7 +40,7 @@ export function productionGeometry(project: QrMagicProject) {
 }
 
 export function productionCount(project: QrMagicProject) {
-  const records = dataRecordCount(project.data.groups);
+  const records = dataRecordCount(project.data.groups, project.data.csv);
   const copiesPerRecord = positiveInteger(project.production?.copiesPerRecord ?? 1, "Copies per record");
   const total = records * copiesPerRecord;
   if (total > 100000) throw new Error("A job may contain at most 100,000 finished items.");
@@ -54,7 +54,7 @@ export function usesRecordIndex(project: QrMagicProject) {
 }
 
 export function isRepeatedJob(project: QrMagicProject) {
-  return !project.data.groups.some(group => group.mode === "serial") && !usesRecordIndex(project);
+  return !project.data.csv && !project.data.groups.some(group => group.mode === "serial") && !usesRecordIndex(project);
 }
 
 export function normalizeFixedJob(project: QrMagicProject): QrMagicProject {
@@ -72,11 +72,17 @@ export function normalizeFixedJob(project: QrMagicProject): QrMagicProject {
 export function jobSummary(project: QrMagicProject) {
   const count = productionCount(project);
   if (isRepeatedJob(project)) return `${count.total.toLocaleString()} ${count.total === 1 ? "copy" : "copies"} · same design`;
+  if (project.data.csv) {
+    const rows = count.records === 1 ? "row" : "rows";
+    const copies = count.copiesPerRecord === 1 ? "copy" : "copies";
+    const items = count.total === 1 ? "item" : "items";
+    return `${count.records.toLocaleString()} CSV ${rows} × ${count.copiesPerRecord.toLocaleString()} ${copies} = ${count.total.toLocaleString()} ${items}`;
+  }
   const noun = project.data.groups.some(group => group.mode === "serial") ? "serials" : "variations";
   return `${count.records.toLocaleString()} ${noun} × ${count.copiesPerRecord.toLocaleString()} copies = ${count.total.toLocaleString()} items`;
 }
 
 export function createPrintRecords(project: QrMagicProject) {
   const { copiesPerRecord } = productionCount(project);
-  return createDataRecords(project.data.groups).flatMap(record => Array.from({ length: copiesPerRecord }, () => record));
+  return createDataRecords(project.data.groups, project.data.csv).flatMap(record => Array.from({ length: copiesPerRecord }, () => record));
 }

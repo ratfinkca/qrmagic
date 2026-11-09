@@ -53,7 +53,9 @@ import {
   renderProjectPdfBlob,
   renderProjectPngBlob,
 } from "./lib/exportRenderer";
-import { createDataRecords, renderTemplate } from "./lib/serial";
+import { dataRecordAt, renderTemplate } from "./lib/serial";
+import { reviewCsvBatch } from "./lib/csvBatch";
+import { CsvBatchDialog } from "./components/CsvBatchDialog";
 import type {
   DataGroup,
   EditorTool,
@@ -101,6 +103,7 @@ export function App() {
   const [openingProject,setOpeningProject]=useState(false);
   const openingProjectRef=useRef(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [csvOpen, setCsvOpen] = useState(false);
   const [tourStep, setTourStep] = useState<number | null>(null);
   const tourSnapshot = useRef<{ selectedLayerIds:string[]; panelsVisible:boolean; compactPanel:"document"|"inspector"|null } | null>(null);
   const [project, setProject] = useState<QrMagicProject>(initialProject);
@@ -121,9 +124,13 @@ export function App() {
   const projectRef = useRef(project);
   const lastSavedProjectRef = useRef<QrMagicProject | null>(initialProject);
   const exportLockedRef = useRef(false);
-  const records = useMemo(() => createDataRecords(project.data.groups), [project.data.groups]);
+  const { groups, csv } = project.data;
+  const recordCount = productionCount(project).records;
+  const recordIndex = Math.min(selectedRecordIndex, recordCount - 1);
+  const currentRecord = useMemo(() => dataRecordAt(groups, recordIndex, csv), [groups, recordIndex, csv]);
+  const csvReview = useMemo(() => reviewCsvBatch(project), [csv, project.layers]);
+  const proofMissingQr = csvReview.rows.get(recordIndex)?.some(issue => issue.kind === "missing-qr") ?? false;
   const docSize = useMemo(() => documentPixelSize(project), [project]);
-  const currentRecord = records[Math.min(selectedRecordIndex, records.length - 1)] ?? records[0];
   const primarySelectedLayerId = selectedLayerIds[selectedLayerIds.length - 1] ?? "";
   const selectedLayer =
     selectedLayerIds.length === 1
@@ -261,7 +268,7 @@ export function App() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if(layoutOpen || chooserOpen || openingProject || helpOpen || tourStep !== null) return;
+      if(layoutOpen || chooserOpen || openingProject || helpOpen || csvOpen || tourStep !== null) return;
       const target = event.target as HTMLElement | null;
       const isEditableTarget =
         target?.tagName === "INPUT" ||
@@ -284,7 +291,7 @@ export function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [redoProjectChange, undoProjectChange, layoutOpen, chooserOpen, openingProject, helpOpen, tourStep]);
+  }, [redoProjectChange, undoProjectChange, layoutOpen, chooserOpen, openingProject, helpOpen, csvOpen, tourStep]);
 
   function updateLayer(
     layerId: string,
@@ -663,11 +670,11 @@ export function App() {
   }
 
   async function exportPngTemplate() {
-    if (exportLockedRef.current) return;
+    if (exportLockedRef.current || proofMissingQr) return;
 
     const projectSnapshot = projectRef.current;
     const record = currentRecord;
-    const baseName = sanitizeFilename(record.serial);
+    const baseName = projectSnapshot.data.csv ? `row-${record.index + 1}` : sanitizeFilename(record.serial);
     const zip = new JSZip();
     exportLockedRef.current = true;
     setExportStatus("template");
@@ -712,10 +719,12 @@ export function App() {
     if (exportLockedRef.current) return;
 
     const projectSnapshot = projectRef.current;
+    if (csvReview.missingQrRows > 0) return;
     const recordSnapshot = createPrintRecords(projectSnapshot);
     const format = getExportSetFormat(projectSnapshot);
     const zip = new JSZip();
     const usedFilenames = new Set<string>();
+    const nextSuffix = new Map<string, number>();
     exportLockedRef.current = true;
     setExportStatus("set");
 
@@ -748,12 +757,13 @@ export function App() {
           renderTemplate(projectSnapshot.export.filenameTemplate, record),
         );
         let baseName = requestedBaseName;
-        let duplicateIndex = 2;
+        let duplicateIndex = nextSuffix.get(requestedBaseName) ?? 2;
         while (usedFilenames.has(`${baseName}.${format}`)) {
           baseName = `${requestedBaseName}-${duplicateIndex}`;
           duplicateIndex += 1;
         }
         usedFilenames.add(`${baseName}.${format}`);
+        nextSuffix.set(requestedBaseName, duplicateIndex);
         zip.file(`${baseName}.${format}`, recordBlob);
       }
 
@@ -1166,7 +1176,7 @@ export function App() {
         </nav>
         <div className="topbar-status local-project-status"><div className="local-job-summary">
           <span aria-live="polite">{jobSummary(project)}</span>
-          <strong>{currentRecord.serial}</strong>
+          {csv ? <strong>Previewing row {recordIndex + 1} of {recordCount.toLocaleString()}</strong> : <strong>{currentRecord.serial}</strong>}
           </div>{localSaveStatus}
         </div>
       </header>
@@ -1182,6 +1192,7 @@ export function App() {
           <Sidebar
             tourTarget={tourStep === null ? null : tourSteps[tourStep].target}
             project={project}
+            onOpenCsv={() => setCsvOpen(true)}
             selectedLayerIds={selectedLayerIds}
             onSelectLayers={(layerIds) => setSelectedLayerIds(layerIds)}
             onUpdateDataGroup={updateDataGroup}
@@ -1192,7 +1203,7 @@ export function App() {
             onUpdateProduction={(copies) => {
               try {
                 positiveInteger(copies, "Copies per record");
-                if (copies * records.length > 100000) return;
+                if (copies * recordCount > 100000) return;
                 updateProject(current => ({ ...current, production: { ...current.production, copiesPerRecord: copies } }));
               } catch { /* Keep the last valid quantity while editing. */ }
             }}
@@ -1229,6 +1240,10 @@ export function App() {
         {panelsVisible ? (
           <Inspector
             printChecks={printChecks}
+            record={currentRecord}
+            onOpenCsv={() => setCsvOpen(true)}
+            proofMissingQr={proofMissingQr}
+            batchMissingQr={csvReview.missingQrRows > 0}
             onSelectCheckLayer={id=>{if(isExportLocked)return;setSelectedLayerIds([id]);setPanelsVisible(true);setCompactPanel("inspector");requestAnimationFrame(()=>document.querySelector(".inspector")?.scrollTo({top:0}));}}
             selectedLayer={selectedLayer}
             selectedLayers={selectedLayers}
@@ -1264,6 +1279,13 @@ export function App() {
           </div>
         ) : null}
       </div>
+      {csvOpen && <CsvBatchDialog project={project} review={csvReview} currentIndex={recordIndex}
+        onClose={() => setCsvOpen(false)}
+        onReplace={next => { updateProject(next); setSelectedRecordIndex(0); }}
+        onMap={(id, csvColumn) => updateLayer(id, { csvColumn })}
+        onAllowRepeats={allowRepeatedQr => updateProject(current => current.data.csv
+          ? { ...current, data: { ...current.data, csv: { ...current.data.csv, allowRepeatedQr } } } : current)}
+        onPreview={index => { setSelectedRecordIndex(index); setCsvOpen(false); }}/>}
       {helpSurfaces}
     </main>
   );

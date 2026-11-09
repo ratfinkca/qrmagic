@@ -1,6 +1,6 @@
 import QRCodeStyling, { type Options } from "qr-code-styling";
 import type { QrLayer, RenderRecord } from "../types";
-import { renderTemplate } from "./serial";
+import { renderLayerValue } from "./serial";
 
 function blobToDataUrl(blob: Blob) {
   return new Promise<string>((resolve, reject) => {
@@ -19,7 +19,7 @@ export function qrStylingOptions(layer: QrLayer, record: RenderRecord): Options 
     width: size,
     height: size,
     margin: Math.max(0, Math.round(layer.margin)),
-    data: renderTemplate(layer.payloadTemplate, record, layer.dataGroupId),
+    data: renderLayerValue(layer, record),
     image: layer.logoEnabled && layer.logoSrc ? layer.logoSrc : undefined,
     qrOptions: {
       errorCorrectionLevel: layer.errorCorrectionLevel,

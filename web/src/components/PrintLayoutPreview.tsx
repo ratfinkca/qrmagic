@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { QrMagicProject } from "../types";
 import { layoutPanel, type LayoutPlan } from "../lib/printLayout";
-import { createDataRecords } from "../lib/serial";
+import { dataRecordAt } from "../lib/serial";
 import { renderProjectPngBlob } from "../lib/exportRenderer";
 import { outlinePath } from "../lib/productionPdfModel";
 import { exportYield } from "../lib/exportControl";
@@ -15,7 +15,6 @@ export function PrintLayoutPreview({project,plan,panelIndex,onPanelChange}:{proj
   const panel=useMemo(()=>layoutPanel(plan,panelIndex),[plan,panelIndex]);
   // Layout-only edits retain cached record artwork. Never allocate a full-DPI media canvas.
   const source=useMemo(()=>project,[project.layers,project.document,project.data]);
-  const records=useMemo(()=>createDataRecords(source.data.groups),[source.data.groups]);
   const thumbnails=useMemo(()=>new Map<number,ImageBitmap>(),[source]);
   useEffect(()=>{
     const observer=new ResizeObserver(entries=>{
@@ -40,7 +39,8 @@ export function PrintLayoutPreview({project,plan,panelIndex,onPanelChange}:{proj
         const placement=panel.placements[i];
         let image=thumbnails.get(placement.recordIndex);
         if(!image) {
-          const blob=await renderProjectPngBlob(source,records[placement.recordIndex],{includeGuides:false});
+          const record=dataRecordAt(source.data.groups,placement.recordIndex,source.data.csv);
+          const blob=await renderProjectPngBlob(source,record,{includeGuides:false});
           controller.signal.throwIfAborted();
           const max=512,ratio=plan.itemWidthMm/plan.itemHeightMm;
           image=await createImageBitmap(blob,{resizeWidth:Math.max(1,Math.round(ratio>=1?max:max*ratio)),resizeHeight:Math.max(1,Math.round(ratio>=1?max/ratio:max))});
@@ -60,7 +60,7 @@ export function PrintLayoutPreview({project,plan,panelIndex,onPanelChange}:{proj
     }
     paint().catch(error=>{if(error?.name!=="AbortError")setStatus(error instanceof Error?error.message:"Preview unavailable.");});
     return()=>controller.abort();
-  },[source,records,thumbnails,plan,panel,cuts,bleed]);
+  },[source,thumbnails,plan,panel,cuts,bleed]);
   const paperWidth=Math.max(1,Math.min(viewport.width-48,(viewport.height-72)*panel.widthMm/panel.heightMm))*zoom;
   return <section className="layout-preview layout-card" aria-label="Layout preview">
     <div className="layout-preview-toolbar"><span>{plan.columns} across · {panel.rows} rows</span><div>

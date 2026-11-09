@@ -1,6 +1,6 @@
 import type { ImageLayer, ProjectLayer, QrLayer, QrMagicProject, RenderRecord } from "../types";
 import type { ProductionIssue } from "./productionPdfModel";
-import { dataRecordCount, formatSerial, renderTemplate } from "./serial";
+import { dataRecordAt, dataRecordCount, renderLayerValue } from "./serial";
 
 export type QrMetrics={modules:number;sourceSize:number};
 export type ImageDimensions={width:number;height:number};
@@ -11,17 +11,16 @@ export function qualityIssue(layer:ProjectLayer,code:string,message:string):Prod
 
 /** Bounded endpoints/range transitions, never thousands of copied records. */
 export function recordSamples(project:QrMagicProject):RenderRecord[] {
-  const count=dataRecordCount(project.data.groups),indices=new Set([0,count-1]);
+  const { groups, csv } = project.data;
+  const count=dataRecordCount(groups,csv),indices=new Set([0,count-1]);
+  if (csv) for (let sample = 1; sample < 31; sample++) indices.add(Math.round(sample * (count - 1) / 31));
   for(const group of project.data.groups) {
     if(group.mode!=="serial")continue;
     if(indices.size<32)indices.add(Math.min(count-1,group.serial.quantity-1));
     const zero=-group.serial.start/group.serial.step;
     if(Number.isFinite(zero))for(const index of [Math.floor(zero)-1,Math.floor(zero),Math.ceil(zero)+1])if(index>=0&&index<count&&indices.size<32)indices.add(index);
   }
-  return [...indices].sort((a,b)=>a-b).map(index=>{
-    const groups=Object.fromEntries(project.data.groups.map(group=>[group.id,{serial:group.mode==="fixed"?group.fixed.value:index<group.serial.quantity?formatSerial(group.serial,index):""}]));
-    return {index,serial:groups[project.data.groups[0]?.id]?.serial??"",groups};
-  });
+  return [...indices].sort((a,b)=>a-b).map(index=>dataRecordAt(groups,index,csv));
 }
 
 function luminance(color:string):number|undefined {
@@ -75,7 +74,7 @@ export function layerBoundary(layer:ProjectLayer) {
 export function safeAreaIssue(project:QrMagicProject,layer:ProjectLayer,insideTrim:(x:number,y:number)=>boolean,insideSafe:(x:number,y:number)=>boolean):ProductionIssue|undefined {
   if(!layer.visible||layer.opacity<=0||layer.type!=="qr"&&layer.type!=="text")return;
   if(layer.type==="text"&&(layer.fillOpacity<=0||layer.fill==="transparent")&&!layer.shadowEnabled)return;
-  if(layer.type==="text"&&!renderTemplate(layer.textTemplate,recordSamples(project)[0],layer.dataGroupId).trim())return;
+  if(layer.type==="text"&&!recordSamples(project).some(record=>renderLayerValue(layer,record).trim()))return;
   const boundary=layerBoundary(layer);
   if(boundary.some(point=>!insideTrim(point.x,point.y)))return qualityIssue(layer,"outside-cut",`${layer.type==="qr"?"QR":"text box"} appears to cross the finished cut. Move it inside the cut shape, or adjust its size/rotation before printing.`);
   if(project.document.safeAreaMm>0&&boundary.some(point=>!insideSafe(point.x,point.y)))return qualityIssue(layer,"safe-area",`${layer.type==="qr"?"QR":"text box"} appears outside the ${project.document.safeAreaMm} mm safe guide. Move important content inward and check Finished preview. Background artwork may extend into bleed.`);

@@ -16,7 +16,7 @@ export async function productionPackage(project: QrMagicProject, records: Render
     quantity: productionCount(project),
     order: "Each record followed by all of its copies; PDF page count includes copies.",
     document: project.document, pagePoints: geometry.points, trimPoints: geometry.trimPoints,
-    records: createDataRecords(project.data.groups),
+    records: createDataRecords(project.data.groups, project.data.csv).map(({ index, serial, groups }) => ({ index, serial, groups })),
   }, null, 2));
   zip.file("preflight.json", JSON.stringify({
     colorSpace: "RGB", machineProfile: null, pdfX: false,

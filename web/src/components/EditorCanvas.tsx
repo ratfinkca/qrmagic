@@ -24,7 +24,7 @@ import type {
 import { productionGeometry } from "../lib/production";
 import { documentPixelSize, guideSnapRect } from "../lib/project";
 import { renderStyledQrDataUrl } from "../lib/qrStyling";
-import { renderTemplate } from "../lib/serial";
+import { renderLayerValue } from "../lib/serial";
 import { colorWithOpacity, layerShadowProps, shapeFillProps } from "../lib/layerRendering";
 import { polygonPath } from "../lib/shapeGeometry";
 
@@ -44,28 +44,31 @@ type EditorCanvasProps = {
 };
 
 function useQrDataUrl(layer: QrLayer, record: RenderRecord) {
-  const [dataUrl, setDataUrl] = useState("");
+  const [result, setResult] = useState<{ url: string; record: RenderRecord; column?: string }>();
+  const column = layer.csvColumn;
+  const hasData = !column || Boolean(renderLayerValue(layer, record));
 
   useEffect(() => {
+    if (!hasData) return;
     let canceled = false;
     renderStyledQrDataUrl(layer, record)
       .then((url) => {
         if (!canceled) {
-          setDataUrl(url);
+          setResult({ url, record, column });
         }
       })
       .catch(() => {
         if (!canceled) {
-          setDataUrl("");
+          setResult(undefined);
         }
       });
 
     return () => {
       canceled = true;
     };
-  }, [layer, record]);
+  }, [layer, record, column, hasData]);
 
-  return dataUrl;
+  return hasData && result && (!record.csv || result.record === record && result.column === column) ? result.url : "";
 }
 
 function useHtmlImage(src: string) {
@@ -264,8 +267,10 @@ function QrNode({
   onDragEnd: (layerId: string, node: Konva.Node) => void;
 }) {
   const groupRef = useRef<Konva.Group>(null);
+  const missingCsvValue = Boolean(layer.csvColumn && !renderLayerValue(layer, record));
   const dataUrl = useQrDataUrl(layer, record);
-  const image = useHtmlImage(dataUrl);
+  const loaded = useHtmlImage(dataUrl);
+  const image = record.csv && loaded?.src !== dataUrl ? null : loaded;
 
   return (
     <>
@@ -292,9 +297,9 @@ function QrNode({
         <Rect
           width={layer.width}
           height={layer.height}
-          fill={layer.background}
+          fill={missingCsvValue ? "transparent" : layer.background}
           cornerRadius={6}
-          {...layerShadowProps(layer)}
+          {...(missingCsvValue ? {} : layerShadowProps(layer))}
         />
         {image ? (
           <KonvaImage image={image} width={layer.width} height={layer.height} />
@@ -345,7 +350,7 @@ function TextNode({
         y={layer.y}
         width={layer.width}
         height={layer.height}
-        text={renderTemplate(layer.textTemplate, record, layer.dataGroupId)}
+        text={renderLayerValue(layer, record)}
         fontFamily={layer.fontFamily}
         fontSize={layer.fontSize}
         fontStyle={String(layer.fontWeight)}

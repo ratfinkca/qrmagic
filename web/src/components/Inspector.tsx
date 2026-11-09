@@ -20,11 +20,13 @@ import { PrintChecks } from "./PrintChecks";
 import { ColorControl } from "./ColorControl";
 import { guideSnapRect } from "../lib/project";
 import { presetShapeGeometry, SHAPE_OPTIONS } from "../lib/shapeGeometry";
+import { renderLayerValue } from "../lib/serial";
 import type {
   DataGroup,
   GuideSnapTarget,
   ProjectLayer,
   QrMagicProject,
+  RenderRecord,
   ShapeFillMode,
 } from "../types";
 
@@ -34,6 +36,10 @@ type ExportSetFormat = "png" | "jpg" | "pdf" | "production-pdf";
 
 type InspectorProps = {
   printChecks:PrintCheckState;
+  record: RenderRecord;
+  onOpenCsv: () => void;
+  proofMissingQr: boolean;
+  batchMissingQr: boolean;
   onSelectCheckLayer:(id:string)=>void;
   selectedLayer: ProjectLayer | undefined;
   selectedLayers: ProjectLayer[];
@@ -72,6 +78,10 @@ type InspectorProps = {
 
 export function Inspector({
   printChecks,
+  record,
+  onOpenCsv,
+  proofMissingQr,
+  batchMissingQr,
   onSelectCheckLayer,
   selectedLayer,
   selectedLayers,
@@ -360,7 +370,7 @@ export function Inspector({
         </div>
         {selectedLayer ? (
           <>
-            {selectedLayer.type === "qr" ? <QrContentEditor layer={selectedLayer} project={project}
+            {selectedLayer.type === "qr" ? <QrContentEditor layer={selectedLayer} project={project} record={record} onOpenCsv={onOpenCsv}
               onUpdateLayer={onUpdateLayer} onChangeMode={onChangeQrMode} onChangeFixed={onChangeFixed}
               onMakeIndependent={onMakeQrIndependent} /> : null}
             <h3>Appearance</h3>
@@ -539,6 +549,11 @@ export function Inspector({
             ) : null}
             {selectedLayer.type === "text" ? (
               <>
+                {selectedLayer.csvColumn ? <div className="qr-content-preview">
+                  <small>Row {record.index + 1} · {selectedLayer.csvColumn}</small>
+                  <output>{renderLayerValue(selectedLayer, record) || "Empty text"}</output>
+                  <button type="button" className="secondary-action" onClick={onOpenCsv}>Edit CSV mapping</button>
+                </div> : <>
                 <label>
                   Data group
                   <select
@@ -568,6 +583,7 @@ export function Inspector({
                     }
                   />
                 </label>
+                </>}
                 <div className="field-grid">
                   <label>
                     Size
@@ -1142,16 +1158,22 @@ export function Inspector({
           </details> : <p>Ready to export. A final rendering report is included in the ZIP.</p>}
         </div>}
         <PrintChecks state={printChecks} locked={isExporting} onSelectLayer={onSelectCheckLayer}/>
+        {batchMissingQr && <div>
+          <p className="chooser-hint">{proofMissingQr
+            ? "This row needs QR content before you can download its proof. Fix missing QR values before exporting the batch."
+            : "Fix missing QR values before exporting the batch. You can still download this row’s proof."}</p>
+          <button type="button" className="secondary-action" disabled={isExporting} onClick={onOpenCsv}>Review missing QR values</button>
+        </div>}
         <p className="chooser-hint">The job includes every copy. The proof package contains one item and separate guide overlays.</p>
         <button className="secondary-action" disabled={isExporting} onClick={onPrintLayout}>Print layout</button>
-        <button className="primary-action" onClick={onExportPng} disabled={isExporting}>
+        <button className="primary-action" onClick={onExportPng} disabled={isExporting || proofMissingQr}>
           <Download size={16} />
           {exportStatus === "template" ? "Exporting template..." : "Download proof package"}
         </button>
         <button
           className="secondary-action"
           onClick={onExportBatch}
-          disabled={isExporting || productionErrors.length > 0}
+          disabled={isExporting || batchMissingQr || productionErrors.length > 0}
         >
           <Download size={16} />
           {exportStatus === "set"

@@ -4,7 +4,7 @@ import { productionPreflight, rasterReason, type ProductionIssue } from "./produ
 import { outlinePath } from "./cutGeometry";
 import { effectiveImagePpi, PRINT_GUIDANCE, qrQualityIssues, qualityIssue, recordSamples, safeAreaIssue, type ImageDimensions } from "./printQualityModel";
 import { qrMetricsForPayload } from "./qrMetrics";
-import { renderTemplate } from "./serial";
+import { renderLayerValue } from "./serial";
 
 const imageCache=new Map<string,Promise<ImageDimensions>>();
 function imageDimensions(src:string):Promise<ImageDimensions> {
@@ -46,7 +46,7 @@ export async function analyzePrintProject(project:QrMagicProject,options:{signal
     if(layer.type!=="qr")continue;
     const candidates=new Map<string,ProductionIssue>();
     const measured:ReturnType<typeof qrMetricsForPayload>[]=[];
-    for(const payload of new Set(samples.map(record=>renderTemplate(layer.payloadTemplate,record,layer.dataGroupId)))) {
+    for(const payload of new Set(samples.map(record=>renderLayerValue(layer,record)))) {
       if(!payload.trim())continue;
       try {
         const metrics=qrMetricsForPayload(layer,payload);

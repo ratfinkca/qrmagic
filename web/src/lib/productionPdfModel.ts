@@ -1,6 +1,7 @@
 import type { ProjectLayer, QrMagicProject } from "../types";
 import { productionGeometry } from "./production";
-import { dataRecordCount, renderTemplate, createDataRecords } from "./serial";
+import { dataRecordAt, dataRecordCount, renderLayerValue } from "./serial";
+import { csvPreflight } from "./csvBatch";
 import { outlinePath } from "./cutGeometry";
 export { outlinePath } from "./cutGeometry";
 
@@ -42,10 +43,10 @@ export function productionPreflight(project: QrMagicProject): ProductionIssue[] 
   if (!project.document.transparentBackground && project.document.backgroundOpacity > 0 && !/^#[a-f\d]{6}$/i.test(project.document.backgroundColor)) {
     issues.push({ severity: "error", code: "page-color", message: "Page color must use a six-digit hex color for production PDF." });
   }
-  const recordCount = dataRecordCount(project.data.groups);
-  // Only the first value is needed here; shorter serial ranges are checked explicitly below.
-  const first = createDataRecords(project.data.groups.map(group => group.mode === "serial"
-    ? { ...group, serial: { ...group.serial, quantity: 1 } } : { ...group, fixed: { ...group.fixed, quantity: 1 } }))[0];
+  const { groups, csv } = project.data;
+  const recordCount = dataRecordCount(groups, csv);
+  const first = dataRecordAt(groups, 0, csv);
+  issues.push(...csvPreflight(project));
   for (const layer of project.layers.filter(layer => layer.visible && layer.opacity > 0)) {
     if (![layer.width, layer.height].every(value => Number.isFinite(value) && value > 0) ||
         ![layer.x, layer.y, layer.rotation, layer.opacity].every(Number.isFinite)) {
@@ -55,12 +56,14 @@ export function productionPreflight(project: QrMagicProject): ProductionIssue[] 
     if (reason) issues.push({ severity: "warning", code: "raster-layer", layerId: layer.id,
       message: `${layer.name}: rendered as an image to preserve ${reason}.` });
     if (layer.type !== "qr") continue;
-    if (!renderTemplate(layer.payloadTemplate, first, layer.dataGroupId).trim()) {
-      issues.push({ severity: "error", code: "empty-qr", layerId: layer.id, message: `${layer.name}: QR content is empty.` });
-    }
-    const source = layer.dataGroupId ? project.data.groups.find(group => group.id === layer.dataGroupId) : project.data.groups[0];
-    if (layer.payloadTemplate.includes("{{serial}}") && (!source || source.mode === "serial" && source.serial.quantity < recordCount)) {
-      issues.push({ severity: "error", code: "missing-serial", layerId: layer.id, message: `${layer.name}: the content source does not cover every record.` });
+    if (!csv || !layer.csvColumn) {
+      if (!renderLayerValue(layer, first).trim()) {
+        issues.push({ severity: "error", code: "empty-qr", layerId: layer.id, message: `${layer.name}: QR content is empty.` });
+      }
+      const source = layer.dataGroupId ? groups.find(group => group.id === layer.dataGroupId) : groups[0];
+      if (layer.payloadTemplate.includes("{{serial}}") && (!source || !csv && source.mode === "serial" && source.serial.quantity < recordCount)) {
+        issues.push({ severity: "error", code: "missing-serial", layerId: layer.id, message: `${layer.name}: the content source does not cover every record.` });
+      }
     }
     if (Math.abs(layer.width - layer.height) > 0.01) issues.push({ severity: "warning", code: "stretched-qr", layerId: layer.id,
       message: `${layer.name}: QR is stretched. Use equal width and height and test a physical print.` });

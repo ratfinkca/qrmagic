@@ -1,6 +1,7 @@
 import Konva from "konva";
 import { SceneCanvas } from "konva/lib/Canvas";
 import { colorWithOpacity, layerShadowProps, shapeFillProps, shapeGeometryProps, textLayerProps } from "./layerRendering";
+import { renderLayerValue } from "./serial";
 import {
   PDFDict,
   PDFDocument,
@@ -130,6 +131,7 @@ async function drawQrLayer(
   record: RenderRecord,
 ) {
   if (layer.type !== "qr") return;
+  if (layer.csvColumn && (layer.opacity <= 0 || !renderLayerValue(layer, record))) return;
 
   const dataUrl = await renderStyledQrDataUrl(layer, record);
   // Generated serial QR PNGs are ephemeral; retaining them here would bypass

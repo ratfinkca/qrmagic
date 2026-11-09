@@ -66,6 +66,22 @@ Copies stay together: 0001, 0001, 0001, then 0002, 0002, 0002. Copying an item d
 
 Advanced content sources supports several values in one design. Fixed content stays present on every item; serial sources can have their own numbering. Check the resolved content and export preflight if sources have different record counts.
 
+## Make a batch from a CSV
+
+Use spreadsheet columns to fill QR codes and text across a batch.
+
+### Prepare and map the file
+
+Put unique column names in the first row, then add one row per design. Save as CSV UTF-8. In the editor, open Job and choose Set up CSV batch. Import the file and choose a column for each QR or text layer you want it to fill.
+
+Unmapped layers keep their existing content. Numbered sources advance once per row. Copies per CSV row repeats each design before moving to the next row.
+
+### Review the data before printing
+
+Select a row number to preview its artwork on the canvas. Missing QR values block batch export. Missing text prints blank. Repeated QR values are flagged within each mapped QR layer. If repeats are deliberate, mark Repeated QR values are intentional.
+
+The imported data travels with your saved project. Replace CSV keeps mappings for matching column names. Remove CSV returns the mapped layers to their previous content sources.
+
 ## Artwork, layers & shared sources
 
 Build your design without losing the more powerful controls.

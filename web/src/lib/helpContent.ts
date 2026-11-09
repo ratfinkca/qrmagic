@@ -27,6 +27,13 @@ export const helpArticles = [
     ],
   },
   {
+    id:"csv-batches",title:"Make a batch from a CSV",summary:"Use spreadsheet columns to fill QR codes and text across a batch.",keywords:["CSV","spreadsheet","columns","mapping","duplicates","missing","import","rows","batch"],
+    sections:[
+      {title:"Prepare and map the file",paragraphs:["Put unique column names in the first row, then add one row per design. Save as CSV UTF-8. In the editor, open Job and choose Set up CSV batch. Import the file and choose a column for each QR or text layer you want it to fill.","Unmapped layers keep their existing content. Numbered sources advance once per row. Copies per CSV row repeats each design before moving to the next row."]},
+      {title:"Review the data before printing",paragraphs:["Select a row number to preview its artwork on the canvas. Missing QR values block batch export. Missing text prints blank. Repeated QR values are flagged within each mapped QR layer. If repeats are deliberate, mark Repeated QR values are intentional.","The imported data travels with your saved project. Replace CSV keeps mappings for matching column names. Remove CSV returns the mapped layers to their previous content sources."]},
+    ],
+  },
+  {
     id:"artwork",title:"Artwork, layers & shared sources",summary:"Build your design without losing the more powerful controls.",keywords:["image","text","shape","inspector","layers","background","shared","independent","template","payload","undo","redo"],
     sections:[
       {title:"Work with layers",paragraphs:["Add layer creates text, shapes, an imported image or a QR. Choose a layer on the canvas or in the Layers list to edit it in the Inspector. Higher layers cover the artwork below them; drag the layer handles to reorder them. The eye control hides a layer from both preview and export.","Use Undo and Redo to step through design changes. Ctrl/Cmd+Z undoes; Ctrl/Cmd+Shift+Z redoes. Position and size, alignment and other precise controls remain available in the Inspector."]},
@@ -103,7 +110,7 @@ export const helpTips={
   bleed:{label:"bleed",text:"Bleed is extra artwork beyond the cut edge to help prevent white edges after trimming. Extend backgrounds into it and use your print shop’s required amount."},
   safe:{label:"safe area",text:"A guide inside the cut edge. Keep important text and the whole QR inside it, and check the real outline for curved cuts."},
   dpi:{label:"DPI",text:"Raster image detail at the printed size. New projects use 300 DPI. More detail uses more memory; PDF dimensions keep the physical size explicit."},
-  quantities:{label:"quantity and copies",text:"Fixed QR: Quantity is the total number of identical items. Numbered QR: number of serials × copies of each = total items. Copies keep the same serial."},
+  quantities:{label:"quantity and copies",text:"Quantity is the total for a fixed QR job. A numbered or CSV job multiplies the number of records by the copies per record. Copies keep the same content."},
   qr:{label:"QR content",text:"Choose the same website or text for every item, or a different serial for each record. A plain serial is text, not a website link."},
   sources:{label:"shared sources",text:"Layers sharing a source use the same value. A QR and its serial label can stay linked. Make independent gives a QR its own source."},
   exports:{label:"export formats",text:"Proof checks one item. Image/PDF job exports include all copies, one item at a time. Print layout arranges the job on sheets or roll panels."},

@@ -11,6 +11,7 @@ import type {
   ShapeLayer,
 } from "../types";
 import { productionGeometry, productionCount, positiveInteger, normalizeFixedJob } from "./production";
+import { validateCsvBatch } from "./csvBatch";
 import { formatSerial } from "./serial";
 import { normalizeLayoutSettings } from "./printLayout";
 import { normalizedShapeGeometry, presetShapeGeometry } from "./shapeGeometry";
@@ -400,6 +401,8 @@ function normalizeQrLayer(layer: QrLayer): QrLayer {
 }
 
 export function normalizeProject(project: QrMagicProject | LegacyProject): QrMagicProject {
+  const csv = project.data.csv;
+  if (csv !== undefined) validateCsvBatch(csv);
   const legacySerial = "serial" in project.data ? project.data.serial : undefined;
   const groups =
     project.data.groups?.length
@@ -466,6 +469,7 @@ export function normalizeProject(project: QrMagicProject | LegacyProject): QrMag
     data: {
       mode: "serial",
       groups,
+      ...(csv ? { csv } : {}),
     },
   };
   productionGeometry(normalized);

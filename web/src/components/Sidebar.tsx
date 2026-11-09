@@ -24,6 +24,7 @@ import type { DataGroup, ProjectLayer, QrMagicProject } from "../types";
 type SidebarProps = {
   tourTarget: TourTarget | null;
   project: QrMagicProject;
+  onOpenCsv: () => void;
   selectedLayerIds: string[];
   onSelectLayers: (layerIds: string[]) => void;
   onUpdateDataGroup: (groupId: string, patch: { name?: string }) => void;
@@ -57,6 +58,7 @@ type OpenPanel = "document" | "guides" | "data" | "layers";
 export function Sidebar({
   tourTarget,
   project,
+  onOpenCsv,
   selectedLayerIds,
   onSelectLayers,
   onUpdateDataGroup,
@@ -488,14 +490,16 @@ export function Sidebar({
         </button>
         {openPanels.data ? (
           <>
-            <label>{repeated ? "Quantity" : "Copies of each"}
+            <label>{project.data.csv ? "Copies per CSV row" : repeated ? "Quantity" : "Copies of each"}
               <input type="number" min="1" max="100000" step="1" value={project.production.copiesPerRecord}
                 onChange={event => onUpdateProduction(Number(event.target.value))} />
             </label>
             <div className="help-context-row"><p className="chooser-hint" aria-live="polite">{jobSummary(project)}</p><HelpTip topic="quantities"/></div>
+            <button type="button" className="secondary-action" onClick={onOpenCsv}>{project.data.csv ? "Review CSV batch" : "Set up CSV batch"}</button>
             {serialGroup?.mode === "serial" ? <>
-              <label>Number of serials<input type="number" min="1" max="100000" value={serialGroup.serial.quantity}
-                onChange={event => onUpdateDataGroupSerial(serialGroup.id, { quantity: Number(event.target.value) })} /></label>
+              {project.data.csv ? <p className="chooser-hint">Numbered sources advance once per CSV row.</p>
+                : <label>Number of serials<input type="number" min="1" max="100000" value={serialGroup.serial.quantity}
+                  onChange={event => onUpdateDataGroupSerial(serialGroup.id, { quantity: Number(event.target.value) })} /></label>}
               <div className="field-grid">
                 <label>Prefix<input value={serialGroup.serial.prefix} onChange={event => onUpdateDataGroupSerial(serialGroup.id, { prefix: event.target.value })} /></label>
                 <label>Start<input type="number" value={serialGroup.serial.start} onChange={event => onUpdateDataGroupSerial(serialGroup.id, { start: Number(event.target.value) })} /></label>
@@ -578,6 +582,7 @@ export function Sidebar({
                       <input
                         type="number"
                         min="1"
+                        disabled={Boolean(project.data.csv)}
                         value={group.serial.quantity}
                         onChange={(event) =>
                           onUpdateDataGroupSerial(group.id, {
@@ -618,6 +623,7 @@ export function Sidebar({
                           type="number"
                           min="1"
                           value={group.fixed.quantity}
+                        disabled={Boolean(project.data.csv)}
                           onChange={(event) =>
                             onUpdateDataGroupFixed(group.id, {
                               quantity: Math.max(1, Number(event.target.value)),

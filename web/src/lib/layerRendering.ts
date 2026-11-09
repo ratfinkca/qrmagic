@@ -1,6 +1,6 @@
 import type { ProjectLayer, ShapeGeometry, ShapeLayer, TextLayer, RenderRecord } from "../types";
 import { polygonPath } from "./shapeGeometry";
-import { renderTemplate } from "./serial";
+import { renderLayerValue } from "./serial";
 
 // Shared by the interactive preview and the offscreen production renderer.
 export function colorWithOpacity(color: string, opacity: number) {
@@ -75,7 +75,7 @@ export function shapeGeometryProps(
 
 export function textLayerProps(layer: TextLayer, record: RenderRecord) {
   return {
-    text: renderTemplate(layer.textTemplate, record, layer.dataGroupId),
+    text: renderLayerValue(layer, record),
     fontFamily: layer.fontFamily, fontSize: layer.fontSize,
     fontStyle: String(layer.fontWeight), fill: colorWithOpacity(layer.fill, layer.fillOpacity),
     align: layer.align, verticalAlign: "middle",

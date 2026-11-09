@@ -16,6 +16,123 @@ let initialProject;
 let fixtureIndex = 0;
 const pageErrors = [];
 
+test("CSV mapping flags problems, previews a row, and survives saving and reopening", async () => {
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+  const tab = await context.newPage();
+  tab.on("pageerror", error => pageErrors.push(error.message));
+  try {
+    await tab.goto(page.url());
+    await tab.getByRole("button", { name: "Close new project", exact: true }).click();
+    await tab.getByRole("button", { name: "Set up CSV batch", exact: true }).click();
+    const dialog = tab.getByRole("dialog", { name: "CSV batch", exact: true });
+    const upload = (csv) => dialog.getByLabel("CSV file").setInputFiles({
+      name: "guests.csv", mimeType: "text/csv", buffer: Buffer.from(csv),
+    });
+    await upload("Code,code\n1,2");
+    await dialog.getByRole("alert").getByText(/unique, non-empty/).waitFor();
+    await upload("Code,Name\n001,Ada\n001,\n,Cam");
+    await dialog.getByText("guests.csv", { exact: true }).waitFor();
+    await dialog.getByLabel("QR Code CSV column", { exact: true }).selectOption("Code");
+    await dialog.getByLabel("Title CSV column", { exact: true }).selectOption("Name");
+    await tab.setViewportSize({ width: 390, height: 844 });
+    assert.equal(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
+    await tab.setViewportSize({ width: 1600, height: 1000 });
+    await dialog.getByText("2 rows share a QR value.", { exact: false }).waitFor();
+    await dialog.getByText("1 row needs QR content", { exact: false }).waitFor();
+    await dialog.getByText("1 row has missing text.", { exact: false }).waitFor();
+    await dialog.getByLabel("Repeated QR values are intentional").check();
+    assert.equal(await dialog.getByText("2 rows share a QR value.", { exact: false }).count(), 0);
+    await dialog.getByLabel("Only flagged rows").check();
+    assert.equal(await dialog.getByRole("button", { name: "Preview row 1 on canvas" }).count(), 0);
+    await dialog.getByRole("button", { name: "Preview row 3 on canvas" }).click();
+    await tab.getByText("Previewing row 3 of 3", { exact: true }).waitFor();
+    assert.equal(await tab.getByRole("button", { name: "Download proof package" }).isDisabled(), true);
+    assert.equal(await tab.getByRole("button", { name: "Download job PNG ZIP" }).isDisabled(), true);
+    await tab.getByRole("button", { name: "Review missing QR values" }).click();
+    await dialog.getByRole("button", { name: "Preview row 2 on canvas" }).click();
+    await tab.getByText("Previewing row 2 of 3", { exact: true }).waitFor();
+    assert.equal(await tab.getByRole("button", { name: "Download proof package" }).isEnabled(), true);
+    const download = tab.waitForEvent("download");
+    await tab.getByTitle("Save project", { exact: true }).click();
+    const saved = await readFile(await (await download).path());
+    const project = JSON.parse(saved).project;
+    assert.deepEqual(project.data.csv.rows, [["001", "Ada"], ["001", ""], ["", "Cam"]]);
+    assert.equal(project.data.csv.allowRepeatedQr, true);
+    await tab.locator('input[accept=".qrmagic.json,application/json"]').setInputFiles({
+      name: "csv.qrmagic.json", mimeType: "application/json", buffer: saved,
+    });
+    await tab.getByText("Previewing row 1 of 3", { exact: true }).waitFor();
+    await tab.getByRole("button", { name: "Review CSV batch", exact: true }).click();
+    assert.equal(await dialog.getByLabel("QR Code CSV column", { exact: true }).inputValue(), "Code");
+    assert.equal(await dialog.getByLabel("Title CSV column", { exact: true }).inputValue(), "Name");
+    await dialog.getByRole("button", { name: "Remove CSV", exact: true }).click();
+    await dialog.getByRole("button", { name: "Import CSV", exact: true }).waitFor();
+    await dialog.getByRole("button", { name: "Back to editor" }).click();
+    assert.equal(await tab.getByRole("button", { name: "Download job PNG ZIP" }).isEnabled(), true);
+  } finally { await context.close(); }
+});
+
+test("CSV exports encode mapped QR and text in row order with copies", async () => {
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+  const tab = await context.newPage();
+  tab.on("pageerror", error => pageErrors.push(error.message));
+  try {
+    await tab.goto(page.url());
+    const fixture = await tab.evaluate(async () => {
+      const { createStarterProject } = await import("/qrmagic/src/lib/templates.ts");
+      return createStarterProject("stickers", { width: 50.8, height: 50.8, copies: 2 });
+    });
+    await tab.locator('input[accept=".qrmagic.json,application/json"]').setInputFiles({
+      name: "stickers.qrmagic.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(fixture)),
+    });
+    await tab.getByRole("button", { name: "Set up CSV batch", exact: true }).click();
+    const dialog = tab.getByRole("dialog", { name: "CSV batch", exact: true });
+    await dialog.getByLabel("CSV file").setInputFiles({
+      name: "good.csv", mimeType: "text/csv", buffer: Buffer.from("Code,Name\n001,ALPHA\n002,BETA"),
+    });
+    await dialog.getByLabel("QR Code CSV column", { exact: true }).selectOption("Code");
+    await dialog.getByLabel("Title CSV column", { exact: true }).selectOption("Name");
+    await dialog.getByRole("button", { name: "Preview row 2 on canvas" }).click();
+    await tab.getByText("Previewing row 2 of 2", { exact: true }).waitFor();
+    assert.equal(await tab.getByLabel("Copies per CSV row", { exact: true }).inputValue(), "2");
+
+    const png = tab.waitForEvent("download");
+    await tab.getByRole("button", { name: "Download job PNG ZIP" }).click();
+    const pngZip = await JSZip.loadAsync(await readFile(await (await png).path()));
+    const entries = pngZip.file(/\.png$/);
+    assert.equal(entries.length, 4);
+    const imageData = await Promise.all(entries.map(entry => entry.async("base64")));
+    const decoded = await tab.evaluate(async images => {
+      const { decodeQr } = await import("/qrmagic/tests/pdf-fixture.ts");
+      return Promise.all(images.map(async data => {
+        const bitmap = await createImageBitmap(await (await fetch("data:image/png;base64," + data)).blob());
+        const canvas = document.createElement("canvas");
+        canvas.width = bitmap.width; canvas.height = bitmap.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(bitmap, 0, 0); bitmap.close();
+        return decodeQr(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height)?.data;
+      }));
+    }, imageData);
+    assert.deepEqual(decoded, ["001", "001", "002", "002"]);
+
+    await tab.getByLabel("Set format", { exact: true }).selectOption("production-pdf");
+    const pdf = tab.waitForEvent("download");
+    await tab.getByRole("button", { name: "Download production package", exact: true }).click();
+    const pdfZip = await JSZip.loadAsync(await readFile(await (await pdf).path()));
+    const pdfBytes = await pdfZip.file("artwork.pdf").async("base64");
+    const text = await tab.evaluate(async bytes => {
+      const { getDocument } = await import("/qrmagic/tests/pdf-fixture.ts");
+      const task = getDocument({ data: Uint8Array.from(atob(bytes), value => value.charCodeAt(0)) });
+      try {
+        const doc = await task.promise;
+        return await Promise.all(Array.from({ length: doc.numPages }, async (_, index) =>
+          (await (await doc.getPage(index + 1)).getTextContent()).items.map(item => item.str).join("").trim()));
+      } finally { await task.destroy(); }
+    }, pdfBytes);
+    assert.deepEqual(text, ["ALPHA", "ALPHA", "BETA", "BETA"]);
+  } finally { await context.close(); }
+});
+
 test("friendly print checks appear for every format, identify layers and clear after fixes without changing artwork",async()=>{
   const context=await browser.newContext({viewport:{width:1600,height:1000}}),tab=await context.newPage();
   tab.on("dialog",dialog=>dialog.accept());tab.on("pageerror",error=>pageErrors.push(error.message));
@@ -703,7 +820,7 @@ before(async () => {
     // A concurrent local editor must not share optimizer files with this server.
     cacheDir: "node_modules/.vite-export-tests",
     server: { host: "127.0.0.1", port: 0 },
-    optimizeDeps: { include: ["konva", "@pdf-lib/fontkit", "pdfjs-dist/build/pdf.mjs", "jsqr", "qrcode-generator"] },
+    optimizeDeps: { include: ["konva", "@pdf-lib/fontkit", "pdfjs-dist/build/pdf.mjs", "jsqr", "qrcode-generator", "papaparse"] },
   });
   await server.listen();
   browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || undefined });

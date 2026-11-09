@@ -21,6 +21,8 @@ export function projectForEditor(value:QrMagicProject):QrMagicProject {
     if (typeof layer.id!=="string" || typeof layer.name!=="string" || ids.has(layer.id) || typeof layer.visible!=="boolean" || typeof layer.locked!=="boolean") fail();
     ids.add(layer.id);
     if (![layer.x,layer.y,layer.width,layer.height,layer.rotation,layer.opacity].every(Number.isFinite)) fail();
+    if ((layer.type === "qr" || layer.type === "text") && layer.csvColumn !== undefined
+      && !project.data.csv?.columns.includes(layer.csvColumn)) fail();
     if (layer.type==="qr") {
       if(typeof layer.payloadTemplate!=="string"||typeof layer.foreground!=="string"||typeof layer.background!=="string")fail();
     } else if(layer.type==="text") {
