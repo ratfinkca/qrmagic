@@ -52,6 +52,10 @@ jobs:
         run: pnpm test:export
 
       - name: Build
+        env:
+          VITE_GOOGLE_DRIVE_CLIENT_ID: ${{ vars.VITE_GOOGLE_DRIVE_CLIENT_ID }}
+          VITE_GOOGLE_DRIVE_PROJECT_NUMBER: ${{ vars.VITE_GOOGLE_DRIVE_PROJECT_NUMBER }}
+          VITE_GOOGLE_DRIVE_API_KEY: ${{ vars.VITE_GOOGLE_DRIVE_API_KEY }}
         run: pnpm build
 
       - name: Upload Pages artifact
