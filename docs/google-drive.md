@@ -31,6 +31,10 @@ Add each tester’s exact Google Account email under **Audience → Test users**
 
 Vite includes `VITE_*` values in the browser bundle. Keep OAuth client secrets and access tokens out of frontend configuration and Git. `web/.env.local` is ignored by Git.
 
+### QR Mystic editor pilot
+
+The pilot build can use the existing `QR Magic localhost` OAuth client and Picker key in the same Google Cloud project. Add `https://editor-pilot.qrmystic.com` to that client's authorized JavaScript origins, and `https://editor-pilot.qrmystic.com/*` to that key's website restrictions. Keep the existing localhost origin, the `https://docs.google.com/*` Picker entry, and the current API restrictions. The GitHub Pages release uses its own existing credentials. The pilot retains the current Google consent screen and approved tester list.
+
 ## Configure the Pages build
 
 Set the three values above as **repository variables** under **Settings → Secrets and variables → Actions → Variables**. Run the [Pages workflow](https://github.com/ratfinkca/qrmagic/actions/workflows/deploy-pages.yml) from `main` after changing these values. Verify the build and deployment jobs, then smoke-test the live site. The [workflow](../.github/workflows/deploy-pages.yml) supplies these values to Vite at build time.

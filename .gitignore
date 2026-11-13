@@ -2,6 +2,7 @@
 node_modules/
 web/node_modules/
 web/dist/
+web/dist-pilot/
 web/.vite/
 web/qa-screenshot.png
 web/*.tsbuildinfo

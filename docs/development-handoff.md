@@ -49,7 +49,7 @@ The deployed web app includes production exports and print layouts, help and onb
 
 Mimaki is the first equipment target. The internal printer/cutter model, RIP version and shop settings are still pending. Existing packages can be used for test imports and physical proofs. The [production reference](production-documents.md) describes what the package contains and what the shop still configures.
 
-Managed links and the QR Mystic rebrand are on `codex/managed-links-pilot` in the same repository. The live editor stays on GitHub Pages from `main` and continues to use QR Magic for its app name and OAuth branding. The separate Cloudflare Worker and D1 database are deployed, with the [pilot dashboard](https://manage-pilot.qrmystic.com/manage) behind invite-only Access. See the [pilot guide](managed-links-pilot.md) for local review, staging setup, and hosted smoke checks.
+Managed links and the QR Mystic rebrand are on `codex/managed-links-pilot` in the same repository. The live editor stays on GitHub Pages from `main`. The [QR Mystic editor pilot](https://editor-pilot.qrmystic.com/) runs on a separate Cloudflare Worker with Static Assets. The [pilot dashboard](https://manage-pilot.qrmystic.com/manage) is invite-only and points to the pilot editor. Google OAuth still uses the QR Magic consent branding. See the [pilot guide](managed-links-pilot.md) for local review, staging setup, and hosted smoke checks.
 
 ## Find your way around
 

@@ -23,7 +23,7 @@ See the [user guide](user-guide.md) for the current interface, the [development 
 | Work | Status and next decision |
 | --- | --- |
 | Validate the Mimaki workflow | Waiting for the internal printer/cutter model, RIP name and version, and shop media/cut settings. Use a small physical proof and a roll/sheet test to verify size, feed, contour alignment, and QR readability. Decide on a shop profile once the RIP requirements are known. Roland can follow with its own validation. |
-| Managed QR destinations | QR Mystic pilot on a separate branch, deployed to Cloudflare staging. Invited staff manage links at `manage-pilot.qrmystic.com` and paste public `go-pilot.qrmystic.com` links into a QR. Use these addresses for tests; choose the durable scan host before printing a real job. See the [pilot guide](managed-links-pilot.md). |
+| Managed QR destinations | QR Mystic pilot on a separate branch, deployed to Cloudflare staging. Invited staff can manage links, label placements, and view daily redirect activity. Cloudflare shows Worker and D1 usage. Choose the durable scan host before printing a real job. See the [pilot guide](managed-links-pilot.md). |
 | QR Mystic rebrand | The pilot saves new files as `.qrmystic.json` and opens existing `.qrmagic.json` files locally and from Drive. The live GitHub Pages release and OAuth branding continue to use QR Magic until their rollout is approved. |
 | Wider Drive access | The named-account pilot is the current choice. Revisit Google production branding, privacy disclosures and any applicable verification if the project owner wants a public rollout. A synced project library, team editing and other providers are separate proposals. |
 

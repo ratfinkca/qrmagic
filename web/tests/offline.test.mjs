@@ -13,6 +13,27 @@ import { writeOfflineWorker } from "../scripts/build-offline.mjs";
 
 // The full Chromium browser exposes web app installability through CDP.
 const browserOptions = { channel: process.env.PLAYWRIGHT_CHANNEL || "chromium" };
+const hostedPilotUrl = process.env.QRMYSTIC_PILOT_URL;
+const pilot = process.env.QRMYSTIC_TEST_PILOT === "1" || Boolean(hostedPilotUrl);
+
+const legacyProjectFile = {
+  format: "qrmagic.project",
+  project: {
+    version: 1,
+    document: {
+      name: "Legacy parking decals", unit: "in", width: 2, height: 2, dpi: 150,
+      backgroundColor: "#ffffff", transparentBackground: false,
+      guides: { enabled: true, showTrim: true, showBleed: true, showSafeArea: true, bleedRatio: 0.03, safeAreaRatio: 0.08 },
+    },
+    layers: [{
+      id: "legacy-qr", type: "qr", name: "QR", visible: true, locked: false,
+      x: 45, y: 45, width: 210, height: 210, rotation: 0, opacity: 1,
+      payloadTemplate: "{{serial}}", foreground: "#000000", background: "#ffffff",
+    }],
+    data: { mode: "serial", serial: { prefix: "LEGACY-", suffix: "", start: 42, quantity: 2, step: 1, padding: 3 } },
+    export: { filenameTemplate: "{{serial}}", formats: ["png"], renderMode: "flattened", includeGuides: false },
+  },
+};
 
 async function download(page, button) {
   const result = page.waitForEvent("download");
@@ -21,11 +42,15 @@ async function download(page, button) {
 }
 
 test("the production PWA opens offline, edits and reopens local projects, and exports cold", { timeout: 90_000 }, async () => {
-  const server = await preview({ preview: { host: "127.0.0.1", port: 0 } });
-  const url = server.resolvedUrls.local[0];
+  const server = hostedPilotUrl ? undefined : await preview({
+    mode: pilot ? "pilot" : "production",
+    preview: { host: "127.0.0.1", port: 0 },
+  });
+  const url = hostedPilotUrl ? new URL(hostedPilotUrl).href : server.resolvedUrls.local[0];
   let context;
-  let serverOpen = true;
+  let serverOpen = Boolean(server);
   try {
+    assert.equal(new URL(url).pathname, pilot ? "/" : "/qrmagic/");
     context = await chromium.launchPersistentContext("", {
       ...browserOptions,
       viewport: { width: 1600, height: 1000 },
@@ -40,6 +65,13 @@ test("the production PWA opens offline, edits and reopens local projects, and ex
     });
     context.on("page", tab => tab.on("pageerror", error => errors.push(error.message)));
     page.on("pageerror", error => errors.push(error.message));
+    if (pilot) {
+      const index = await context.request.get(new URL("index.html", url).href, { maxRedirects: 0 });
+      assert.equal(index.status(), 200);
+      const worker = await context.request.get(new URL("sw.js", url).href, { maxRedirects: 0 });
+      assert.equal(worker.status(), 200);
+      assert.match(worker.headers()["content-type"], /javascript/);
+    }
     await page.goto(url);
     const manifestUrl = await page.locator('link[rel="manifest"]').getAttribute("href", { timeout: 5_000 });
     const manifest = await (await context.request.get(new URL(manifestUrl, url).href)).json();
@@ -55,10 +87,10 @@ test("the production PWA opens offline, edits and reopens local projects, and ex
     const { installabilityErrors } = await cdp.send("Page.getInstallabilityErrors");
     assert.deepEqual(installabilityErrors, []);
 
-    // A new tab, a stopped origin and an offline context rule out the online
-    // server and the original document as sources for lazy export code.
+    // A new tab and an offline context require the service worker to provide
+    // both the app and its lazy export code.
     await page.close();
-    await server.close();
+    await server?.close();
     serverOpen = false;
     await context.setOffline(true);
     const offline = await context.newPage();
@@ -82,6 +114,19 @@ test("the production PWA opens offline, edits and reopens local projects, and ex
     await drive.getByText("Google Drive needs an internet connection.", { exact: true }).waitFor();
     assert.equal(await drive.getByRole("button", { name: "Browse Drive" }).count(), 0);
     await drive.getByRole("button", { name: "Close Google Drive" }).click();
+    await offline.locator('input[type=file][accept*=".qrmagic.json"]').setInputFiles({
+      name: "Legacy parking decals.qrmagic.json", mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(legacyProjectFile)),
+    });
+    await chooser.waitFor({ state: "hidden" });
+    assert.equal(await offline.getByLabel("Name", { exact: true }).inputValue(), "Legacy parking decals");
+    const legacyCopy = JSON.parse(await download(offline, offline.getByTitle("Save project", { exact: true })));
+    assert.equal(legacyCopy.format, "qrmagic.project");
+    assert.equal(legacyCopy.project.version, 2);
+    assert.equal(legacyCopy.project.data.groups[0].serial.start, 42);
+    assert.equal(legacyCopy.project.layers[0].payloadTemplate, "{{serial}}");
+    await offline.reload();
+    await chooser.getByRole("button", { name: "New project", exact: true }).click();
     await chooser.getByRole("button", { name: /Repeated stickers/ }).click();
     await chooser.getByLabel("Project name").fill("Offline starter");
     await chooser.getByLabel("QR content").fill("https://example.com/offline");
@@ -141,7 +186,7 @@ test("the production PWA opens offline, edits and reopens local projects, and ex
   }
 });
 
-test("an offline release updates only after it is fully cached and old tabs close", { timeout: 60_000 }, async () => {
+test("an offline release updates only after it is fully cached and old tabs close", { timeout: 60_000, skip: pilot }, async () => {
   const folder = await mkdtemp(join(tmpdir(), "qrmagic-release-test-"));
   let server;
   let browser;

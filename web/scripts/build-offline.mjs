@@ -10,7 +10,7 @@ const integrity = (data) => "sha256-" + createHash("sha256").update(data).digest
 export async function writeOfflineWorker(directory = output) {
   const root = fileURLToPath(directory);
   const files = (await readdir(directory, { recursive: true, withFileTypes: true }))
-    .filter(entry => entry.isFile() && entry.name !== "sw.js" && !entry.name.endsWith(".map"))
+    .filter(entry => entry.isFile() && entry.name !== "sw.js" && entry.name !== "_redirects" && !entry.name.endsWith(".map"))
     .map(entry => relative(root, join(entry.parentPath, entry.name)).split(sep).map(encodeURIComponent).join("/"))
     .sort();
   if (!files.includes("index.html")) throw new Error("Build the editor before preparing the offline release.");
@@ -22,5 +22,12 @@ export async function writeOfflineWorker(directory = output) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  await writeOfflineWorker();
+  if (process.argv.includes("--pilot")) {
+    const pilotOutput = new URL("../dist-pilot/", import.meta.url);
+    await writeOfflineWorker(pilotOutput);
+    // This is an edge routing rule and should not be fetched by the service worker.
+    await writeFile(new URL("_redirects", pilotOutput), "/ /index.html 200\n");
+  } else {
+    await writeOfflineWorker();
+  }
 }
