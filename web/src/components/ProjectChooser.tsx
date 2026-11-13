@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Cloud, Copy, FilePlus2, FolderOpen, QrCode, Ticket, X } from "lucide-react";
 import type { RecentProject } from "../lib/localProjects";
 import "./local-projects.css";
@@ -12,11 +13,12 @@ const starters = [
   { kind: "blank", title: "Blank canvas", description: "Choose a finished size and start fresh", icon: FilePlus2 },
 ] as const;
 
-export function ProjectChooser({ onCreate, onOpen, onOpenDrive, suspended, onClose, onHelp, recent, loading, storageError, initialView, busy, onRecent, onRetry }: {
+export function ProjectChooser({ onCreate, onOpen, onOpenDrive, suspended, onClose, onHelp, recent, loading, storageError, initialView, busy, onRecent, onRetry, offlineStatus }: {
   onCreate: (project: QrMagicProject) => void; onOpen: () => void; onClose: () => void; onHelp: () => void;
   onOpenDrive: () => void; suspended: boolean;
   recent:RecentProject[];loading:boolean;storageError:string;initialView:"new"|"auto"|"recent";busy:boolean;
   onRecent:(id:string,duplicate:boolean)=>void;onRetry:()=>void;
+  offlineStatus: ReactNode;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [kind, setKind] = useState<StarterKind>("decals");
@@ -119,6 +121,7 @@ export function ProjectChooser({ onCreate, onOpen, onOpenDrive, suspended, onClo
       </>}
       {busy?<p role="status">Saving your current work and opening the project…</p>:null}
       <button type="button" className="chooser-help" disabled={busy} onClick={onHelp}>Help &amp; getting started</button>
+      {offlineStatus}
     </dialog>
   );
 }

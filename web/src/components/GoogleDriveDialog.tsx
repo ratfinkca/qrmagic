@@ -8,6 +8,7 @@ import {
 import "./google-drive.css";
 
 type Props = {
+  online: boolean;
   openOnly: boolean;
   file?: DriveProject;
   defaultFilename: string;
@@ -16,7 +17,7 @@ type Props = {
   onClose: () => void;
 };
 
-export function GoogleDriveDialog({ openOnly, file, defaultFilename, onSave, onOpen, onClose }: Props) {
+export function GoogleDriveDialog({ online, openOnly, file, defaultFilename, onSave, onOpen, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const busyRef = useRef(false);
   const [ready, setReady] = useState(false);
@@ -38,9 +39,10 @@ export function GoogleDriveDialog({ openOnly, file, defaultFilename, onSave, onO
   }, []);
 
   useEffect(() => {
-    if (!googleDriveConfigured) return;
+    if (!online || !googleDriveConfigured) return;
     let active = true;
     async function prepare() {
+      setError("");
       try {
         await prepareDriveSignIn();
       } catch (failure) {
@@ -61,16 +63,17 @@ export function GoogleDriveDialog({ openOnly, file, defaultFilename, onSave, onO
     }
     void prepare();
     return () => { active = false; };
-  }, [loadAttempt]);
+  }, [loadAttempt, online]);
 
   async function run(action: (token: string) => Promise<void>) {
-    if (busyRef.current) return;
+    if (!navigator.onLine || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     setError("");
     setStatus("");
     try {
-      await action(await getDriveToken());
+      const token = await getDriveToken();
+      if (navigator.onLine) await action(token);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Google Drive could not complete the request.");
     } finally {
@@ -113,15 +116,16 @@ export function GoogleDriveDialog({ openOnly, file, defaultFilename, onSave, onO
 
   return <dialog ref={dialog} className="drive-dialog" aria-labelledby="drive-title" onCancel={event => {
     event.preventDefault();
-    if (!busyRef.current) onClose();
+    if (!online || !busyRef.current) onClose();
   }}>
     <header className="help-header">
       <div><span className="help-eyebrow">PROJECT FILES</span><h1 id="drive-title">Google Drive</h1>
         <p>{openOnly ? "Choose an editable QR Magic project from Drive." : "Open a project from Drive or save a copy of this design. Local autosave continues on this device."}</p></div>
-      <button type="button" className="help-icon-button" aria-label="Close Google Drive" onClick={onClose} disabled={busy}><X size={22}/></button>
+      <button type="button" className="help-icon-button" aria-label="Close Google Drive" onClick={onClose} disabled={online && busy}><X size={22}/></button>
     </header>
     <div className="drive-dialog-body">
-      {!googleDriveConfigured ? <p role="status">Google Drive setup is required for this version of QR Magic. You can still save and open project files on this device.</p> : <>
+      {!online ? <div role="status"><p>Google Drive needs an internet connection.</p><p>You can still open local projects, save and export offline.</p></div>
+      : !googleDriveConfigured ? <p role="status">Google Drive setup is required for this version of QR Magic. You can still save and open project files on this device.</p> : <>
         {!openOnly && <div className="project-views drive-views" role="group" aria-label="Google Drive action">
           <button type="button" aria-pressed={view === "projects"} disabled={busy} onClick={() => show("projects")}>Drive Projects</button>
           <button type="button" aria-pressed={view === "save"} disabled={busy} onClick={() => show("save")}>Save to Drive</button>
@@ -188,7 +192,7 @@ export function GoogleDriveDialog({ openOnly, file, defaultFilename, onSave, onO
           <p>If the sharing window is blocked, open the file in Drive and share it there.</p>
         </section>}
       </>}
-      {error && <p className="drive-error" role="alert">{error}</p>}
+      {online && error && <p className="drive-error" role="alert">{error}</p>}
     </div>
   </dialog>;
 }

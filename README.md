@@ -13,6 +13,8 @@ QR Magic is a browser-based designer for QR posters, numbered decals and repeate
 
 Open **Help** in the editor or Print Layout for searchable guides. **Take a quick tour** shows the main controls without changing your design. The small question-mark buttons explain print terms and advanced features with keyboard, pointer or touch input.
 
+Open QR Magic while connected and wait for **Ready to use offline**. Install it from your browser if you want a dedicated app window. Editing, local project saves and exports work offline after setup. See [installation and offline use](docs/user-guide.md#install-qr-magic-and-work-offline).
+
 Edits save automatically in this browser. Wait for **Saved on this device**, then use **Projects** to reopen recent designs or make an independent copy. Keep a portable project file for backup or to move to another device. Printed QR links encode the destination you entered, so editing the project later leaves already printed codes pointing to the original address.
 
 Google Drive is available to approved testers. Use the editor’s cloud button to open a project or save a named copy to a Drive folder. **Share Drive file** opens Google’s sharing dialog. Local autosave continues separately. See the [saving and sharing guide](docs/user-guide.md#save-open--share-projects).

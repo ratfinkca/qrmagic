@@ -1,0 +1,31 @@
+.offline-app-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: #315c51;
+  font-size: 11px;
+}
+
+.offline-app-status span,
+.offline-app-status button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.offline-app-status button {
+  padding: 2px 6px;
+  border: 1px solid #b6d4c9;
+  border-radius: 5px;
+  background: #f1faf6;
+  color: #225746;
+}
+
+.project-chooser > .offline-app-status {
+  margin-top: 8px;
+}
+
+.topbar-status .offline-app-status {
+  justify-content: flex-end;
+}

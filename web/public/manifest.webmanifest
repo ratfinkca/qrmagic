@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "QR Magic",
+  "short_name": "QR Magic",
+  "description": "Design QR artwork and prepare print batches.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#0f766e",
+  "background_color": "#e8edf3",
+  "icons": [
+    { "src": "icons/qr-magic-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/qr-magic-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/qr-magic-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -8,3 +8,4 @@ These dated plans and specs record decisions, acceptance criteria and verificati
 | Help, tips and tour, `01b6690` | [Help and onboarding plan](plans/2026-11-03-help-onboarding.md) |
 | Autosave, recovery and Recent Projects, `22eef0d` | [Local recovery plan](plans/2026-11-04-local-project-recovery.md) |
 | Print checks, `b4a7db9` | [Print quality plan](plans/2026-11-04-print-quality-checks.md) |
+| Installable web app and offline editing | [Offline web app plan](plans/2026-11-12-offline-web-app.md) |

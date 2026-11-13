@@ -14,6 +14,7 @@ QR Magic is a web app for quick QR posters as well as numbered decals, repeated 
 | Print checks | Review sampled QR size, clear space and contrast, effective image resolution, and safe-area suggestions. |
 | CSV batches | Map columns to QR and text layers, preview rows, and review missing or repeated values before export. |
 | Google Drive pilot | Search or browse accessible Drive projects, save a named copy to a chosen folder, and use Google’s sharing controls. OAuth is External / Testing for listed accounts. |
+| Installable web app and offline editing | Install from a supported browser. After the first online setup, edit, save local projects and export offline. Drive requires a connection. |
 
 See the [user guide](user-guide.md) for the current interface, the [development handoff](development-handoff.md) for setup, and the [plan archive](superpowers/README.md) for implementation history.
 
@@ -22,7 +23,6 @@ See the [user guide](user-guide.md) for the current interface, the [development 
 | Work | Status and next decision |
 | --- | --- |
 | Validate the Mimaki workflow | Waiting for the internal printer/cutter model, RIP name and version, and shop media/cut settings. Use a small physical proof and a roll/sheet test to verify size, feed, contour alignment, and QR readability. Decide on a shop profile once the RIP requirements are known. Roland can follow with its own validation. |
-| Installable web app and offline editing | Candidate for a next web release. Define which editing, local-file and export paths must work offline. Test updates and storage recovery. Google Drive and any future managed links depend on live services. |
 | Managed QR destinations | Proposed. A QR would encode a short URL on a controlled domain so its owner can change or disable the destination after printing. Choose who can manage links and how the redirect service will be hosted and maintained before printing codes that depend on it. Decide separately whether scan analytics are needed and what data to retain. Fixed text and direct links remain useful for decals and permanent destinations. |
 | Wider Drive access | The named-account pilot is the current choice. Revisit Google production branding, privacy disclosures and any applicable verification if the project owner wants a public rollout. A synced project library, team editing and other providers are separate proposals. |
 

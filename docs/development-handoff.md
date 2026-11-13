@@ -28,15 +28,24 @@ pnpm test
 pnpm exec playwright install chromium
 pnpm test:export
 pnpm build
+pnpm test:offline
 ```
 
-On Linux, use `pnpm exec playwright install --with-deps chromium` if browser system libraries are missing. On Windows PowerShell, an installed Microsoft Edge can substitute for downloaded Chromium. Set `$env:PLAYWRIGHT_CHANNEL = "msedge"` before `pnpm test:export`.
+On Linux, use `pnpm exec playwright install --with-deps chromium` if browser system libraries are missing. On Windows PowerShell, an installed Microsoft Edge can substitute for downloaded Chromium. Set `$env:PLAYWRIGHT_CHANNEL = "msedge"` before the browser tests.
 
 Vitest covers project migration, quantities, CSV, storage, print and export models, and Drive helpers. The browser suite starts its own Vite server and checks the editor, rendered output and PDFs. It uses simulated Google responses for Drive; use the [manual Drive smoke test](google-drive.md#smoke-test-local-or-live) for real sign-in and sharing. `pnpm build` type-checks and writes `web/dist/`.
 
+## Review installation and offline use
+
+After building, run `pnpm preview --host 127.0.0.1 --port 5173 --strictPort` from `web/`, with the dev server stopped. Open [the local preview](http://127.0.0.1:5173/qrmagic/) in a regular browser window and wait for **Ready to use offline**. Use the browser install menu, or **Install QR Magic** when offered. Turn off the network and reopen the app, edit a project, wait for local autosave and download an export. Drive should show a connection message.
+
+The service worker is registered in production builds only. Use a separate origin or browser profile for Vite development if you want to keep the PWA installed. For example, use preview port 4173 for offline tests and dev port 5173 for hot reload. Each origin has its own cache and project library. If a production worker is serving the old build on your dev origin, unregister that worker and reload online. Clearing all site data also removes local projects.
+
+The production build generates `dist/sw.js` with a list of release files and their hashes. Keep the HTML, fonts and lazy export chunks in the same deployment. A new release takes over after it has cached successfully and the old app tabs and windows close. The service worker caches app files. IndexedDB continues to store projects.
+
 ## Current release and open work
 
-The deployed web app includes production exports and print layouts, help and onboarding, local recovery, print checks, CSV-driven batches, and manual Drive open, save and sharing. The Drive integration and Pages build configuration landed in `b5d8237` and `66f5200`. Drive on the live site is an External / Testing pilot, with testers managed in Google Cloud. The latest implementation status and possible next work are in the [roadmap](next-edition-plan.md).
+The deployed web app includes production exports and print layouts, help and onboarding, local recovery, print checks, CSV-driven batches, and manual Drive open, save and sharing. It can be installed and used offline for editing, local project files and exports after the first online visit. Drive on the live site is an External / Testing pilot, with testers managed in Google Cloud. The latest implementation status and possible next work are in the [roadmap](next-edition-plan.md).
 
 Mimaki is the first equipment target. The internal printer/cutter model, RIP version and shop settings are still pending. Existing packages can be used for test imports and physical proofs. The [production reference](production-documents.md) describes what the package contains and what the shop still configures.
 
@@ -50,10 +59,11 @@ Mimaki is the first equipment target. The internal printer/cutter model, RIP ver
 | Render parity, print checks and exports | [Production reference](production-documents.md), [EditorCanvas.tsx](../web/src/components/EditorCanvas.tsx), [exportRenderer.ts](../web/src/lib/exportRenderer.ts), [productionPdf.ts](../web/src/lib/productionPdf.ts), and [printLayoutExport.ts](../web/src/lib/printLayoutExport.ts) |
 | Help, tips and tour | [helpContent.ts](../web/src/lib/helpContent.ts). Run `pnpm docs:help` in `web/` to regenerate the [user guide](user-guide.md). |
 | Drive setup, account access and sharing | [Drive runbook](google-drive.md) and [googleDrive.ts](../web/src/lib/googleDrive.ts) |
+| Installability and offline releases | [Manifest](../web/public/manifest.webmanifest), [offline build script](../web/scripts/build-offline.mjs), [service worker](../web/scripts/offline-worker.js), and [offline browser tests](../web/tests/offline.test.mjs) |
 
 ## Release the web app
 
-[GitHub Actions](https://github.com/ratfinkca/qrmagic/actions) runs the unit suite, Chromium browser/export suite and production build on pull requests and pushes to `main`. The [Pages workflow](../.github/workflows/deploy-pages.yml) also supports manual runs. The Pages source in repository settings is **GitHub Actions**. The deploy job runs only from `main` after verification and artifact upload.
+[GitHub Actions](https://github.com/ratfinkca/qrmagic/actions) runs the unit suite, Chromium browser/export suite, production build and offline browser tests on pull requests and pushes to `main`. The [Pages workflow](../.github/workflows/deploy-pages.yml) also supports manual runs. The Pages source in repository settings is **GitHub Actions**. The deploy job runs only from `main` after verification and artifact upload.
 
 For a release, check the workflow for the intended commit and verify both the build and deployment jobs. Then open the [live site](https://ratfinkca.github.io/qrmagic/) and smoke-test the changed path. For Drive build configuration or OAuth changes, use the [Drive runbook](google-drive.md).
 

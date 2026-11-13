@@ -26,6 +26,24 @@ Add text, images and shapes from Add layer. Select a layer to change its appeara
 
 Review the quantity in Job. Use a proof package to check one item, or Print layout to arrange the whole job on sheets or a roll. Scan a sample on your phone and check a physical print at the finished size before printing the batch.
 
+## Install QR Magic and work offline
+
+Keep the editor and print tools available without a connection.
+
+### Get ready while connected
+
+Open QR Magic online and wait for Ready to use offline in the project chooser or editor. Choose Install QR Magic if it appears, or use your browser’s install option. In Safari on iPhone or iPad, use Share, then Add to Home Screen. Turn on Open as Web App if offered, then launch it once while connected. You can also return to the same address in the same browser profile without installing.
+
+### Design and export offline
+
+Create and edit designs, import local artwork or CSV files, and open or download project files. Recent projects and local autosave still work. Proofs, image batches, PDFs and Print Layout exports are created on your device.
+
+Google Drive and opening external websites need a connection. If you’re bringing a Drive project with you, open it before going offline and wait for Saved on this device, or download a project file.
+
+### Keep your projects and get updates
+
+Keep separate copies of important project files. Clearing QR Magic’s site data can remove recent projects and offline access. To pick up a new app version, reconnect and close all QR Magic windows and tabs before reopening. Save your work first.
+
 ## QR content & destinations
 
 Choose a website, plain text or a different serial for each item.

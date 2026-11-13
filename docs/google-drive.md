@@ -2,6 +2,8 @@
 
 QR Magic uses Drive to open, save and share editable `.qrmagic.json` files. **Save a copy** creates a separate Drive file each time. Opening a Drive file starts a local editing session, and autosave writes to that browser. Use Save to Drive again to put an updated copy in Drive.
 
+Drive sign-in, browsing, saving and sharing need an internet connection, including in the installed web app. To take a Drive project offline, open it while connected and wait for **Saved on this device**, or download the editable file.
+
 ## Live pilot
 
 The [Pages site](https://ratfinkca.github.io/qrmagic/) uses the existing Google Cloud project `qr-magic-local-test`. OAuth branding is **QR Magic**, with the Pages URL as its homepage. The [OAuth audience](https://console.cloud.google.com/auth/audience?project=qr-magic-local-test) is **External / Testing**.

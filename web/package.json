@@ -6,9 +6,10 @@
   "packageManager": "pnpm@11.0.7",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && node scripts/build-offline.mjs",
     "test": "vitest run src",
     "test:export": "node --test tests/export-rendering.test.mjs",
+    "test:offline": "node --test tests/offline.test.mjs",
     "docs:help": "node --experimental-strip-types scripts/generate-help.mjs",
     "preview": "vite preview"
   },

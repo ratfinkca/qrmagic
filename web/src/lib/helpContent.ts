@@ -10,6 +10,14 @@ export const helpArticles = [
     ],
   },
   {
+    id:"offline",title:"Install QR Magic and work offline",summary:"Keep the editor and print tools available without a connection.",keywords:["install","offline","PWA","home screen","connection","app","cache"],
+    sections:[
+      {title:"Get ready while connected",paragraphs:["Open QR Magic online and wait for Ready to use offline in the project chooser or editor. Choose Install QR Magic if it appears, or use your browser’s install option. In Safari on iPhone or iPad, use Share, then Add to Home Screen. Turn on Open as Web App if offered, then launch it once while connected. You can also return to the same address in the same browser profile without installing."]},
+      {title:"Design and export offline",paragraphs:["Create and edit designs, import local artwork or CSV files, and open or download project files. Recent projects and local autosave still work. Proofs, image batches, PDFs and Print Layout exports are created on your device.","Google Drive and opening external websites need a connection. If you’re bringing a Drive project with you, open it before going offline and wait for Saved on this device, or download a project file."]},
+      {title:"Keep your projects and get updates",paragraphs:["Keep separate copies of important project files. Clearing QR Magic’s site data can remove recent projects and offline access. To pick up a new app version, reconnect and close all QR Magic windows and tabs before reopening. Save your work first."]},
+    ],
+  },
+  {
     id:"qr-content",title:"QR content & destinations",summary:"Choose a website, plain text or a different serial for each item.",keywords:["QR","code","payload","link","URL","facebook","redirect","disable","invalidate","analytics","tracking","static","fixed"],
     sections:[
       {title:"Same on every item",paragraphs:["Use Same on every item for a poster, sign or repeated sticker. Enter a full website address such as https://example.com, or plain text such as PARK-0001. A serial or other plain text does not automatically open a website."]},

@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build:
-    name: Unit tests, browser export tests, and build
+    name: Unit tests, browser tests, and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -57,6 +57,9 @@ jobs:
           VITE_GOOGLE_DRIVE_PROJECT_NUMBER: ${{ vars.VITE_GOOGLE_DRIVE_PROJECT_NUMBER }}
           VITE_GOOGLE_DRIVE_API_KEY: ${{ vars.VITE_GOOGLE_DRIVE_API_KEY }}
         run: pnpm build
+
+      - name: Offline production browser tests
+        run: pnpm test:offline
 
       - name: Upload Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

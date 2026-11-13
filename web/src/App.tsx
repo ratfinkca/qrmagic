@@ -27,7 +27,9 @@ import { Walkthrough } from "./components/Walkthrough";
 import { markTourCompleted, tourSteps } from "./lib/helpContent";
 import { useLocalProjects } from "./hooks/useLocalProjects";
 import { usePrintChecks } from "./hooks/usePrintChecks";
+import { useOfflineApp } from "./hooks/useOfflineApp";
 import { LocalSaveStatus } from "./components/LocalSaveStatus";
+import { OfflineAppStatus } from "./components/OfflineAppStatus";
 import type { LocalProject } from "./lib/localProjects";
 import { projectForEditor } from "./lib/projectValidation";
 import { createPrintRecords, productionCount, productionGeometry, positiveInteger, normalizeFixedJob, jobSummary, isRepeatedJob } from "./lib/production";
@@ -100,6 +102,7 @@ function normalizeHexColor(color: string) {
 }
 
 export function App() {
+  const offlineApp = useOfflineApp();
   const [layoutOpen,setLayoutOpen]=useState(false);
   const [chooserOpen, setChooserOpen] = useState(true);
   const [chooserView,setChooserView]=useState<"new"|"recent"|"auto">("auto");
@@ -1084,18 +1087,19 @@ export function App() {
   const helpSurfaces = <>{helpOpen ? <HelpCenter onClose={() => setHelpOpen(false)} onStartTour={startTour} fromLayout={layoutOpen}/> : null}
     {tourStep !== null ? <Walkthrough step={tourStep} hasQr={project.layers.some(layer => layer.type === "qr")} onStep={setTourStep} onEnd={endTour}/> : null}</>;
   const localSaveStatus=<LocalSaveStatus status={local.status} savedAt={local.savedAt} forked={local.session.forked} onRetry={()=>{void local.flush().catch(()=>{});}} onDownload={saveProjectFile}/>;
-  const driveDialog = driveMode && <GoogleDriveDialog openOnly={driveMode === "open"} file={driveFile}
+  const driveDialog = driveMode && <GoogleDriveDialog online={offlineApp.online} openOnly={driveMode === "open"} file={driveFile}
     defaultFilename={`${sanitizeFilename(project.document.name)}.qrmagic.json`}
     onClose={() => setDriveMode(null)} onSave={saveProjectToDrive} onOpen={async (content, drive) => {
       const next = readProjectFile(content);
       return changeDocument(async () => ({ next, downloaded: true, drive }));
     }}/>;
-  if(layoutOpen) return <><PrintLayout project={project} printChecks={printChecks} saveStatus={localSaveStatus} onBack={()=>setLayoutOpen(false)} onSave={saveProjectFile} onHelp={() => setHelpOpen(true)}
+  if(layoutOpen) return <><PrintLayout project={project} printChecks={printChecks} saveStatus={<>{localSaveStatus}{!offlineApp.online && <OfflineAppStatus {...offlineApp}/>}</>} onBack={()=>setLayoutOpen(false)} onSave={saveProjectFile} onHelp={() => setHelpOpen(true)}
     onDrive={() => setDriveMode("manage")} onChange={layout=>updateProject(current=>({...current,production:{...current.production,layout}}))}/>{helpSurfaces}{driveDialog}</>;
 
   return (
     <main className="app-shell local-project-app">
       {chooserOpen ? <ProjectChooser onClose={() => setChooserOpen(false)} onHelp={() => setHelpOpen(true)}
+        offlineStatus={<OfflineAppStatus {...offlineApp}/>}
         recent={local.recent} loading={local.loading} storageError={local.libraryError} busy={openingProject} initialView={chooserView}
         onRetry={()=>{void local.refresh();}} onRecent={openRecentProject}
         onOpen={() => projectInputRef.current?.click()} onOpenDrive={() => setDriveMode("open")} suspended={Boolean(driveMode)}
@@ -1204,7 +1208,7 @@ export function App() {
         <div className="topbar-status local-project-status"><div className="local-job-summary">
           <span aria-live="polite">{jobSummary(project)}</span>
           {csv ? <strong>Previewing row {recordIndex + 1} of {recordCount.toLocaleString()}</strong> : <strong>{currentRecord.serial}</strong>}
-          </div>{localSaveStatus}
+          </div>{localSaveStatus}{!chooserOpen && <OfflineAppStatus {...offlineApp}/>}
         </div>
       </header>
 
