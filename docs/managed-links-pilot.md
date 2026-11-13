@@ -28,12 +28,14 @@ Keep the editor and dashboard open separately. The editor can save and export a 
 
 | Address | Purpose |
 | --- | --- |
-| `https://go-pilot.qrmystic.com/<slug>` | Planned public scan URL for the pilot. A live link returns a temporary redirect and sends `Cache-Control: no-store`. Paused or unknown links show an unavailable page. |
-| `https://manage-pilot.qrmystic.com/manage` | Planned dashboard and management API, available to invited staff after Cloudflare Access sign-in. |
+| `https://go-pilot.qrmystic.com/<slug>` | Public scan URL for the pilot. A live link returns a temporary redirect and sends `Cache-Control: no-store`. Paused or unknown links show an unavailable page. |
+| [Pilot dashboard](https://manage-pilot.qrmystic.com/manage) | Dashboard and management API, available to invited staff using an emailed Cloudflare Access PIN. |
 
 Both pilot hostnames can point at one Cloudflare Worker. The Worker reads the current destination from the primary D1 database on each scan so a new scan uses the latest saved destination. The pilot stores link records for one shared team. Set up a backup admin in Access so the team can manage links if the original admin leaves. Reserve `go.qrmystic.com` for durable production scans after the pilot. Use pilot URLs for testing only. Keep the production hostname and slugs stable when changing providers, and export and back up the link data regularly. [Worker Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) · [D1 primary reads](https://developers.cloudflare.com/d1/best-practices/read-replication/) · [D1 exports](https://developers.cloudflare.com/d1/best-practices/import-export-data/)
 
-## Prepare a Cloudflare staging deployment
+## Maintain the Cloudflare staging deployment
+
+The `qrmystic-links-pilot` Worker and D1 database are deployed. The first migration is applied and recorded. Cloudflare Access protects only the management hostname. The Worker’s `workers.dev` route and preview URLs are disabled. Keep the approved invite list in Cloudflare Access. The setup below also works to recreate the pilot in a new account.
 
 1. Copy [the hosted config example](../managed-links/wrangler.deploy.example.jsonc) to `managed-links/wrangler.deploy.jsonc`. Use the `qrmystic.com` zone and configure `go-pilot.qrmystic.com` and `manage-pilot.qrmystic.com` as Custom Domains on the `qrmystic-links-pilot` Worker. The hosted example turns off `workers.dev` and Worker preview URLs.
 2. Sign in to the intended Cloudflare account and create a separate D1 database named `qrmystic-links-pilot`. Leave the previous empty `qrmagic-links-pilot` database in place. Set the new database name and ID in the hosted config. From `managed-links/`, run `pnpm exec wrangler d1 migrations apply qrmystic-links-pilot --remote --config wrangler.deploy.jsonc`. [D1 migrations](https://developers.cloudflare.com/d1/reference/migrations/)
