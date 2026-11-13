@@ -49,6 +49,8 @@ The deployed web app includes production exports and print layouts, help and onb
 
 Mimaki is the first equipment target. The internal printer/cutter model, RIP version and shop settings are still pending. Existing packages can be used for test imports and physical proofs. The [production reference](production-documents.md) describes what the package contains and what the shop still configures.
 
+Managed links are being reviewed on `codex/managed-links-pilot`. See the [pilot guide](managed-links-pilot.md) for the dashboard workflow and how to choose a separate preview deployment.
+
 ## Find your way around
 
 | If you’re working on… | Start here |
@@ -60,6 +62,7 @@ Mimaki is the first equipment target. The internal printer/cutter model, RIP ver
 | Help, tips and tour | [helpContent.ts](../web/src/lib/helpContent.ts). Run `pnpm docs:help` in `web/` to regenerate the [user guide](user-guide.md). |
 | Drive setup, account access and sharing | [Drive runbook](google-drive.md) and [googleDrive.ts](../web/src/lib/googleDrive.ts) |
 | Installability and offline releases | [Manifest](../web/public/manifest.webmanifest), [offline build script](../web/scripts/build-offline.mjs), [service worker](../web/scripts/offline-worker.js), and [offline browser tests](../web/tests/offline.test.mjs) |
+| Managed QR links | [Pilot guide](managed-links-pilot.md) |
 
 ## Release the web app
 

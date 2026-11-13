@@ -7,3 +7,8 @@ web/qa-screenshot.png
 web/*.tsbuildinfo
 web/.env.local
 web/.env.*.local
+managed-links/.wrangler/
+managed-links/.dev.vars*
+managed-links/.env*
+managed-links/dist/
+managed-links/wrangler.deploy.jsonc

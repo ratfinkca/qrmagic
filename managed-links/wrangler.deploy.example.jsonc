@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "qrmagic-links-pilot",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-12",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "go.example.com", "custom_domain": true },
+    { "pattern": "manage.example.com", "custom_domain": true }
+  ],
+  "vars": {
+    "SCAN_ORIGIN": "https://go.example.com",
+    "MANAGE_ORIGIN": "https://manage.example.com",
+    "ACCESS_AUDIENCE": "replace-with-the-management-access-audience"
+  },
+  "d1_databases": [
+    {
+      "binding": "LINKS_DB",
+      "database_name": "qrmagic-links-pilot",
+      "database_id": "replace-with-the-pilot-d1-database-id",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
