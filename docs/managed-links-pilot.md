@@ -55,6 +55,24 @@ In **Storage & databases → D1 SQLite Database**, select `qrmystic-links-pilot`
 
 If you do not have a Cloudflare zone yet, you can use the pilot Worker's `workers.dev` hostname for temporary testing. In the hosted config, remove `routes`, set `workers_dev` to `true`, leave `preview_urls` off, and set both origins to the same HTTPS Worker URL. In one self-hosted Access application, add both `/manage` and `/manage/*` on that hostname so the dashboard and its API use the same audience. Leave the scan paths outside that policy. Switch to an organization-controlled scan hostname before printing real jobs. [Cloudflare Access application paths](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/app-paths/) · [workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
 
+## Release the pilot from GitHub Actions
+
+Pushes to `codex/managed-links-pilot` run [the pilot workflow](../.github/workflows/deploy-cloudflare-pilot.yml). It runs the editor unit, export and offline tests, plus the managed-link tests and build. A second job builds and checks the pilot editor using its deployed Drive configuration. Once the checks pass, it uploads versions of both Workers and publishes them to the existing pilot hostnames. After publication, Actions checks the deployed service worker, exercises the hosted editor offline, and checks that the scan host can read D1 and the dashboard still requires Cloudflare Access.
+
+Apply new D1 migrations to `qrmystic-links-pilot` using the staging command above before pushing Worker code that depends on them. Keep migrations compatible with the running Worker while a deploy is in progress. The release credential is scoped to the two pilot Workers.
+
+To set up or restore GitHub deployment, allow only `codex/managed-links-pilot` under **Settings → Environments → cloudflare-pilot → Deployment branches and tags**. Configure the following in that environment.
+
+| Name | Value |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` (secret) | Cloudflare account API token with **Individual Workers → Editor**, scoped to `qrmystic-editor-pilot` and `qrmystic-links-pilot`. Rotate it in Cloudflare and replace the GitHub environment secret when needed. |
+| `CLOUDFLARE_ACCOUNT_ID` | The pilot Cloudflare account ID. |
+| `PILOT_D1_DATABASE_ID` | The UUID of `qrmystic-links-pilot`. |
+| `PILOT_ACCESS_AUDIENCE` | The Audience (AUD) tag of the pilot dashboard’s Access application. |
+| `PILOT_GOOGLE_DRIVE_CLIENT_ID`, `PILOT_GOOGLE_DRIVE_PROJECT_NUMBER`, `PILOT_GOOGLE_DRIVE_API_KEY` | Public browser configuration for the Google Cloud project authorized for `https://editor-pilot.qrmystic.com`. See the [Drive runbook](google-drive.md). |
+
+Keep the token in the branch-restricted environment. The workflow uses Worker versions on existing Custom Domains. Manage changes to domains, routes and Access policies separately in Cloudflare. The live QR Magic deployment continues to use the independent GitHub Pages workflow on `main`. [GitHub deployment environments](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments) · [Cloudflare Workers roles](https://developers.cloudflare.com/workers/authorization/workers/) · [Cloudflare version deployment](https://developers.cloudflare.com/workers/versions-and-deployments/)
+
 ## Publish an editor preview separately
 
 The paste workflow works with the released editor. For a hosted test of link management, a staging Worker and D1 database are enough. Publish a separate editor preview when testing editor changes, such as the QR Mystic rebrand or a future managed-link picker.

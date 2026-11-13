@@ -1,0 +1,142 @@
+name: Test and deploy QR Mystic pilot
+
+on:
+  push:
+    branches: [codex/managed-links-pilot]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-pilot
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Editor and managed-link checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.7
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            web/pnpm-lock.yaml
+            managed-links/pnpm-lock.yaml
+
+      - name: Install editor dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Editor unit tests
+        run: pnpm test
+
+      - name: Install Chromium and system dependencies
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser export tests
+        run: pnpm test:export
+
+      - name: Build and test the offline editor at /qrmagic/
+        run: |
+          pnpm build
+          pnpm test:offline
+
+      - name: Install managed-link dependencies
+        working-directory: managed-links
+        run: pnpm install --frozen-lockfile
+
+      - name: Managed-link tests and build
+        working-directory: managed-links
+        run: |
+          pnpm test
+          pnpm build
+
+  deploy:
+    name: Publish and verify the Cloudflare pilot
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/codex/managed-links-pilot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: cloudflare-pilot
+      url: https://editor-pilot.qrmystic.com/
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.7
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            web/pnpm-lock.yaml
+            managed-links/pnpm-lock.yaml
+
+      - name: Build the pilot editor with Drive enabled
+        working-directory: web
+        env:
+          VITE_GOOGLE_DRIVE_CLIENT_ID: ${{ vars.PILOT_GOOGLE_DRIVE_CLIENT_ID }}
+          VITE_GOOGLE_DRIVE_PROJECT_NUMBER: ${{ vars.PILOT_GOOGLE_DRIVE_PROJECT_NUMBER }}
+          VITE_GOOGLE_DRIVE_API_KEY: ${{ vars.PILOT_GOOGLE_DRIVE_API_KEY }}
+        run: |
+          : "${VITE_GOOGLE_DRIVE_CLIENT_ID:?Set PILOT_GOOGLE_DRIVE_CLIENT_ID in cloudflare-pilot}"
+          : "${VITE_GOOGLE_DRIVE_PROJECT_NUMBER:?Set PILOT_GOOGLE_DRIVE_PROJECT_NUMBER in cloudflare-pilot}"
+          : "${VITE_GOOGLE_DRIVE_API_KEY:?Set PILOT_GOOGLE_DRIVE_API_KEY in cloudflare-pilot}"
+          pnpm install --frozen-lockfile
+          pnpm build:pilot
+
+      - name: Test the pilot build offline
+        working-directory: web
+        env:
+          QRMYSTIC_TEST_PILOT: '1'
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm test:offline
+
+      - name: Prepare the Cloudflare builds
+        working-directory: managed-links
+        env:
+          PILOT_D1_DATABASE_ID: ${{ vars.PILOT_D1_DATABASE_ID }}
+          PILOT_ACCESS_AUDIENCE: ${{ vars.PILOT_ACCESS_AUDIENCE }}
+        run: |
+          pnpm install --frozen-lockfile
+          node scripts/configure-pilot.mjs
+          pnpm exec wrangler versions upload --dry-run --config wrangler.deploy.jsonc
+          pnpm exec wrangler versions upload --dry-run --config ../web/wrangler.pilot.jsonc
+
+      - name: Deploy the tested pilot builds
+        working-directory: managed-links
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: bash scripts/deploy-pilot.sh
+
+      - name: Verify the hosted pilot
+        env:
+          QRMYSTIC_PILOT_URL: https://editor-pilot.qrmystic.com/
+        run: |
+          curl --fail --silent --show-error --retry 5 --output "$RUNNER_TEMP/pilot-sw.js" "${QRMYSTIC_PILOT_URL}sw.js"
+          cmp web/dist-pilot/sw.js "$RUNNER_TEMP/pilot-sw.js"
+          node managed-links/scripts/check-pilot.mjs
+          pnpm --dir web test:offline

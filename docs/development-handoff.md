@@ -51,6 +51,8 @@ Mimaki is the first equipment target. The internal printer/cutter model, RIP ver
 
 Managed links and the QR Mystic rebrand are on `codex/managed-links-pilot` in the same repository. The live editor stays on GitHub Pages from `main`. The [QR Mystic editor pilot](https://editor-pilot.qrmystic.com/) runs on a separate Cloudflare Worker with Static Assets. The [pilot dashboard](https://manage-pilot.qrmystic.com/manage) is invite-only and points to the pilot editor. Google OAuth still uses the QR Magic consent branding. See the [pilot guide](managed-links-pilot.md) for local review, staging setup, and hosted smoke checks.
 
+The [pilot release workflow](managed-links-pilot.md#release-the-pilot-from-github-actions) runs on pushes to `codex/managed-links-pilot`. Review the Actions run for editor and Worker checks, Cloudflare deployment, and hosted smoke tests. Pilot deployment credentials and Drive settings live in the `cloudflare-pilot` GitHub environment.
+
 ## Find your way around
 
 | If you’re working on… | Start here |
