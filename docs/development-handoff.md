@@ -49,7 +49,7 @@ The deployed web app includes production exports and print layouts, help and onb
 
 Mimaki is the first equipment target. The internal printer/cutter model, RIP version and shop settings are still pending. Existing packages can be used for test imports and physical proofs. The [production reference](production-documents.md) describes what the package contains and what the shop still configures.
 
-Managed links are being reviewed on `codex/managed-links-pilot`. See the [pilot guide](managed-links-pilot.md) for the dashboard workflow and how to choose a separate preview deployment.
+Managed links are on `codex/managed-links-pilot` in the same repository. The pilot uses a separate Cloudflare Worker, D1 database, and invite-only Access application; the live editor stays on GitHub Pages from `main`. See the [pilot guide](managed-links-pilot.md) for local review, staging setup, and hosted smoke checks.
 
 ## Find your way around
 
