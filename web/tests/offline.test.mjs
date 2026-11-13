@@ -68,6 +68,13 @@ test("the production PWA opens offline, edits and reopens local projects, and ex
     await chooser.waitFor({ timeout: 5_000 }).catch(error => {
       throw new Error(`Offline editor failed to start: ${JSON.stringify({ failedRequests, errors })}`, { cause: error });
     });
+    // The network can be blocked while Chromium still reports navigator.onLine.
+    // Set the active page's connection state separately to exercise Drive's UI.
+    const offlineCdp = await context.newCDPSession(offline);
+    await offlineCdp.send("Network.overrideNetworkState", {
+      offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1,
+    });
+    await offline.waitForFunction(() => !navigator.onLine);
     await chooser.getByRole("button", { name: "Open from Google Drive" }).click();
     const drive = offline.getByRole("dialog", { name: "Google Drive" });
     await drive.getByText("Google Drive needs an internet connection.", { exact: true }).waitFor();
