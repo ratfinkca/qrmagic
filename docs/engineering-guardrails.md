@@ -1,6 +1,6 @@
 # Engineering guardrails
 
-QR Magic should be approachable for a poster designer and predictable for a print shop. Develop the browser app in `web/` and keep the Python/Tkinter app as a legacy reference.
+QR Mystic should be approachable for a poster designer and predictable for a print shop. Develop the browser app in `web/` and keep the Python/Tkinter app as a legacy reference.
 
 ## Keep the editor and export in agreement
 

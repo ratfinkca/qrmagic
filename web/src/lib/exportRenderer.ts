@@ -333,7 +333,7 @@ function addOptionalContentProperties(
   const properties = pdfDoc.context.obj({
     OCGs: groupArray,
     D: {
-      Name: PDFString.of("QR Magic template layers"),
+      Name: PDFString.of("QR Mystic template layers"),
       Order: groupArray,
       ON: groupArray,
       OFF: pdfDoc.context.obj([]),

@@ -100,7 +100,7 @@ export async function renderProductionPdf(project: QrMagicProject, records: Rend
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
   doc.setTitle(project.document.name);
-  doc.setProducer("QR Magic production PDF · RGB");
+  doc.setProducer("QR Mystic production PDF · RGB");
   const geometry = productionGeometry(project);
   const fonts = new Map<number, { font: PDFFont; shaper: ShapingFont }>();
   const repeats = new Map<RenderRecord, { page: PDFPage; embedded?: PDFEmbeddedPage }>();

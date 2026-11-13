@@ -1,11 +1,11 @@
 {
-  "name": "qrmagic-managed-links",
+  "name": "qrmystic-managed-links",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.0.7",
   "scripts": {
     "dev": "wrangler dev --local --ip 127.0.0.1 --port 8787",
-    "db:local": "wrangler d1 migrations apply qrmagic-links-local --local",
+    "db:local": "wrangler d1 migrations apply qrmystic-links-local --local",
     "test": "node --disable-warning=ExperimentalWarning --test tests/*.test.mjs",
     "build": "tsc --noEmit && wrangler deploy --dry-run --outdir dist"
   },

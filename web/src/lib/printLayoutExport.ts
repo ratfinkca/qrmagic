@@ -62,7 +62,7 @@ export async function exportLayoutPackage(project:QrMagicProject,settings:PrintL
   zip.file("preflight.json",JSON.stringify({colorSpace:"RGB",machineProfile:null,pdfX:false,issues:source.issues,checks:printCheckScope(project),
     stats:{...source.stats,pages:plan.panelCount,finishedItems:plan.total},limits:["No ICC conversion or PDF/X output intent","Reference cut geometry only; configure machine cuts and registration in the RIP"]},null,2));
   zip.file("README.txt",[
-    `QR Magic print layout: ${project.document.name}`,
+    `QR Mystic print layout: ${project.document.name}`,
     `${plan.total} finished items on ${plan.panelCount} ${settings.media==="roll"?"roll panels":"sheets"}. Print artwork.pdf at 100% / actual size. Disable fit-to-page and RIP duplication. All requested copies are already placed.`,
     "Each page has its exact media dimensions. Its MediaBox, TrimBox and BleedBox describe the media page. Individual cuts are in cut-reference/panel-NNNN.svg and placements.csv. Import references at actual size on their matching page; do not auto-fit or rotate them.",
     "Spacing is clear space between the full bleed envelopes. Artwork is clipped to each envelope. Finished designs are never resized. Copies retain the same content and serial. Order is left-to-right/top-to-bottom, all copies of record 1 then record 2, etc.",

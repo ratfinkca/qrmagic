@@ -9,6 +9,6 @@ export function OfflineAppStatus({ online, status, install }: ReturnType<typeof 
 
   return <div className="offline-app-status">
     <span role="status">{!online && <WifiOff size={13} aria-hidden="true"/>}{label}</span>
-    {install && <button type="button" onClick={() => void install()}><Download size={13} aria-hidden="true"/> Install QR Magic</button>}
+    {install && <button type="button" onClick={() => void install()}><Download size={13} aria-hidden="true"/> Install QR Mystic</button>}
   </div>;
 }

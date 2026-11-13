@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { FileText, FolderOpen, X } from "lucide-react";
 import {
-  cachedDriveToken, downloadDriveProject, driveProjectExtension, driveProjectUrl, getDriveToken,
+  cachedDriveToken, downloadDriveProject, driveProjectUrl, getDriveToken,
   googleDriveConfigured, listDriveProjects, pickDriveItem, prepareDriveSignIn, shareDriveProject,
   type DriveFolder, type DriveProject,
 } from "../lib/googleDrive";
+import { projectFilename } from "../lib/projectFilename";
 import "./google-drive.css";
 
 type Props = {
@@ -101,7 +102,7 @@ export function GoogleDriveDialog({ online, openOnly, file, defaultFilename, onS
   async function save(token: string) {
     const name = filename.trim();
     if (!name) throw new Error("Enter a filename for the Drive copy.");
-    const fullName = name.toLowerCase().endsWith(driveProjectExtension) ? name : name + driveProjectExtension;
+    const fullName = projectFilename(name);
     const saved = await onSave(token, fullName, folder);
     setFilename(fullName);
     setProjects(items => items && [saved, ...items.filter(item => item.id !== saved.id)]);
@@ -120,12 +121,12 @@ export function GoogleDriveDialog({ online, openOnly, file, defaultFilename, onS
   }}>
     <header className="help-header">
       <div><span className="help-eyebrow">PROJECT FILES</span><h1 id="drive-title">Google Drive</h1>
-        <p>{openOnly ? "Choose an editable QR Magic project from Drive." : "Open a project from Drive or save a copy of this design. Local autosave continues on this device."}</p></div>
+        <p>{openOnly ? "Choose an editable project from Drive." : "Open a project from Drive or save a copy of this design. Local autosave continues on this device."}</p></div>
       <button type="button" className="help-icon-button" aria-label="Close Google Drive" onClick={onClose} disabled={online && busy}><X size={22}/></button>
     </header>
     <div className="drive-dialog-body">
       {!online ? <div role="status"><p>Google Drive needs an internet connection.</p><p>You can still open local projects, save and export offline.</p></div>
-      : !googleDriveConfigured ? <p role="status">Google Drive setup is required for this version of QR Magic. You can still save and open project files on this device.</p> : <>
+      : !googleDriveConfigured ? <p role="status">Google Drive setup is required for this version of QR Mystic. You can still save and open project files on this device.</p> : <>
         {!openOnly && <div className="project-views drive-views" role="group" aria-label="Google Drive action">
           <button type="button" aria-pressed={view === "projects"} disabled={busy} onClick={() => show("projects")}>Drive Projects</button>
           <button type="button" aria-pressed={view === "save"} disabled={busy} onClick={() => show("save")}>Save to Drive</button>
@@ -136,7 +137,7 @@ export function GoogleDriveDialog({ online, openOnly, file, defaultFilename, onS
           setLoadAttempt(count => count + 1);
         }}>Retry Google Drive</button>}
         {view === "projects" ? <section className="drive-projects" aria-label="Drive Projects">
-          <p>See projects saved to Drive or previously opened with QR Magic.</p>
+          <p>See projects saved to Drive or previously opened with this app.</p>
           <div className="drive-actions">
             <button type="button" className="secondary-action" disabled={!ready || busy} onClick={() => void run(async token => {
               setProjects(await listDriveProjects(token));

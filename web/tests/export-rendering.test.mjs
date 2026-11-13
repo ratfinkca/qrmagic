@@ -70,17 +70,17 @@ test("Google Drive searches and browses projects, saves a named copy in a folder
       const headers = { "access-control-allow-origin": "*" };
       if (request.method() === "POST") {
         assert.equal(request.headers().authorization, "Bearer test-token");
-        assert.equal(request.postDataJSON().name, "Edited Drive filename.qrmagic.json");
+        assert.equal(request.postDataJSON().name, "Edited Drive filename.qrmystic.json");
         assert.deepEqual(request.postDataJSON().parents, ["test-folder"]);
         await route.fulfill({ headers: { ...headers, location: "https://www.googleapis.com/upload/drive/v3/files?upload_id=test", "access-control-expose-headers": "Location" } });
       } else if (request.method() === "PUT") {
         uploaded = request.postDataJSON();
-        await route.fulfill({ headers, json: { id: "saved-copy", name: "Edited Drive filename.qrmagic.json" } });
+        await route.fulfill({ headers, json: { id: "saved-copy", name: "Edited Drive filename.qrmystic.json" } });
       } else if (url.pathname === "/drive/v3/files") {
         assert.equal(request.headers().authorization, "Bearer test-token");
         await route.fulfill({ headers, json: { files: [
           { id: "cloud-file", name: "Cloud project.qrmagic.json", modifiedTime: "2026-01-02T00:00:00Z" },
-          { id: "older-file", name: "Older design.qrmagic.json", modifiedTime: "2026-01-01T00:00:00Z" },
+          { id: "new-file", name: "New design.qrmystic.json", modifiedTime: "2026-01-01T00:00:00Z" },
           { id: "other", name: "Some other file.json" },
         ] } });
       } else {
@@ -100,11 +100,11 @@ test("Google Drive searches and browses projects, saves a named copy in a folder
     await chooser.getByRole("button", { name: "Create project", exact: true }).click();
     await tab.getByRole("button", { name: "Google Drive", exact: true }).click();
     await drive.getByRole("button", { name: "Save to Drive", exact: true }).click();
-    assert.equal(await drive.getByLabel("Filename", { exact: true }).inputValue(), "Local design.qrmagic.json");
-    await drive.getByLabel("Filename", { exact: true }).fill("Edited Drive filename");
+    assert.equal(await drive.getByLabel("Filename", { exact: true }).inputValue(), "Local design.qrmystic.json");
+    await drive.getByLabel("Filename", { exact: true }).fill("Edited Drive filename.QRMAGIC.JSON");
     await drive.getByRole("button", { name: "Choose folder" }).click();
     await tab.getByRole("button", { name: "Cancel file selection" }).click();
-    assert.equal(await drive.getByLabel("Filename", { exact: true }).inputValue(), "Edited Drive filename");
+    assert.equal(await drive.getByLabel("Filename", { exact: true }).inputValue(), "Edited Drive filename.QRMAGIC.JSON");
     await drive.getByRole("button", { name: "Choose folder" }).click();
     await tab.getByRole("button", { name: "Select a Drive folder" }).click();
     await drive.getByText("Print jobs", { exact: false }).waitFor();
@@ -126,12 +126,12 @@ test("Google Drive searches and browses projects, saves a named copy in a folder
     cloud.project.document.name = "Cloud design";
     cloudContent = JSON.stringify(cloud);
     const search = drive.getByLabel("Search Drive projects", { exact: true });
-    await drive.getByRole("button", { name: /Older design.qrmagic.json/ }).waitFor();
+    await drive.getByRole("button", { name: /New design\.qrmystic\.json/ }).waitFor();
     assert.equal(await drive.getByText("Some other file.json", { exact: true }).count(), 0);
     await search.fill("missing");
     await drive.getByText("No matching Drive projects.", { exact: true }).waitFor();
     await search.fill("LOUD PROJ");
-    assert.equal(await drive.getByRole("button", { name: /Older design.qrmagic.json/ }).count(), 0);
+    assert.equal(await drive.getByRole("button", { name: /New design\.qrmystic\.json/ }).count(), 0);
     await drive.getByRole("button", { name: /Cloud project.qrmagic.json/ }).click();
     await drive.waitFor({ state: "hidden" });
     await tab.getByLabel("Name", { exact: true }).filter({ visible: true }).waitFor();
@@ -181,12 +181,16 @@ test("CSV mapping flags problems, previews a row, and survives saving and reopen
     assert.equal(await tab.getByRole("button", { name: "Download proof package" }).isEnabled(), true);
     const download = tab.waitForEvent("download");
     await tab.getByTitle("Save project", { exact: true }).click();
-    const saved = await readFile(await (await download).path());
+    const projectDownload = await download;
+    assert.match(projectDownload.suggestedFilename(), /\.qrmystic\.json$/);
+    const saved = await readFile(await projectDownload.path());
     const project = JSON.parse(saved).project;
     assert.deepEqual(project.data.csv.rows, [["001", "Ada"], ["001", ""], ["", "Cam"]]);
     assert.equal(project.data.csv.allowRepeatedQr, true);
-    await tab.locator('input[accept=".qrmagic.json,application/json"]').setInputFiles({
-      name: "csv.qrmagic.json", mimeType: "application/json", buffer: saved,
+    const projectInput = tab.locator('input[accept*=".qrmagic.json"]');
+    assert.deepEqual((await projectInput.getAttribute("accept")).split(","), [".qrmystic.json", ".qrmagic.json", "application/json"]);
+    await projectInput.setInputFiles({
+      name: projectDownload.suggestedFilename(), mimeType: "application/json", buffer: saved,
     });
     await tab.getByText("Previewing row 1 of 3", { exact: true }).waitFor();
     await tab.getByRole("button", { name: "Review CSV batch", exact: true }).click();
@@ -209,7 +213,7 @@ test("CSV exports encode mapped QR and text in row order with copies", async () 
       const { createStarterProject } = await import("/qrmagic/src/lib/templates.ts");
       return createStarterProject("stickers", { width: 50.8, height: 50.8, copies: 2 });
     });
-    await tab.locator('input[accept=".qrmagic.json,application/json"]').setInputFiles({
+    await tab.locator('input[accept*=".qrmagic.json"]').setInputFiles({
       name: "stickers.qrmagic.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(fixture)),
     });
     await tab.getByRole("button", { name: "Set up CSV batch", exact: true }).click();
@@ -272,7 +276,7 @@ test("friendly print checks appear for every format, identify layers and clear a
       const canvas=document.createElement("canvas");canvas.width=canvas.height=20;canvas.getContext("2d").fillRect(0,0,20,20);
       p.layers=[{...qr,id:"low-res",name:"Small photo",type:"image",x:0,y:0,width:600,height:600,src:canvas.toDataURL(),assetId:"test",fit:"stretch"},qr];return p;
     });
-    const open=async p=>{await tab.locator('input[accept=".qrmagic.json,application/json"]').setInputFiles({name:"checks.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(p))});await tab.getByRole("dialog").waitFor({state:"hidden"});};
+    const open=async p=>{await tab.locator('input[accept*=".qrmagic.json"]').setInputFiles({name:"checks.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(p))});await tab.getByRole("dialog").waitFor({state:"hidden"});};
     await open(project);
     const checks=tab.getByRole("region",{name:"Print checks",exact:true});await checks.getByText(/suggestion/).waitFor();await checks.locator("summary").click();
     for(const code of ["qr-small","qr-contrast","qr-quiet-zone","safe-area","image-resolution"])await checks.locator(`[data-print-code="${code}"]`).waitFor();
@@ -337,7 +341,7 @@ test("a slow image check cannot replace newer project's print results",async()=>
       const slow=createStarterProject("blank",{name:"Slow photo",width:50.8,height:50.8});slow.layers=[{...defaultLayerShadow,id:"slow-photo",name:"Slow photo",type:"image",visible:true,locked:false,x:0,y:0,width:600,height:600,rotation:0,opacity:1,assetId:"slow",src:window.slowCheckSrc,fit:"stretch"}];
       const clean=createStarterProject("blank",{name:"New design",width:50.8,height:50.8});return {slow,clean};
     });
-    const open=async project=>{await tab.locator('input[accept=".qrmagic.json,application/json"]').setInputFiles({name:"check.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(project))});await tab.getByRole("dialog").waitFor({state:"hidden"});};
+    const open=async project=>{await tab.locator('input[accept*=".qrmagic.json"]').setInputFiles({name:"check.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(project))});await tab.getByRole("dialog").waitFor({state:"hidden"});};
     await open(slow);await tab.waitForFunction(()=>window.slowRequests>=2);await open(clean);
     const checks=tab.getByRole("region",{name:"Print checks",exact:true});await checks.getByText("No issues found in these checks.",{exact:true}).waitFor();
     await tab.waitForFunction(()=>window.slowLoads>=2);assert.equal(await checks.locator('[data-print-code="image-resolution"]').count(),0);
@@ -354,7 +358,7 @@ test("local autosave reopens artwork and layout settings after refresh, and dupl
     const fixture=structuredClone(initialProject);fixture.document.name="Recovery artwork";
     fixture.production.layout={media:"sheet",units:"mm",widthMm:210,heightMm:297,marginTop:8,marginRight:8,marginBottom:8,marginLeft:8,gapX:5,gapY:6,orientation:"rotated"};
     fixture.layers.push({...fixture.layers[0],type:"image",id:"saved-image",name:"Embedded artwork",src:"data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="5" height="5"><rect width="5" height="5" fill="red"/></svg>'),assetId:"local-image",fit:"stretch"});
-    await tab.locator('input[accept=".qrmagic.json,application/json"]').setInputFiles({name:"recovery.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify({format:"qrmagic.project",project:fixture}))});
+    await tab.locator('input[accept*=".qrmagic.json"]').setInputFiles({name:"recovery.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify({format:"qrmagic.project",project:fixture}))});
     await tab.getByText("Saved on this device",{exact:true}).waitFor();
     const save=async()=>{const download=tab.waitForEvent("download");await tab.getByTitle("Save project",{exact:true}).click();return JSON.parse(await readFile(await(await download).path(),"utf8")).project;};
     const before=await save();await tab.reload();
@@ -541,7 +545,7 @@ test("help tips work with keyboard, hover and click, and the guide fits narrow s
   assert.equal(await help.evaluate(el=>el.getBoundingClientRect().right<=window.innerWidth&&el.scrollWidth<=el.clientWidth+1),true);
   await help.getByLabel("Search help",{exact:true}).fill("redirect");
   await help.getByRole("button",{name:"QR content & destinations",exact:true}).click();
-  await help.getByText(/managed redirects or scan tracking/).waitFor();
+  await help.getByText(/if your team has access to the managed-link pilot/i).waitFor();
   await page.keyboard.press("Escape");
   assert.equal(await page.getByRole("button",{name:"Help",exact:true}).evaluate(el=>el===document.activeElement),true);
   await page.getByRole("button",{name:"Help",exact:true}).click();
@@ -682,14 +686,14 @@ test("print layout workspace validates, navigates, saves settings and works on n
   const downloading=page.waitForEvent("download"); await page.getByTitle("Save project",{exact:true}).click();
   const saved=JSON.parse((await readFile(await(await downloading).path())).toString());
   assert.equal(saved.project.production.layout.heightMm,120);
-  await page.locator('input[type="file"][accept=".qrmagic.json,application/json"]').setInputFiles({name:"saved.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(saved))});
+  await page.locator('input[accept*=".qrmagic.json"]').setInputFiles({name:"saved.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(saved))});
   await page.getByRole("button",{name:"Print layout",exact:true}).click();
   assert.equal(await page.getByLabel("Layout units",{exact:true}).inputValue(),"in");
   await page.setViewportSize({width:790,height:900});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
   await page.getByRole("button",{name:"Back to design",exact:true}).click();
   saved.project.production.layout.widthMm=null;
-  await page.locator('input[type="file"][accept=".qrmagic.json,application/json"]').setInputFiles({name:"invalid-layout.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(saved))});
+  await page.locator('input[accept*=".qrmagic.json"]').setInputFiles({name:"invalid-layout.qrmagic.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(saved))});
   await page.getByRole("button",{name:"Inspector",exact:true}).click();
   await page.getByRole("button",{name:"Print layout",exact:true}).click();
   await page.getByRole("alert").filter({hasText:/Media dimensions/}).waitFor();
@@ -996,7 +1000,7 @@ function shape(patch = {}) {
 async function comparePreviewAndExport(project) {
   project = structuredClone(project);
   project.layers.forEach((layer) => { layer.id = `fixture_${++fixtureIndex}`; });
-  await page.locator('input[type="file"][accept=".qrmagic.json,application/json"]').setInputFiles({
+  await page.locator('input[accept*=".qrmagic.json"]').setInputFiles({
     name: "fixture.qrmagic.json", mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(project)),
   });
@@ -1106,7 +1110,7 @@ test("new project chooser creates, exports, saves, and reopens a repeated sticke
   assert.ok(Math.abs(first.getTrimBox().width - 144) < 0.01);
   assert.ok(Math.abs(first.getTrimBox().x - 3 / 25.4 * 72) < 0.01);
   assert.ok(Math.abs(first.getSize().width - 56.8 / 25.4 * 72) < 0.01);
-  await page.locator('input[type="file"][accept=".qrmagic.json,application/json"]').setInputFiles({
+  await page.locator('input[accept*=".qrmagic.json"]').setInputFiles({
     name: "saved.qrmagic.json", mimeType: "application/json", buffer: bytes,
   });
   await page.getByText("3 copies · same design", { exact: true }).first().waitFor();
@@ -1142,7 +1146,7 @@ test("fixed jobs have one quantity and multiple persistent independent QR values
     project.data.groups[0].fixed.quantity = 4;
     return project;
   });
-  await page.locator('input[type="file"][accept=".qrmagic.json,application/json"]').setInputFiles({
+  await page.locator('input[accept*=".qrmagic.json"]').setInputFiles({
     name: "legacy-fixed.qrmagic.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(project)),
   });
   await page.getByText("40 copies · same design", { exact: true }).first().waitFor();

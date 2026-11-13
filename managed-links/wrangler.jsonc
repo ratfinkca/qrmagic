@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "qrmagic-links-local",
+  "name": "qrmystic-links-local",
   "main": "src/index.ts",
   "compatibility_date": "2026-11-12",
   "workers_dev": false,
@@ -8,19 +8,19 @@
   "vars": {
     "SCAN_ORIGIN": "http://127.0.0.1:8787",
     "MANAGE_ORIGIN": "http://127.0.0.1:8787",
-    "ACCESS_AUDIENCE": "qrmagic-local-pilot",
+    "ACCESS_AUDIENCE": "qrmystic-local-pilot",
     "EDITOR_URL": "http://127.0.0.1:5173/qrmagic/"
   },
   "access": {
     "dev": {
-      "aud": "qrmagic-local-pilot",
+      "aud": "qrmystic-local-pilot",
       "identity": { "email": "staff@example.com" }
     }
   },
   "d1_databases": [
     {
       "binding": "LINKS_DB",
-      "database_name": "qrmagic-links-local",
+      "database_name": "qrmystic-links-local",
       "database_id": "00000000-0000-4000-8000-000000000001",
       "migrations_dir": "migrations"
     }

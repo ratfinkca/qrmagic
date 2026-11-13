@@ -1,7 +1,8 @@
+import { isProjectFilename } from "./projectFilename";
+
 const driveScope = "https://www.googleapis.com/auth/drive.file";
 const mimeType = "application/json";
 const folderMimeType = "application/vnd.google-apps.folder";
-export const driveProjectExtension = ".qrmagic.json";
 const clientId = import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID?.trim();
 const appId = import.meta.env.VITE_GOOGLE_DRIVE_PROJECT_NUMBER?.trim();
 const apiKey = import.meta.env.VITE_GOOGLE_DRIVE_API_KEY?.trim();
@@ -82,9 +83,9 @@ function loadScript(url: string) {
 }
 
 export async function prepareDriveSignIn() {
-  if (!googleDriveConfigured) throw new Error("Google Drive setup is required for this version of QR Magic.");
+  if (!googleDriveConfigured) throw new Error("Google Drive setup is required for this version of QR Mystic.");
   if (!googleWindow().google?.accounts) await loadScript("https://accounts.google.com/gsi/client");
-  if (!googleWindow().google?.accounts) throw new Error("Google sign-in could not start. Try reloading QR Magic.");
+  if (!googleWindow().google?.accounts) throw new Error("Google sign-in could not start. Try reloading QR Mystic.");
 }
 
 export function cachedDriveToken() {
@@ -105,7 +106,7 @@ export async function getDriveToken() {
       callback(response) {
         window.clearTimeout(timeout);
         if (response.error || !response.access_token || !response.scope?.split(" ").includes(driveScope)) {
-          reject(new Error("Allow QR Magic to access the Drive files you choose, then try again."));
+          reject(new Error("Allow QR Mystic to access the Drive files you choose, then try again."));
           return;
         }
         access = { token: response.access_token, expiresAt: Date.now() + Math.max(0, Number(response.expires_in) - 30) * 1000 };
@@ -144,7 +145,7 @@ export async function pickDriveItem(token: string, kind: "project" | "folder", b
       .setMode(picker.DocsViewMode.LIST);
     const dialog = new picker.PickerBuilder()
       .setAppId(appId).setDeveloperKey(apiKey).setOAuthToken(token).setOrigin(window.location.origin)
-      .setTitle(selectingFolder ? "Choose a folder for this project" : "Open a QR Magic project")
+      .setTitle(selectingFolder ? "Choose a folder for this project" : "Open a project")
       .setSelectableMimeTypes(types).addView(view)
       .setCallback(({ action, docs }) => {
         if (action === picker.Action.CANCEL) { dialog.dispose(); resolve(undefined); }
@@ -209,7 +210,7 @@ export async function listDriveProjects(token: string) {
     const response = await driveRequest(url.href, { headers: driveHeaders(token) });
     const page: { files?: DriveProject[]; nextPageToken?: string } = await response.json();
     for (const file of page.files ?? []) {
-      if (file.name.toLowerCase().endsWith(driveProjectExtension)) projects.push(file);
+      if (isProjectFilename(file.name)) projects.push(file);
     }
     pageToken = page.nextPageToken;
   } while (pageToken);

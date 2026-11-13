@@ -1,4 +1,4 @@
-# QR Magic user guide
+# QR Mystic user guide
 
 Create a design, give its QR useful content, save an editable project, and prepare a print handoff. Open Help in the app for search and an optional quick tour.
 
@@ -20,19 +20,19 @@ Select the QR in the canvas or Layers list. In the Inspector, paste a website ad
 
 ### 4. Make it yours and save
 
-Add text, images and shapes from Add layer. Select a layer to change its appearance and position. Edits save automatically on this device; wait for Saved on this device. Use Save project to download a separate editable .qrmagic.json backup or sharing copy.
+Add text, images and shapes from Add layer. Select a layer to change its appearance and position. Edits save automatically on this device. Wait for Saved on this device. Use Save project to download a separate editable .qrmystic.json backup or sharing copy.
 
 ### 5. Check and download
 
 Review the quantity in Job. Use a proof package to check one item, or Print layout to arrange the whole job on sheets or a roll. Scan a sample on your phone and check a physical print at the finished size before printing the batch.
 
-## Install QR Magic and work offline
+## Install QR Mystic and work offline
 
 Keep the editor and print tools available without a connection.
 
 ### Get ready while connected
 
-Open QR Magic online and wait for Ready to use offline in the project chooser or editor. Choose Install QR Magic if it appears, or use your browser’s install option. In Safari on iPhone or iPad, use Share, then Add to Home Screen. Turn on Open as Web App if offered, then launch it once while connected. You can also return to the same address in the same browser profile without installing.
+Open QR Mystic online and wait for Ready to use offline in the project chooser or editor. Choose Install QR Mystic if it appears, or use your browser’s install option. In Safari on iPhone or iPad, use Share, then Add to Home Screen. Turn on Open as Web App if offered, then launch it once while connected. You can also return to the same address in the same browser profile without installing.
 
 ### Design and export offline
 
@@ -42,7 +42,7 @@ Google Drive and opening external websites need a connection. If you’re bringi
 
 ### Keep your projects and get updates
 
-Keep separate copies of important project files. Clearing QR Magic’s site data can remove recent projects and offline access. To pick up a new app version, reconnect and close all QR Magic windows and tabs before reopening. Save your work first.
+Keep separate copies of important project files. Clearing QR Mystic’s site data can remove recent projects and offline access. To pick up a new app version, reconnect and close all QR Mystic windows and tabs before reopening. Save your work first.
 
 ## QR content & destinations
 
@@ -58,9 +58,9 @@ Choose A different serial on each item and set the count and numbering in Job. C
 
 ### What happens after printing?
 
-Current QR links go directly to the address you enter. QR Magic does not provide managed redirects or scan tracking. Changing a project later does not change an already printed code. Use a redirect URL you control if you need to change or disable its destination later.
+A printed QR always contains the address you entered when you exported it. Use a managed URL if you need to change or pause its destination later. If your team has access to the managed-link pilot, create the link in the dashboard and paste its QR URL into Website or text. Updates in the dashboard affect every printed QR that uses that address.
 
-Test destination opens the resolved website in a new tab. It is a useful link check; also scan the actual printed QR with your phone.
+Test destination opens the resolved website in a new tab. Also scan the actual printed QR with your phone.
 
 ### Advanced content
 
@@ -194,13 +194,13 @@ Pick up your work again and keep a portable backup.
 
 ### Autosave on this device
 
-After an edit, QR Magic saves the project in this browser after a short pause. Saved on this device confirms the local write completed. While changes are waiting or saving, keep the tab open. If a local save fails, use Retry local save or Download backup; you can keep designing.
+After an edit, QR Mystic saves the project in this browser after a short pause. Saved on this device confirms the local write completed. While changes are waiting or saving, keep the tab open. If a local save fails, use Retry local save or Download backup. You can keep designing.
 
 When you return, choose a project from Recent projects. The app does not open one automatically. Projects in the toolbar opens the same list, and New project opens the templates. Search by name, or use Duplicate to create an independent design. Print Layout settings and embedded artwork are included.
 
 ### Keep a separate backup
 
-Save project downloads a .qrmagic.json file containing the design, artwork, content sources, quantities and layout settings. Local identity stays in the browser and is not added to that file. An exported PDF or image does not replace the editable project file.
+Save project downloads a .qrmystic.json file containing the design, artwork, content sources, quantities and layout settings. You can also open older .qrmagic.json files from this device or Google Drive. Local identity stays in the browser and is not added to that file. Keep the editable project file alongside any exported PDF or image.
 
 Local saves are specific to this browser and site. They are not cloud backups and may be lost if site data is cleared or the browser removes stored data. Private browsing may clear them when the private session ends. Download project files for long-term storage or use on another device.
 
@@ -212,9 +212,9 @@ Share the editable project file with a print shop so it can open the design and 
 
 ### Open, save or share with Google Drive
 
-Choose Open from Google Drive in Projects, or use the Google Drive button in the editor. Select Show Drive projects to search files QR Magic can already access. Use Browse Drive to select another project. Drive sign-in on the live site is available to approved testers.
+Choose Open from Google Drive in Projects, or use the Google Drive button in the editor. Select Show Drive projects to search files QR Mystic can already access. Use Browse Drive to select another project. Drive sign-in on the live site is available to approved testers.
 
-Under Save to Drive, enter a filename, choose a folder or use My Drive, then select Save a copy. Each save creates a separate Drive file. Edits still autosave in this browser. To put later edits in Drive, save another copy.
+Under Save to Drive, enter a filename, choose a folder or use My Drive, then select Save a copy. Each save creates a separate .qrmystic.json Drive file. Edits still autosave in this browser. To put later edits in Drive, save another copy.
 
 Select Share Drive file for the project you opened or saved to use Google’s sharing controls. If the dialog is blocked, select Open file in Drive and share it there.
 

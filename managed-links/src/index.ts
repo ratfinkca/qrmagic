@@ -165,7 +165,7 @@ async function manage(request: Request, path: string, env: Env, ctx: Context) {
 
 const unavailablePage = `<!doctype html><html lang="en"><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Link unavailable · QR Magic</title>
+<title>Link unavailable · QR Mystic</title>
 <main><h1>This link is currently unavailable</h1><p>Please check with the organization that shared this QR code.</p></main></html>`;
 
 async function scan(request: Request, url: URL, env: Env) {

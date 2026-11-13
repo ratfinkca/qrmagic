@@ -21,15 +21,15 @@ export function dashboardPage(editorUrl = defaultEditor): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>Managed QR links · QR Magic</title>
+  <title>Managed QR links · QR Mystic</title>
   <link rel="stylesheet" href="/manage/dashboard.css">
   <script src="/manage/dashboard.js" defer></script>
 </head>
 <body>
   <header class="site-header">
     <div class="header-inner">
-      <p class="wordmark"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span> QR Magic</p>
-      <a href="${editorHref(editorUrl)}" target="_blank" rel="noopener noreferrer">Open QR Magic editor <span aria-hidden="true">↗</span></a>
+      <p class="wordmark"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span> QR Mystic</p>
+      <a href="${editorHref(editorUrl)}" target="_blank" rel="noopener noreferrer">Open QR editor <span aria-hidden="true">↗</span></a>
     </div>
   </header>
   <main>
@@ -54,7 +54,7 @@ export function dashboardPage(editorUrl = defaultEditor): string {
         </form>
         <div class="tip">
           <h3>Use the same QR after printing</h3>
-          <p>Copy the QR URL into <strong>Website or text</strong> in QR Magic. A destination change or pause applies to every printed copy using that URL.</p>
+          <p>Copy the QR URL into the editor’s <strong>Website or text</strong> field. A destination change or pause applies to every printed copy using that URL.</p>
         </div>
       </section>
       <section class="card links-card" aria-labelledby="list-heading">

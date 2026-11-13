@@ -1,21 +1,25 @@
-# QR Magic
+# QR Mystic
 
-QR Magic is a browser-based designer for QR posters, numbered decals and repeated stickers. Create artwork, save an editable project, and prepare actual-size files for a print shop.
+QR Mystic is a browser-based designer for QR posters, numbered decals and repeated stickers. Create artwork, save an editable project, and prepare actual-size files for a print shop.
 
-[Open QR Magic](https://ratfinkca.github.io/qrmagic/) · [Read the user guide](docs/user-guide.md) · [Set up development](docs/development-handoff.md)
+[Open the live QR Magic editor](https://ratfinkca.github.io/qrmagic/) · [Read the QR Mystic user guide](docs/user-guide.md) · [Set up development](docs/development-handoff.md)
+
+QR Mystic is the name used on the pilot branch. The live GitHub Pages release and its Google OAuth branding still use QR Magic.
 
 ## Start designing
 
 1. Choose **Poster or sign**, **Repeated stickers**, **Numbered decals**, or **Blank canvas**.
 2. Set the finished size. Select a QR to enter a website, plain text or serial content in the Inspector.
-3. Set the quantity in **Job**, or choose **Set up CSV batch** to fill QR and text layers from a spreadsheet. Use **Save project** to download an editable `.qrmagic.json` file.
+3. Set the quantity in **Job**, or choose **Set up CSV batch** to fill QR and text layers from a spreadsheet. Use **Save project** to download an editable `.qrmystic.json` file. Open older `.qrmagic.json` files locally or from Google Drive in the same way.
 4. Check one item with a proof package, or arrange the whole job in **Print layout** for roll or sheet output.
 
 Open **Help** in the editor or Print Layout for searchable guides. **Take a quick tour** shows the main controls without changing your design. The small question-mark buttons explain print terms and advanced features with keyboard, pointer or touch input.
 
-Open QR Magic while connected and wait for **Ready to use offline**. Install it from your browser if you want a dedicated app window. Editing, local project saves and exports work offline after setup. See [installation and offline use](docs/user-guide.md#install-qr-magic-and-work-offline).
+Open QR Mystic while connected and wait for **Ready to use offline**. Install it from your browser if you want a dedicated app window. Editing, local project saves and exports work offline after setup. See [installation and offline use](docs/user-guide.md#install-qr-mystic-and-work-offline).
 
 Edits save automatically in this browser. Wait for **Saved on this device**, then use **Projects** to reopen recent designs or make an independent copy. Keep a portable project file for backup or to move to another device. Printed QR links encode the destination you entered, so editing the project later leaves already printed codes pointing to the original address.
+
+An invited team can use the managed-link dashboard to create a stable QR URL, then edit or pause the destination after printing. See the [pilot guide](docs/managed-links-pilot.md).
 
 Google Drive is available to approved testers. Use the editor’s cloud button to open a project or save a named copy to a Drive folder. **Share Drive file** opens Google’s sharing dialog. Local autosave continues separately. See the [saving and sharing guide](docs/user-guide.md#save-open--share-projects).
 
@@ -51,4 +55,4 @@ Active development takes place in [`web/`](web/). The original Python/Tkinter ap
 
 ## Contributing and license
 
-Issues and pull requests are welcome. Update the affected docs alongside your changes, and review the [handoff maintenance notes](docs/development-handoff.md#keep-this-handoff-current) before wrapping up. QR Magic uses the [MIT license](LICENSE).
+Issues and pull requests are welcome. Update the affected docs alongside your changes, and review the [handoff maintenance notes](docs/development-handoff.md#keep-this-handoff-current) before wrapping up. QR Mystic uses the [MIT license](LICENSE).

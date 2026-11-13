@@ -46,7 +46,9 @@ test("the production PWA opens offline, edits and reopens local projects, and ex
     assert.equal(manifest.display, "standalone");
     assert.equal(new URL(manifest.start_url, new URL(manifestUrl, url)).href, url);
     assert.equal(new URL(manifest.scope, new URL(manifestUrl, url)).href, url);
-    assert.equal(manifest.name, "QR Magic");
+    assert.equal(manifest.name, "QR Mystic");
+    assert.equal(manifest.short_name, "QR Mystic");
+    assert.equal(new URL(manifest.id, url).href, url);
     for (const size of ["192x192", "512x512"]) assert(manifest.icons.some(icon => icon.sizes === size && icon.purpose === "any"));
     await page.getByText("Ready to use offline", { exact: true }).waitFor({ timeout: 15_000 });
     const cdp = await context.newCDPSession(page);
@@ -95,10 +97,14 @@ test("the production PWA opens offline, edits and reopens local projects, and ex
     assert.equal(await offline.getByLabel("Name", { exact: true }).inputValue(), "Edited offline");
     assert.equal(await offline.getByLabel("Website or text", { exact: true }).inputValue(), payload);
 
-    const projectFile = await download(offline, offline.getByTitle("Save project", { exact: true }));
+    const projectDownload = offline.waitForEvent("download");
+    await offline.getByTitle("Save project", { exact: true }).click();
+    const downloaded = await projectDownload;
+    assert.equal(downloaded.suggestedFilename(), "Edited offline.qrmystic.json");
+    const projectFile = await readFile(await downloaded.path());
     assert.equal(JSON.parse(projectFile).project.document.name, "Edited offline");
-    await offline.locator('input[accept=".qrmagic.json,application/json"]').setInputFiles({
-      name: "offline.qrmagic.json", mimeType: "application/json", buffer: projectFile,
+    await offline.locator('input[type=file][accept*=".qrmystic.json"]').setInputFiles({
+      name: downloaded.suggestedFilename(), mimeType: "application/json", buffer: projectFile,
     });
     await offline.getByText("Saved on this device", { exact: true }).waitFor();
     const proof = await JSZip.loadAsync(await download(offline, offline.getByRole("button", { name: "Download proof package" })));
@@ -153,7 +159,7 @@ test("an offline release updates only after it is fully cached and old tabs clos
 
     const indexPath = join(folder, "index.html");
     const oldHtml = await readFile(indexPath, "utf8");
-    const newHtml = oldHtml.replace("<title>QR Magic</title>", "<title>QR Magic Next</title>");
+    const newHtml = oldHtml.replace("<title>QR Mystic</title>", "<title>QR Mystic Next</title>");
     assert.notEqual(oldHtml, newHtml);
     await writeFile(indexPath, newHtml);
     await writeOfflineWorker(pathToFileURL(folder + sep));
@@ -174,7 +180,7 @@ test("an offline release updates only after it is fully cached and old tabs clos
       return result;
     });
     assert.equal(await checkUpdate(), "redundant");
-    assert.equal(await oldTab.title(), "QR Magic");
+    assert.equal(await oldTab.title(), "QR Mystic");
     assert(await oldTab.evaluate(async key => Boolean(await (await caches.open(key)).match(new URL("index.html", location.href))), oldCache));
     await writeFile(indexPath, newHtml);
     assert.equal(await checkUpdate(), "installed");
@@ -183,7 +189,7 @@ test("an offline release updates only after it is fully cached and old tabs clos
       return Boolean(registration.waiting && registration.active === navigator.serviceWorker.controller);
     });
     assert(activeWorker);
-    assert.equal(await oldTab.title(), "QR Magic");
+    assert.equal(await oldTab.title(), "QR Mystic");
 
     // Observe the registration from the same origin, outside worker scope,
     // without keeping the old release alive.
@@ -199,7 +205,7 @@ test("an offline release updates only after it is fully cached and old tabs clos
     await context.setOffline(true);
     const newTab = await context.newPage();
     await newTab.goto(url);
-    assert.equal(await newTab.title(), "QR Magic Next");
+    assert.equal(await newTab.title(), "QR Mystic Next");
     await newTab.getByRole("dialog", { name: "What are you making?" }).waitFor();
   } finally {
     await browser?.close();

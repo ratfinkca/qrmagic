@@ -54,7 +54,7 @@ export function ProjectChooser({ onCreate, onOpen, onOpenDrive, suspended, onClo
   return (
     <dialog className="project-chooser" ref={dialog} onCancel={event=>{event.preventDefault();if(!busy)onClose();}} aria-labelledby="chooser-title" aria-busy={busy}>
       <div className="chooser-heading">
-        <div><span className="chooser-eyebrow">QR MAGIC · YOUR WORKSPACE</span><h1 id="chooser-title">What are you making?</h1></div>
+        <div><span className="chooser-eyebrow">QR MYSTIC · YOUR WORKSPACE</span><h1 id="chooser-title">What are you making?</h1></div>
         <button className="tool-button" aria-label="Close new project" disabled={busy} onClick={onClose}><X size={20} /></button>
       </div>
       <div className="project-views" role="group" aria-label="Project chooser view"><button type="button" disabled={busy} aria-pressed={activeView==="recent"} onClick={()=>setView("recent")}>Recent projects {recent.length?<span>{recent.length}</span>:null}</button><button type="button" disabled={busy} aria-pressed={activeView==="new"} onClick={()=>setView("new")}>New project</button></div>

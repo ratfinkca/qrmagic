@@ -1,6 +1,6 @@
-# QR Magic development handoff
+# QR Mystic development handoff
 
-QR Magic is a browser app for one-off QR artwork and print batches. The editor, QR generation and export run in the browser. Google Drive is an optional way to move and share editable project files. Active development is in `web/`, using React, TypeScript, Vite and Konva.
+QR Mystic is a browser app for one-off QR artwork and print batches. The editor, QR generation and export run in the browser. Google Drive is an optional way to move and share editable project files. Active development is in `web/`, using React, TypeScript, Vite and Konva.
 
 ## Resume on another machine
 
@@ -17,7 +17,7 @@ Open [the local editor](http://127.0.0.1:5173/qrmagic/). Vite serves the app und
 
 If you’re transferring work in progress, push its branch from the old machine and check out that branch on the new one. A clone only includes work available on the remote.
 
-To move designs, download the editable `.qrmagic.json` files or save copies to Google Drive on the old machine, then open those files on the new one. Recent Projects and autosave are in IndexedDB for the current browser profile and origin. Changing from `127.0.0.1` to `localhost` also changes that storage scope. To test real Drive locally, follow [Google Drive setup](google-drive.md). A fresh clone can run the editor and automated tests without Drive configuration.
+To move designs, download the editable `.qrmystic.json` files or save copies to Google Drive on the old machine, then open those files on the new one. Older `.qrmagic.json` files can also be opened locally or from Drive. Recent Projects and autosave are in IndexedDB for the current browser profile and origin. Changing from `127.0.0.1` to `localhost` also changes that storage scope. To test real Drive locally, follow [Google Drive setup](google-drive.md). A fresh clone can run the editor and automated tests without Drive configuration.
 
 ## Run the checks
 
@@ -37,7 +37,7 @@ Vitest covers project migration, quantities, CSV, storage, print and export mode
 
 ## Review installation and offline use
 
-After building, run `pnpm preview --host 127.0.0.1 --port 5173 --strictPort` from `web/`, with the dev server stopped. Open [the local preview](http://127.0.0.1:5173/qrmagic/) in a regular browser window and wait for **Ready to use offline**. Use the browser install menu, or **Install QR Magic** when offered. Turn off the network and reopen the app, edit a project, wait for local autosave and download an export. Drive should show a connection message.
+After building, run `pnpm preview --host 127.0.0.1 --port 5173 --strictPort` from `web/`, with the dev server stopped. Open [the local preview](http://127.0.0.1:5173/qrmagic/) in a regular browser window and wait for **Ready to use offline**. Use the browser install menu, or **Install QR Mystic** when offered. Turn off the network and reopen the app, edit a project, wait for local autosave and download an export. Drive should show a connection message.
 
 The service worker is registered in production builds only. Use a separate origin or browser profile for Vite development if you want to keep the PWA installed. For example, use preview port 4173 for offline tests and dev port 5173 for hot reload. Each origin has its own cache and project library. If a production worker is serving the old build on your dev origin, unregister that worker and reload online. Clearing all site data also removes local projects.
 
@@ -49,7 +49,7 @@ The deployed web app includes production exports and print layouts, help and onb
 
 Mimaki is the first equipment target. The internal printer/cutter model, RIP version and shop settings are still pending. Existing packages can be used for test imports and physical proofs. The [production reference](production-documents.md) describes what the package contains and what the shop still configures.
 
-Managed links are on `codex/managed-links-pilot` in the same repository. The pilot uses a separate Cloudflare Worker, D1 database, and invite-only Access application; the live editor stays on GitHub Pages from `main`. See the [pilot guide](managed-links-pilot.md) for local review, staging setup, and hosted smoke checks.
+Managed links and the QR Mystic rebrand are on `codex/managed-links-pilot` in the same repository. The live editor stays on GitHub Pages from `main` and continues to use QR Magic for its app name and OAuth branding. The pilot uses a separate Cloudflare Worker, D1 database, and invite-only Access application. See the [pilot guide](managed-links-pilot.md) for local review, staging setup, and hosted smoke checks.
 
 ## Find your way around
 

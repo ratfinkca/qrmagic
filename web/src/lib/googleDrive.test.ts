@@ -28,9 +28,9 @@ describe("Google Drive project files", () => {
     expect(options.headers).toMatchObject({ Authorization: "Bearer token", "X-Goog-Drive-Resource-Keys": "one/key" });
   });
 
-  it("lists project files across pages, excluding unrelated Drive files", async () => {
+  it("lists both project filename extensions across pages, excluding unrelated Drive files", async () => {
     const first = { id: "one", name: "Print run.QRMAGIC.JSON", modifiedTime: "2026-01-02T00:00:00Z" };
-    const second = { id: "two", name: "Decals.qrmagic.json", resourceKey: "key" };
+    const second = { id: "two", name: "Decals.QRMYSTIC.JSON", resourceKey: "key" };
     const fetch = vi.fn()
       .mockResolvedValueOnce(Response.json({ files: [first, { id: "other", name: "other.json" }], nextPageToken: "second-page" }))
       .mockResolvedValueOnce(Response.json({ files: [second] }));

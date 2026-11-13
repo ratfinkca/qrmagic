@@ -61,6 +61,7 @@ import { reviewCsvBatch } from "./lib/csvBatch";
 import { CsvBatchDialog } from "./components/CsvBatchDialog";
 import { GoogleDriveDialog } from "./components/GoogleDriveDialog";
 import { saveDriveProject, type DriveFolder, type DriveProject } from "./lib/googleDrive";
+import { projectFileAccept, projectFilename } from "./lib/projectFilename";
 import type {
   DataGroup,
   EditorTool,
@@ -674,7 +675,7 @@ export function App() {
   }
 
   function sanitizeFilename(value: string) {
-    return value.replace(/[\\/:*?"<>|]/g, "_").trim() || "qrmagic";
+    return value.replace(/[\\/:*?"<>|]/g, "_").trim() || "qrmystic";
   }
 
   async function exportPngTemplate() {
@@ -705,7 +706,7 @@ export function App() {
       zip.file(
         "README.txt",
         [
-          "QR Magic template export",
+          "QR Mystic template export",
           "",
           "Import the PNG files into GIMP as layers.",
           "Use artwork as the bottom layer, then place guide overlays above it.",
@@ -716,7 +717,7 @@ export function App() {
       const blob = await zip.generateAsync({ type: "blob" });
       downloadBlob(blob, `${baseName}-template.zip`);
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "QR Magic could not export the template.");
+      window.alert(error instanceof Error ? error.message : "QR Mystic could not export the template.");
     } finally {
       exportLockedRef.current = false;
       setExportStatus(null);
@@ -781,7 +782,7 @@ export function App() {
         `${sanitizeFilename(projectSnapshot.document.name)}-${format}-set.zip`,
       );
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : "QR Magic could not export the set.");
+      window.alert(error instanceof Error ? error.message : "QR Mystic could not export the set.");
     } finally {
       exportLockedRef.current = false;
       setExportStatus(null);
@@ -798,7 +799,7 @@ export function App() {
   }
 
   function saveProjectFile() {
-    downloadBlob(projectFileBlob(project), `${sanitizeFilename(project.document.name)}.qrmagic.json`);
+    downloadBlob(projectFileBlob(project), projectFilename(sanitizeFilename(project.document.name)));
     lastSavedProjectRef.current = project;
   }
 
@@ -869,8 +870,8 @@ export function App() {
   function readProjectFile(content: string) {
     let loadedProject: QrMagicProject | null;
     try { loadedProject = projectFromFile(JSON.parse(content)); }
-    catch { throw new Error("QR Magic could not read that project file."); }
-    if (!loadedProject) throw new Error("That file does not look like a QR Magic project.");
+    catch { throw new Error("QR Mystic could not read that project file."); }
+    if (!loadedProject) throw new Error("That file does not look like a QR Mystic project.");
     return projectForEditor(loadedProject);
   }
 
@@ -1088,7 +1089,7 @@ export function App() {
     {tourStep !== null ? <Walkthrough step={tourStep} hasQr={project.layers.some(layer => layer.type === "qr")} onStep={setTourStep} onEnd={endTour}/> : null}</>;
   const localSaveStatus=<LocalSaveStatus status={local.status} savedAt={local.savedAt} forked={local.session.forked} onRetry={()=>{void local.flush().catch(()=>{});}} onDownload={saveProjectFile}/>;
   const driveDialog = driveMode && <GoogleDriveDialog online={offlineApp.online} openOnly={driveMode === "open"} file={driveFile}
-    defaultFilename={`${sanitizeFilename(project.document.name)}.qrmagic.json`}
+    defaultFilename={projectFilename(sanitizeFilename(project.document.name))}
     onClose={() => setDriveMode(null)} onSave={saveProjectToDrive} onOpen={async (content, drive) => {
       const next = readProjectFile(content);
       return changeDocument(async () => ({ next, downloaded: true, drive }));
@@ -1107,7 +1108,7 @@ export function App() {
       <header className="topbar">
         <div className="brand">
           <ScanQrCode size={24} />
-          <span>QR Magic</span>
+          <span>QR Mystic</span>
         </div>
         <nav className="tool-strip" aria-label="Editor tools">
           <button
@@ -1185,7 +1186,7 @@ export function App() {
           <input
             ref={projectInputRef}
             type="file"
-            accept=".qrmagic.json,application/json"
+            accept={projectFileAccept}
             className="visually-hidden"
             onChange={(event) => {
               const file = event.target.files?.[0];

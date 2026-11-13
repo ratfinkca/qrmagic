@@ -1,6 +1,6 @@
 # Production documents and export
 
-The chooser offers numbered decals, posters or signs, repeated stickers and a blank canvas, plus recent projects and file/Drive opening. When switching projects, the editor tries to finish the local save and asks before replacing changes that could not be saved. See the [user guide](user-guide.md) for the editor workflow and the [project model](project-model.md) for file storage and CSV mapping.
+The QR Mystic chooser offers numbered decals, posters or signs, repeated stickers and a blank canvas, plus recent projects and file/Drive opening. When switching projects, the editor tries to finish the local save and asks before replacing changes that could not be saved. See the [user guide](user-guide.md) for the editor workflow and the [project model](project-model.md) for file storage and CSV mapping.
 
 ## Version 2 project contract
 

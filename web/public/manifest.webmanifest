@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "QR Magic",
-  "short_name": "QR Magic",
+  "name": "QR Mystic",
+  "short_name": "QR Mystic",
   "description": "Design QR artwork and prepare print batches.",
   "start_url": "./",
   "scope": "./",

@@ -24,7 +24,7 @@ export async function productionPackage(project: QrMagicProject, records: Render
     limits: ["No ICC conversion or output intent", "No machine cut separation or registration marks", "One finished item per page; no roll imposition"],
   }, null, 2));
   zip.file("README.txt", [
-    `QR Magic production package: ${project.document.name}`,
+    `QR Mystic production package: ${project.document.name}`,
     "",
     "ARTWORK: artwork.pdf has one finished item per page, including every requested copy.",
     "Print at 100% / actual size. Do not fit to page. MediaBox and BleedBox include bleed; TrimBox is the finished size.",

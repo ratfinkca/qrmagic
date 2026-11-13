@@ -1,12 +1,12 @@
 # Google Drive setup and support
 
-QR Magic uses Drive to open, save and share editable `.qrmagic.json` files. **Save a copy** creates a separate Drive file each time. Opening a Drive file starts a local editing session, and autosave writes to that browser. Use Save to Drive again to put an updated copy in Drive.
+QR Mystic uses Drive to open, save and share editable project files. **Save a copy** creates a separate `.qrmystic.json` file each time. Drive Projects and Browse Drive can open older `.qrmagic.json` files too. Opening a Drive file starts a local editing session, and autosave writes to that browser. Use Save to Drive again to put an updated copy in Drive.
 
 Drive sign-in, browsing, saving and sharing need an internet connection, including in the installed web app. To take a Drive project offline, open it while connected and wait for **Saved on this device**, or download the editable file.
 
 ## Live pilot
 
-The [Pages site](https://ratfinkca.github.io/qrmagic/) uses the existing Google Cloud project `qr-magic-local-test`. OAuth branding is **QR Magic**, with the Pages URL as its homepage. The [OAuth audience](https://console.cloud.google.com/auth/audience?project=qr-magic-local-test) is **External / Testing**.
+The [live QR Magic Pages site](https://ratfinkca.github.io/qrmagic/) uses the existing Google Cloud project `qr-magic-local-test`. OAuth branding is **QR Magic**, with the Pages URL as its homepage. The [OAuth audience](https://console.cloud.google.com/auth/audience?project=qr-magic-local-test) is **External / Testing**. The QR Mystic pilot rebrand uses the existing OAuth setup until a separate change is approved.
 
 Add each tester’s exact Google Account email under **Audience → Test users**. The pilot can include users from separate Workspaces, subject to each Workspace’s third-party app policy. Google allows up to 100 test users and Drive consent expires after seven days in Testing. Updating the tester list takes effect in Google Cloud without a Pages deployment. Use the Console as the source for the current roster. [Google’s audience rules](https://support.google.com/cloud/answer/15549945?hl=en)
 
@@ -46,5 +46,5 @@ Set the three values above as **repository variables** under **Settings → Secr
 | Google Drive setup is required | All three values are present in the local environment or Pages build. Restart Vite or rebuild Pages after changing them. |
 | Google rejects sign-in | Check the exact JavaScript origin, the account selected in Google, the tester list and the account’s Workspace policy. |
 | Picker rejects the API key | Check the Cloud project, enabled APIs and website restrictions, including `https://docs.google.com/*`. |
-| A project is missing from Drive Projects | The list shows files already accessible to QR Magic. Select the project through **Browse Drive**. |
-| A recipient cannot open a shared file through QR Magic | Check the file’s Drive permissions and the recipient’s pilot access. They can also download the file from Drive and open it locally if their Drive permissions allow downloading. |
+| A project is missing from Drive Projects | The list shows files already accessible to the editor. Select the project through **Browse Drive**. |
+| A recipient cannot open a shared file through QR Mystic | Check the file’s Drive permissions and the recipient’s pilot access. They can also download the file from Drive and open it locally if their Drive permissions allow downloading. |

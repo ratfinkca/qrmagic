@@ -1,6 +1,6 @@
-# QR Magic milestones and roadmap
+# QR Mystic milestones and roadmap
 
-QR Magic is a web app for quick QR posters as well as numbered decals, repeated stickers and spreadsheet-driven print jobs. The editor and production tools run in the browser. The original Tkinter app remains a legacy reference.
+QR Mystic is a web app for quick QR posters as well as numbered decals, repeated stickers and spreadsheet-driven print jobs. The editor and production tools run in the browser. The original Tkinter app remains a legacy reference.
 
 ## Shipped
 
@@ -23,7 +23,8 @@ See the [user guide](user-guide.md) for the current interface, the [development 
 | Work | Status and next decision |
 | --- | --- |
 | Validate the Mimaki workflow | Waiting for the internal printer/cutter model, RIP name and version, and shop media/cut settings. Use a small physical proof and a roll/sheet test to verify size, feed, contour alignment, and QR readability. Decide on a shop profile once the RIP requirements are known. Roland can follow with its own validation. |
-| Managed QR destinations | Local Cloudflare pilot on a separate branch. Invited staff can manage links from a dashboard and paste the public URL into a QR. Choose separate staging hostnames and test with staff before printing codes that depend on the service. See the [pilot guide](managed-links-pilot.md). |
+| Managed QR destinations | QR Mystic pilot on a separate branch. Invited staff manage links from a dashboard and paste the public URL into a QR. The staging plan uses `go-pilot.qrmystic.com` and `manage-pilot.qrmystic.com`. Test with staff before printing codes that depend on the service. See the [pilot guide](managed-links-pilot.md). |
+| QR Mystic rebrand | The pilot saves new files as `.qrmystic.json` and opens existing `.qrmagic.json` files locally and from Drive. The live GitHub Pages release and OAuth branding continue to use QR Magic until their rollout is approved. |
 | Wider Drive access | The named-account pilot is the current choice. Revisit Google production branding, privacy disclosures and any applicable verification if the project owner wants a public rollout. A synced project library, team editing and other providers are separate proposals. |
 
 Additional ideas include a per-item data manifest for reconciliation, portable sample jobs, and testing large jobs on modest devices. Capture a concrete print or design workflow before promoting one to a milestone. Keep this page updated when work ships or a priority changes.

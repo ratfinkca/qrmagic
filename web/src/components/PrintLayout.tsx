@@ -41,14 +41,14 @@ export function PrintLayout({project,printChecks,saveStatus,onChange,onBack,onSa
       const blob=await exportLayoutPackage(project,settings,{signal:abort.signal,onProgress:setProgress});
       abort.signal.throwIfAborted();
       const link=document.createElement("a"),url=URL.createObjectURL(blob);link.href=url;
-      link.download=`${project.document.name.replace(/[^a-z0-9_-]/gi,"-")||"qrmagic"}-print-layout.zip`;
+      link.download=`${project.document.name.replace(/[^a-z0-9_-]/gi,"-")||"qrmystic"}-print-layout.zip`;
       link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setMessage("Layout package downloaded.");
     }catch(e){setMessage(e instanceof DOMException&&e.name==="AbortError"?"Export cancelled. Your layout settings are kept.":e instanceof Error?e.message:"Could not export layout.");}
     finally{controller.current=null;setProgress(null);}
   }
   const uniform=[settings.marginTop,settings.marginRight,settings.marginBottom].every(v=>v===settings.marginLeft);
   return <main className="print-layout-workspace">
-    <header className="layout-header"><strong>▦ QR Magic</strong><span>Design <b>› Print layout</b> › Download</span><div>{saveStatus}</div><div className="layout-header-actions"><button disabled={busy} onClick={onHelp}>Help</button><button disabled={busy} onClick={onSave}>Save project</button><button disabled={busy} onClick={onDrive}>Google Drive</button></div></header>
+    <header className="layout-header"><strong>▦ QR Mystic</strong><span>Design <b>› Print layout</b> › Download</span><div>{saveStatus}</div><div className="layout-header-actions"><button disabled={busy} onClick={onHelp}>Help</button><button disabled={busy} onClick={onSave}>Save project</button><button disabled={busy} onClick={onDrive}>Google Drive</button></div></header>
     <div className="layout-content"><div className="layout-heading"><div><button aria-label="Back to design" className="layout-back" disabled={busy} onClick={onBack}>← Back to design</button><h1>Print layout</h1><p>Arrange your artwork at its finished size.</p></div>
       <div className="layout-job"><strong>{project.document.name}</strong><span>{count.records.toLocaleString()} {count.records===1?"record":"records"} × {count.copiesPerRecord.toLocaleString()} copies · {count.total.toLocaleString()} items</span></div></div>
     <div className="layout-columns">

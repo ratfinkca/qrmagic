@@ -1,10 +1,10 @@
-# QR Magic project model
+# QR Mystic project model
 
-A `.qrmagic.json` project is the editable design, including artwork, data and print settings. The same file format is used for local downloads and Google Drive copies. For the precise TypeScript fields, see [types.ts](../web/src/types.ts). For physical sizing, cut geometry and package contents, see the [production reference](production-documents.md).
+A `.qrmystic.json` project is the editable design, including artwork, data and print settings. The same file format is used for local downloads and Google Drive copies. The editor can open older `.qrmagic.json` project files from either source. For the precise TypeScript fields, see [types.ts](../web/src/types.ts). For physical sizing, cut geometry and package contents, see the [production reference](production-documents.md).
 
 ## File format and compatibility
 
-New files use an envelope with `format: "qrmagic.project"`, an ISO `savedAt` timestamp, and a `project` object at version 2. The importer accepts both that envelope and legacy bare project objects, then [normalizes them](../web/src/lib/project.ts) and [checks the structure needed by the editor](../web/src/lib/projectValidation.ts).
+New files use the same envelope as QR Magic files, with `format: "qrmagic.project"`, an ISO `savedAt` timestamp, and a `project` object at version 2. The importer accepts both that envelope and legacy bare project objects, then [normalizes them](../web/src/lib/project.ts) and [checks the structure needed by the editor](../web/src/lib/projectValidation.ts).
 
 | Field in `project` | What it stores |
 | --- | --- |
