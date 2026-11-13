@@ -188,9 +188,17 @@ Local saves are specific to this browser and site. They are not cloud backups an
 
 ### Open or share a file
 
-Use Open project in the toolbar or Open project file in the chooser. An imported file becomes a new local project. Before switching projects, the app finishes saving current changes. If that fails, it asks before replacing them. Share a project file with a print shop so it can open the design and choose layout settings.
+Use Open project in the toolbar or Open project file in the chooser. An imported file becomes a new local project. Before switching projects, the app tries to finish saving your current changes. If that fails and there are unsaved changes, it asks before replacing them.
 
-Project files include artwork and QR content, so share them with the people who need that information. There is no cloud project library or automatic cloud backup.
+Share the editable project file with a print shop so it can open the design and choose layout settings. Project files include artwork, QR content and any imported CSV rows. Check who should have access before sharing.
+
+### Open, save or share with Google Drive
+
+Choose Open from Google Drive in Projects, or use the Google Drive button in the editor. Select Show Drive projects to search files QR Magic can already access. Use Browse Drive to select another project. Drive sign-in on the live site is available to approved testers.
+
+Under Save to Drive, enter a filename, choose a folder or use My Drive, then select Save a copy. Each save creates a separate Drive file. Edits still autosave in this browser. To put later edits in Drive, save another copy.
+
+Select Share Drive file for the project you opened or saved to use Google’s sharing controls. If the dialog is blocked, select Open file in Drive and share it there.
 
 ### Editing in two tabs
 

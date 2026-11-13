@@ -1,5 +1,7 @@
 # Local autosave, recovery and recent projects
 
+Shipped in `22eef0d`. This is a [historical plan](../README.md). See the [development handoff](../../development-handoff.md) for current instructions.
+
 The user approved the proposed next release: autosave, recovery and a friendly Recent Projects screen. Build in the existing React web app and leave locally reviewable; do not commit/push this phase until reviewed.
 
 ## Design

@@ -1,6 +1,6 @@
-# Production document model, phase one
+# Production documents and export
 
-The web editor starts with a new-project chooser for numbered decals, a QR poster, repeated stickers, or an empty canvas. Open project file is available in the chooser and toolbar. Creating or opening another project asks before replacing an unsaved design.
+The chooser offers numbered decals, posters or signs, repeated stickers and a blank canvas, plus recent projects and file/Drive opening. When switching projects, the editor tries to finish the local save and asks before replacing changes that could not be saved. See the [user guide](user-guide.md) for the editor workflow and the [project model](project-model.md) for file storage and CSV mapping.
 
 ## Version 2 project contract
 
@@ -8,7 +8,7 @@ The web editor starts with a new-project chooser for numbered decals, a QR poste
 - `document.bleedMm` is a uniform physical allowance outside all four trim edges. It enlarges the artwork/export canvas without moving the artwork relative to trim. The bleed envelope is rectangular, including when the cut is curved.
 - `document.safeAreaMm` is an inset for composition guides. On nonrectangular cuts the inset bounding-box guide is a visual aid, not a computed constant-distance offset of the contour.
 - `document.shape` is the intended cut geometry within the finished bounds, independently of artwork layers. It uses the existing parametric geometry presets and polygon controls. Corner radius is stored in document pixels and edited in millimetres.
-- `production.copiesPerRecord` is a positive integer. Data-group quantities still determine the record count. Records can deliberately share the same payload, including when a text layer uses `{{index}}`.
+- `production.copiesPerRecord` is a positive integer. A CSV batch uses one record per row. Otherwise data-group quantities determine record count. Records can deliberately share the same payload, including when a text layer uses `{{index}}`.
 
 For example, one fixed record with 5,000 copies creates 5,000 identical items. Fixed-only jobs expose a single Quantity control. Identical legacy fixed records collapse into copies while preserving total item count. If artwork or filenames use `{{index}}`, their indexed variations remain available under Advanced content sources. Fixed content stays present on every item, regardless of the quantities of other sources.
 
@@ -16,7 +16,7 @@ Three serial records with two copies create `0001, 0001, 0002, 0002, 0003, 0003`
 
 ## Editor workflow
 
-Document contains finished dimensions, background and contextual cut-shape controls. Print setup contains DPI, bleed, safe inset and guide visibility. Job contains quantity or numbering, with shared-source management under Advanced. The QR inspector leads with content and its resolved first-item value; source binding, templates and technical QR settings remain accessible under Advanced. Shared sources show their layer usage and offer an explicit Make independent action.
+Document contains finished dimensions, background and contextual cut-shape controls. Print setup contains DPI, bleed, safe inset and guide visibility. Job contains quantity or numbering, CSV setup and advanced shared sources. The QR inspector leads with content and its resolved value. Advanced controls include source binding, templates and technical QR settings. Shared sources show layer usage and offer Make independent.
 
 Adding a QR defaults to a new fixed source without changing quantity. Numbered QR and an optional serial-label pair remain available in Add layer. Finished preview masks artwork at the intended cut edge and hides editing guides; it does not change exported artwork. Narrow windows expose Document & job and Inspector drawers.
 
@@ -32,7 +32,7 @@ Vector text positions use the editor's browser measurements, including kerning a
 
 The production ZIP includes `artwork.pdf`, `cut-outline.svg`, `job.json`, `preflight.json`, and a handoff README. Each PDF page contains one item; all copies are included and repeated artwork is reused as a PDF form. The SVG has the same physical page and trim offset, and contains only the finished cut outline. It is reference geometry, not a cutter command file or a PDF cutting separation. Rounded rectangle and pill contours use circular arcs. Job metadata includes source record values and page order, so treat the package with the same care as the original project.
 
-Production artwork is RGB with live transparency where designed. It has no ICC conversion/output intent or PDF/X certification. The shop must configure RIP color management, media, cutting, registration and nesting. No machine spot-color separation, registration marks, or roll imposition is generated yet. Parametric custom shapes are supported; imported arbitrary vector paths and true geometric contour offsets are future work. Bundled Inter is licensed under the SIL Open Font License; see `web/public/fonts/inter-OFL.txt`.
+Production artwork is RGB with live transparency where designed. The shop configures RIP color management, media, cutting and registration. The packages omit ICC conversion/output intent, PDF/X certification, machine spot-color separations and registration marks. Use the separate Print Layout export to place multiple items on a roll or sheet. Parametric cut shapes are supported. Imported arbitrary vector paths and true geometric contour offsets are future work. Bundled Inter is licensed under the [SIL Open Font License](../web/public/fonts/inter-OFL.txt).
 
 ## Roll and sheet layout
 
@@ -48,7 +48,11 @@ Preview uses a bounded-resolution current-panel canvas and a bounded thumbnail c
 
 Version 1 projects open as version 2 without changing artwork coordinates, finished dimensions, record order, or quantities. The old percentage-based inward “bleed” guide was not real external bleed. Migrated projects receive zero external bleed to preserve exported size; set a physical allowance deliberately. The old safe-area ratio converts to millimetres. Existing cut/guide shape settings are preserved. New saves use version 2 and should be opened with the updated editor.
 
-Jobs are limited to 100,000 finished items. Raster export surfaces are limited to 64 million pixels and 16,384 pixels per axis; maximum DPI is 1,200. Actual memory limits depend on the browser and device.
+Jobs are limited to 100,000 finished items. Raster export surfaces are limited to 64 million pixels and 16,384 pixels per axis. Maximum DPI is 1,200, and bleed can range from 0 to 25 mm. Actual memory limits depend on the browser and device.
+
+## Preflight and proofing
+
+Print checks appear in the editor and Print Layout. The checks sample resolved QR values for density and clear space, check nominal QR contrast, estimate effective image resolution, and assess visible QR/text bounds against cut and safe guides. Production packages include warnings, thresholds and sampling scope in `preflight.json`. Print-quality warnings are advisory. Missing mapped CSV QR values and other blocking export errors must be addressed before exporting the job. Proof at actual size and scan a printed sample before running the batch.
 
 ## Mimaki first
 

@@ -1,6 +1,6 @@
 # Print Layout: roll and sheet production
 
-Status: approved, implemented and reviewed by the user on 2026-11-03, then authorized for release. The production PDF foundation is committed separately as `b1553ca`.
+Shipped in `b518c34` after review on 2026-11-03. The production PDF foundation is in `b1553ca`. This is a [historical spec](../README.md). See the [production reference](../../production-documents.md) for the current layout contract.
 
 ## Intent
 

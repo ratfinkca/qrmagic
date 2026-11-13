@@ -1,5 +1,7 @@
 # Friendly print-quality checks
 
+Shipped in `b4a7db9`. This is a [historical plan](../README.md). See the [development handoff](../../development-handoff.md) for current instructions.
+
 User approved QR size/contrast, image resolution and safe-area warnings; run all tests/build and leave locally reviewable, uncommitted/unpushed. Base main22eef0d, 55 unit tests/48 browser tests.
 
 ## Design decisions

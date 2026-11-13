@@ -1,5 +1,7 @@
 # Friendly help and onboarding
 
+Shipped in `01b6690`. This is a [historical plan](../README.md). See the [development handoff](../../development-handoff.md) for current instructions.
+
 The user explicitly requested in-app help, tooltips and a getting-started walkthrough, with local review before push. Implement in the existing web app and style; no new dependency or account service. The preceding design-to-print workflow is the source of truth.
 
 ## Scope and design choices

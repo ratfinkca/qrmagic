@@ -1,6 +1,6 @@
 # Print Layout Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Use native inline execution authorized by the user's explicit build request; independent whole-change review at the end.
+Shipped in `b518c34`, with PDF text spacing corrected in `860429d`. This is a [historical plan](../README.md). See the [development handoff](../../development-handoff.md) for current instructions.
 
 **Goal:** Deliver the approved roll/sheet layout workflow with verifiable actual-size PDF panels, cut references and placement manifest.
 
@@ -77,6 +77,6 @@ Task 3: complete. Desktop laptop-height visibility regression observed red, then
 
 Final verification: 39 unit tests and 39 browser tests pass; TypeScript/Vite production build passes with bundle-size warnings. Local Vite remains running on http://127.0.0.1:5173/qrmagic/ for user review. Layout settings and packaging remain generic; machine/RIP validation is deferred as specified.
 
-Release: user reviewed the local implementation and authorized shipment on 2026-11-03. Commit the reviewed changes, integrate into main, push, and verify GitHub Actions tests/build and Pages deployment for the pushed commit. This supersedes the earlier hold for local review.
+Release: the user reviewed the local implementation and authorized shipment on 2026-11-03. The release and PDF spacing follow-up landed on main.
 
 Release validation follow-up: the first CI run caught a Linux font-advance mismatch in the kerning-heavy vector PDF regression (206 px canvas width versus 210.765625 px fontkit advances). Reproduced on Ubuntu 24 with Node 24 and CI's Chromium; PDF glyph origins now use canvas prefix/cluster measurements while retaining embedded glyphs and mark offsets. Original fidelity thresholds remain unchanged. Two unit regressions cover hinted advances and ligature clustering. Independent review approved; 41 unit tests, 39 browser tests and build pass on Ubuntu, and all 39 browser tests pass in Windows Edge.
