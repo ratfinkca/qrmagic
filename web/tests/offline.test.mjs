@@ -132,14 +132,31 @@ test("the production PWA opens offline, edits and reopens local projects, and ex
     await chooser.getByLabel("QR content").fill("https://example.com/offline");
     await chooser.getByLabel("Quantity").fill("2");
     await chooser.getByRole("button", { name: "Create project" }).click();
-    await offline.getByLabel("Name", { exact: true }).fill("Edited offline");
+    await chooser.waitFor({ state: "hidden" });
+    const editedName = "Edited offline";
+    await offline.getByLabel("Name", { exact: true }).fill(editedName);
     const payload = "https://example.com/edited-offline";
     await offline.getByLabel("Website or text", { exact: true }).fill(payload);
+    // The saved label can still reflect an earlier revision while React stages an edit.
+    // Check that both changes made it to the database before reloading the app.
+    await offline.waitForFunction(({ name, qr }) => new Promise((resolve, reject) => {
+      const open = indexedDB.open("qrmagic-local-projects");
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result;
+        const read = db.transaction("projects", "readonly").objectStore("projects").getAll();
+        db.close();
+        read.onerror = () => reject(read.error);
+        read.onsuccess = () => resolve(read.result.some(({ project }) =>
+          project.document.name === name && project.data.groups.some(group => group.fixed?.value === qr)
+        ));
+      };
+    }), { name: editedName, qr: payload }, { polling: 100, timeout: 10_000 });
     await offline.getByText("Saved on this device", { exact: true }).waitFor();
     await offline.reload();
-    await offline.getByRole("button", { name: "Open Edited offline", exact: true }).click();
+    await chooser.getByRole("button", { name: `Open ${editedName}`, exact: true }).click();
     await chooser.waitFor({ state: "hidden" });
-    assert.equal(await offline.getByLabel("Name", { exact: true }).inputValue(), "Edited offline");
+    assert.equal(await offline.getByLabel("Name", { exact: true }).inputValue(), editedName);
     assert.equal(await offline.getByLabel("Website or text", { exact: true }).inputValue(), payload);
 
     const projectDownload = offline.waitForEvent("download");
